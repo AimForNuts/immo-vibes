@@ -17,6 +17,7 @@ import { neon } from "@neondatabase/serverless";
 import {
   getCharacterInfo,
   getAltCharacters,
+  getCharacterPets,
   getDungeons,
   searchItemsByType,
   inspectItem,
@@ -90,6 +91,33 @@ describe("getAltCharacters", () => {
     console.log("\n=== CHARACTERS ON ACCOUNT ===");
     alts.forEach((a) => console.log(`  ${a.name.padEnd(20)} id=${a.hashed_id}  level=${a.total_level}`));
     expect(Array.isArray(alts)).toBe(true);
+  });
+});
+
+describe("getCharacterPets", () => {
+  it("returns all pets and identifies the equipped one", async () => {
+    await delay(RATE_DELAY);
+    const pets = await getCharacterPets(CHAR_ID, TOKEN);
+    console.log(`\n=== PETS: ${pets.length} total ===`);
+    pets.forEach((p) => {
+      const equipped = p.equipped ? " ← EQUIPPED" : "";
+      const evo = `evo=${p.evolution.state}/${p.evolution.max} (+${p.evolution.current_bonus}%)`;
+      console.log(`  ${p.name.padEnd(20)} lvl=${String(p.level).padStart(3)}  ${p.quality.padEnd(10)}  ${evo}  str=${p.stats.strength} def=${p.stats.defence} spd=${p.stats.speed}${equipped}`);
+    });
+
+    const equipped = pets.find((p) => p.equipped);
+    if (equipped) {
+      console.log(`\n  Equipped pet combat contribution (×2.4):`);
+      console.log(`    attack_power from strength: ${Math.floor(equipped.stats.strength * 2.4)}`);
+      console.log(`    protection   from defence:  ${Math.floor(equipped.stats.defence * 2.4)}`);
+      console.log(`    agility      from speed:    ${Math.floor(equipped.stats.speed * 2.4)}`);
+    } else {
+      console.log("\n  No pet currently equipped.");
+    }
+
+    expect(Array.isArray(pets)).toBe(true);
+    expect(pets.every((p) => typeof p.id === "number")).toBe(true);
+    expect(pets.every((p) => typeof p.evolution?.state === "number")).toBe(true);
   });
 });
 

@@ -73,6 +73,44 @@ export async function getAltCharacters(
   return data.characters;
 }
 
+// ─── Pets ─────────────────────────────────────────────────────────────────────
+
+export interface CharacterPet {
+  id: number;
+  name: string;
+  custom_name: string | null;
+  pet_id: number;
+  image_url: string | null;
+  level: number;
+  quality: string;
+  /** Pet skill levels — contribute to combat stats via ×2.4 (same as character skills) */
+  stats: {
+    strength: number;
+    defence: number;
+    speed: number;
+  };
+  equipped: boolean;
+  evolution: {
+    state: number;          // 0–5
+    max: number;            // always 5
+    bonus_per_stage: number; // always 5 (= 5% per stage)
+    current_bonus: number;  // state × bonus_per_stage
+    /** Possible combat stat targets for evolution bonuses */
+    targets: Array<{ key: string; label: string }>;
+  };
+}
+
+export async function getCharacterPets(
+  hashedId: string,
+  token: string
+): Promise<CharacterPet[]> {
+  const data = await apiFetch<{ pets: CharacterPet[] }>(
+    `/v1/character/${hashedId}/pets`,
+    token
+  );
+  return data.pets;
+}
+
 // ─── Item types ──────────────────────────────────────────────────────────────
 
 /** All item types returned by the IdleMMO API. */
