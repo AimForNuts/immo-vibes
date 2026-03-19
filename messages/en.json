@@ -1,0 +1,136 @@
+{
+  "nav": {
+    "brand": "ImmoWeb Suite",
+    "overview": "Overview",
+    "characters": "Characters",
+    "gear": "Gear",
+    "settings": "Settings",
+    "admin": "Admin",
+    "signOut": "Sign out",
+    "signIn": "Sign in",
+    "getStarted": "Get started",
+    "goToDashboard": "Go to Dashboard"
+  },
+  "landing": {
+    "badge": "Early access",
+    "headline": "Your IdleMMO data,\nactually useful.",
+    "subheadline": "ImmoWeb Suite connects to the IdleMMO API and turns raw game data into actionable insights — skill planning, economy tracking, and more.",
+    "cta": "Create free account",
+    "ctaSecondary": "Sign in",
+    "footer": "ImmoWeb Suite — not affiliated with IdleMMO."
+  },
+  "features": {
+    "dashboard": {
+      "title": "Character Dashboard",
+      "description": "See all your stats, skills, and progression at a glance — more detail than the in-game UI."
+    },
+    "skills": {
+      "title": "Skill Progression",
+      "description": "Estimate time to level up, compare skill efficiencies, and plan your grind."
+    },
+    "economy": {
+      "title": "Economy Insights",
+      "description": "Track gold per hour, monitor market prices, and calculate the true value of your inventory."
+    },
+    "combat": {
+      "title": "Combat & Dungeon Tracker",
+      "description": "Review world boss schedules, dungeon rewards, and enemy loot tables in one place."
+    },
+    "secure": {
+      "title": "Secure by Design",
+      "description": "Your API token is stored encrypted and never exposed to the browser. All calls go server-side."
+    },
+    "token": {
+      "title": "One Token, Full Access",
+      "description": "Connect your IdleMMO API key once. ImmoWeb Suite handles the rest."
+    }
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "username": "Username",
+    "password": "Password",
+    "email": "Email",
+    "signingIn": "Signing in…",
+    "signingUp": "Signing up…",
+    "noAccount": "No account?",
+    "createOne": "Create one",
+    "haveAccount": "Already have an account?",
+    "forgotPassword": "Forgot password?",
+    "invalidCredentials": "Invalid username or password.",
+    "confirmPassword": "Confirm password",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "signUpFailed": "Failed to create account.",
+    "saveFailed": "Failed to save. Please try again."
+  },
+  "overview": {
+    "title": "Overview",
+    "welcome": "Welcome back, {name}",
+    "characters": "{count} characters",
+    "noToken": "Configure your IdleMMO API token and primary character ID in Settings to see your characters here.",
+    "goToSettings": "Settings",
+    "cards": {
+      "characters": "Characters",
+      "gear": "Gear",
+      "skills": "Skills",
+      "economy": "Economy",
+      "dungeons": "Dungeons",
+      "guild": "Guild",
+      "empty": "Empty slot",
+      "addCard": "Add shortcut"
+    },
+    "editLayout": "Customise",
+    "saveLayout": "Save",
+    "cancelEdit": "Cancel"
+  },
+  "characters": {
+    "title": "Characters",
+    "columns": {
+      "name": "Name",
+      "class": "Class",
+      "level": "Level",
+      "location": "Location",
+      "status": "Status"
+    },
+    "status": {
+      "online": "Online",
+      "idling": "Idling",
+      "offline": "Offline"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your account preferences.",
+    "saveFailed": "Failed to save. Please try again.",
+    "account": "Account",
+    "name": "Display name",
+    "email": "Email",
+    "password": "Password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "authChangeWarning": "Changing your email or password will sign you out.",
+    "idlemmo": "IdleMMO",
+    "apiToken": "API Token",
+    "characterId": "Primary Character ID",
+    "language": "Language",
+    "languageDescription": "Choose the language for the interface.",
+    "languages": {
+      "en": "English",
+      "pt": "Português"
+    }
+  },
+  "wip": {
+    "title": "Under Construction",
+    "description": "This feature is actively being built. Check back soon.",
+    "goBack": "Go back",
+    "dashboard": "Dashboard"
+  },
+  "errors": {
+    "loadFailed": "Failed to load. Please try again.",
+    "generic": "Something went wrong."
+  }
+}

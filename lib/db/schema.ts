@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -62,6 +62,37 @@ export const items = pgTable("items", {
   quality: text("quality").notNull(),
   imageUrl: text("image_url"),
   syncedAt: timestamp("synced_at").notNull(),
+});
+
+// Card types available in the 3×2 dashboard grid
+export type DashboardCardType =
+  | "characters"
+  | "gear"
+  | "skills"
+  | "economy"
+  | "dungeons"
+  | "guild"
+  | "empty";
+
+export const DEFAULT_DASHBOARD_LAYOUT: DashboardCardType[] = [
+  "characters",
+  "gear",
+  "empty",
+  "empty",
+  "empty",
+  "empty",
+];
+
+export const userPreferences = pgTable("user_preferences", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  language: text("language").notNull().default("en"),
+  dashboardLayout: jsonb("dashboard_layout")
+    .$type<DashboardCardType[]>()
+    .notNull()
+    .default(DEFAULT_DASHBOARD_LAYOUT),
+  updatedAt: timestamp("updated_at").notNull(),
 });
 
 export const gearPresets = pgTable("gear_presets", {
