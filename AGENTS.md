@@ -28,6 +28,7 @@ For game mechanics (combat stat formulas, class bonuses, dungeon thresholds, ite
 | Class bonuses and talents | `docs/game-mechanics/classes.md` |
 | Dungeon thresholds, HP loss, MF | `docs/game-mechanics/dungeons.md` |
 | Item types, quality tiers, tier formula | `docs/game-mechanics/items.md` |
+| Pet combat contribution, evolution, mastery | `docs/game-mechanics/pets.md` |
 
 # Assets
 

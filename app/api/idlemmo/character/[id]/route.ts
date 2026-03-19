@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getCharacterInfo } from "@/lib/idlemmo";
+import { getCharacterInfo, getCharacterPets } from "@/lib/idlemmo";
 
 export async function GET(
   request: NextRequest,
@@ -15,12 +15,29 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const char = await getCharacterInfo(id, token);
+    const [char, pets] = await Promise.all([
+      getCharacterInfo(id, token),
+      getCharacterPets(id, token),
+    ]);
+
+    const equippedPet = pets.find((p) => p.equipped) ?? null;
+
     return NextResponse.json({
       hashed_id: char.hashed_id,
       name: char.name,
       skills: char.skills,
       stats: char.stats,
+      equipped_pet: equippedPet
+        ? {
+            id: equippedPet.id,
+            name: equippedPet.custom_name ?? equippedPet.name,
+            level: equippedPet.level,
+            quality: equippedPet.quality,
+            image_url: equippedPet.image_url,
+            stats: equippedPet.stats,
+            evolution: equippedPet.evolution,
+          }
+        : null,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
