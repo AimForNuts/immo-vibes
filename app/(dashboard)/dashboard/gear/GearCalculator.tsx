@@ -16,7 +16,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { savePreset, deletePreset, type SlotMap, type SavedPreset } from "./actions";
+import { savePreset, updatePreset, deletePreset, type SlotMap, type SavedPreset } from "./actions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -160,6 +160,9 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
   const [saveTarget, setSaveTarget] = useState<"A" | "B" | null>(null);
   const [presetName, setPresetName] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Preset update UI — tracks which preset chip is in update-from mode
+  const [updateTarget, setUpdateTarget] = useState<string | null>(null);
 
   // Running items map — merges server-provided map with items discovered during the session
   const [localItemsMap, setLocalItemsMap] = useState(itemsMap);
@@ -413,6 +416,27 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
     invalidate();
   }
 
+  async function handleUpdate(id: string, side: "A" | "B") {
+    const set = side === "A" ? setA : setB;
+    const slots: SlotMap = {};
+    for (const [slot, item] of Object.entries(set.slots)) {
+      if (item) slots[slot] = { hashedId: item.hashedId, tier: item.tier };
+    }
+    await updatePreset(id, {
+      weaponStyle: set.weaponStyle,
+      slots,
+      characterId: characterId || undefined,
+    });
+    setPresets((p) =>
+      p.map((x) =>
+        x.id === id
+          ? { ...x, weaponStyle: set.weaponStyle, slots, characterId: characterId || undefined }
+          : x
+      )
+    );
+    setUpdateTarget(null);
+  }
+
   async function handleDelete(id: string) {
     await deletePreset(id);
     setPresets((p) => p.filter((x) => x.id !== id));
@@ -459,6 +483,7 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
               const linkedChar = p.characterId
                 ? characters.find((c) => c.hashed_id === p.characterId)
                 : null;
+              const isUpdating = updateTarget === p.id;
               return (
                 <div key={p.id} className="flex items-center gap-1 border border-border rounded-md px-2 py-1 text-sm">
                   <span>{p.name}</span>
@@ -469,6 +494,16 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
                   )}
                   <button onClick={() => loadPreset(p, "A")} className="text-xs text-muted-foreground hover:text-foreground px-1" title="Load into Set A">→A</button>
                   <button onClick={() => loadPreset(p, "B")} className="text-xs text-muted-foreground hover:text-foreground px-1" title="Load into Set B">→B</button>
+                  {isUpdating ? (
+                    <>
+                      <span className="text-xs text-muted-foreground">Update from:</span>
+                      <button onClick={() => handleUpdate(p.id, "A")} className="text-xs text-primary hover:underline px-0.5" title="Overwrite with Set A">A</button>
+                      <button onClick={() => handleUpdate(p.id, "B")} className="text-xs text-primary hover:underline px-0.5" title="Overwrite with Set B">B</button>
+                      <button onClick={() => setUpdateTarget(null)} className="text-muted-foreground hover:text-foreground"><X className="size-3" /></button>
+                    </>
+                  ) : (
+                    <button onClick={() => setUpdateTarget(p.id)} className="text-muted-foreground hover:text-foreground" title="Update preset"><Pencil className="size-3" /></button>
+                  )}
                   <button onClick={() => handleDelete(p.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-3" /></button>
                 </div>
               );

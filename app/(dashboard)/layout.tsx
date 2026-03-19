@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Swords, Settings, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Swords, Settings, ShieldCheck, Skull } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { useTranslations } from "next-intl";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -23,8 +23,9 @@ export default function DashboardLayout({
   const isAdmin = session?.user?.role === "admin";
 
   const navItems = [
-    { href: "/dashboard",      label: t("overview"), icon: LayoutDashboard },
-    { href: "/dashboard/gear", label: t("gear"),     icon: Swords },
+    { href: "/dashboard",          label: t("overview"),  icon: LayoutDashboard },
+    { href: "/dashboard/gear",     label: t("gear"),      icon: Swords },
+    { href: "/dashboard/dungeons", label: t("dungeons"),  icon: Skull },
   ];
 
   function NavLink({ href, label, icon: Icon }: typeof navItems[number]) {
