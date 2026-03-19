@@ -4,11 +4,7 @@ import { auth } from "@/lib/auth";
 const BASE = "https://api.idle-mmo.com";
 
 const CANDIDATE_PATHS = [
-  "/v1/dungeon",
-  "/v1/dungeons",
-  "/v1/dungeon/list",
-  "/v1/dungeons/list",
-  "/v1/game/dungeons",
+  "/v1/combat/dungeons/list",
 ];
 
 async function probe(path: string, token: string) {
