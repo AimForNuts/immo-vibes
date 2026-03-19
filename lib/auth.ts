@@ -23,7 +23,12 @@ export const auth = betterAuth({
       idlemmoToken: {
         type: "string",
         required: false,
-        input: false, // not settable at sign-up, managed via settings
+        input: false,
+      },
+      idlemmoCharacterId: {
+        type: "string",
+        required: false,
+        input: false,
       },
     },
   },

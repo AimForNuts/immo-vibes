@@ -10,6 +10,7 @@ export const user = pgTable("user", {
   displayUsername: text("display_username"),
   // IdleMMO API token — stored encrypted at rest (Phase 3)
   idlemmoToken: text("idlemmo_token"),
+  idlemmoCharacterId: text("idlemmo_character_id"),
   createdAt: timestamp("created_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
 });
