@@ -400,6 +400,12 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
     setSetA(applyMaxTier);
     setSetB(applyMaxTier);
 
+    // tier_modifiers = { statKey: addendPerTier }; tier 1 = base, each additional tier adds the modifier
+    function applyTier(baseValue: number, stat: string, tier: number, tierMods: Record<string, number> | null): number {
+      const addend = tierMods?.[stat] ?? 0;
+      return Math.round(baseValue + (tier - 1) * addend);
+    }
+
     // Compute per-slot item stat contributions
     function buildSlotStats(set: GearSet): SlotStatsMap {
       const result: SlotStatsMap = {};
@@ -407,10 +413,9 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
         if (!item) continue;
         const inspect = inspects[item.hashedId];
         if (!inspect?.stats) continue;
-        const modifier = inspect.tier_modifiers?.[String(item.tier)] ?? 1;
         const stats: Record<string, number> = {};
         for (const [stat, value] of Object.entries(inspect.stats)) {
-          stats[stat] = Math.round(value * modifier);
+          stats[stat] = applyTier(value, stat, item.tier, inspect.tier_modifiers);
         }
         result[slot as SlotKey] = stats;
       }
@@ -425,9 +430,8 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
         if (!item) continue;
         const inspect = inspects[item.hashedId];
         if (!inspect?.stats) continue;
-        const modifier = inspect.tier_modifiers?.[String(item.tier)] ?? 1;
         for (const [stat, value] of Object.entries(inspect.stats)) {
-          totals[stat] = (totals[stat] ?? 0) + Math.round(value * modifier);
+          totals[stat] = (totals[stat] ?? 0) + applyTier(value, stat, item.tier, inspect.tier_modifiers);
         }
       }
       return totals;

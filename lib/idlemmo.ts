@@ -142,13 +142,12 @@ export async function inspectItem(
 
 export interface DungeonInfo {
   id: number;
-  hashed_id: string;
   name: string;
   difficulty: number;
-  min_level: number;
-  duration: number; // seconds
-  gold_cost: number;
-  location: string | null;
+  level_required: number;
+  length: number; // milliseconds
+  cost: number;
+  location: { id: number; name: string } | null;
   image_url: string | null;
 }
 
