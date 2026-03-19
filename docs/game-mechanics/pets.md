@@ -1,17 +1,70 @@
 # Pets — Combat Contribution
 
-> Sources: https://wiki.idle-mmo.com/pets/overview · API endpoint `/v1/character/{id}/pets`
+> Sources: https://wiki.idle-mmo.com/pets/overview
+> API endpoints: `/v1/character/{id}/information` · `/v1/character/{id}/pets`
 
 ---
 
-## Only the Equipped Pet Contributes
+## Finding the Equipped Pet (Two-Step)
 
-Only the pet with `equipped: true` adds to the character's combat stats.
-All other pets in the collection have no effect on dungeon readiness.
+The character info endpoint returns only basic equipped pet data — **not** combat stats.
+You must cross-reference with the pets list to get full stats.
+
+### Step 1 — `/v1/character/{id}/information`
+
+Returns `character.equipped_pet`:
+```json
+{
+  "id": 269947,
+  "name": "Leovar",
+  "image_url": "https://cdn.idle-mmo.com/...",
+  "level": 96
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | integer | Character-pet instance ID (matches `id` in the pets list) |
+| `name` | string | Pet base name |
+| `image_url` | string\|null | Pet image |
+| `level` | integer | Current level |
+
+> ⚠️ No `hashed_id`, no `quality`, no combat stats here.
+
+### Step 2 — `/v1/character/{id}/pets`
+
+Returns all pets. Find the equipped one by `equipped: true` (reliable — confirmed matches `character.equipped_pet.id`).
+Full stats and evolution info are on this object.
+
+```json
+{
+  "id": 269947,
+  "name": "Leovar",
+  "quality": "LEGENDARY",
+  "level": 96,
+  "equipped": true,
+  "stats": { "strength": 0, "defence": 0, "speed": 0 },
+  "evolution": {
+    "state": 0,
+    "max": 5,
+    "bonus_per_stage": 5,
+    "current_bonus": 0,
+    "targets": [
+      { "key": "ATTACK_POWER",    "label": "Attack Power" },
+      { "key": "PROTECTION",      "label": "Protection" },
+      { "key": "AGILITY",         "label": "Agility" },
+      { "key": "ACCURACY",        "label": "Accuracy" },
+      { "key": "MOVEMENT_SPEED",  "label": "Movement Speed" }
+    ]
+  }
+}
+```
 
 ---
 
-## Pet Skill → Combat Stat Conversion
+## Combat Stat Contribution
+
+Only the pet with `equipped: true` contributes to combat stats.
 
 Pet skills use the **same ×2.4 multiplier** as character skills:
 
@@ -21,67 +74,36 @@ Pet skills use the **same ×2.4 multiplier** as character skills:
 | `defence` | Protection | `floor(defence × 2.4)` |
 | `speed` | Agility | `floor(speed × 2.4)` |
 
-> Pets have no `dexterity` stat — they do not contribute to Accuracy directly.
+> Pets have no `dexterity` — they do not contribute to Accuracy.
 
 ---
 
 ## Evolution Bonuses
 
-Pets can evolve up to 5 stages. Each stage permanently boosts one chosen combat stat:
-
-```
-bonus = evolution.state × evolution.bonus_per_stage   (bonus_per_stage = 5)
-```
+Each evolution stage permanently boosts one chosen combat stat:
 
 | Stage | Bonus |
 |---|---|
 | 0 | 0% |
-| 1 | 5% |
-| 2 | 10% |
-| 3 | 15% |
-| 4 | 20% |
-| 5 | 25% |
+| 1–5 | state × 5% (up to 25%) |
 
-The bonus applies to one of: `ATTACK_POWER`, `PROTECTION`, `AGILITY`, `ACCURACY`, or `MOVEMENT_SPEED`.
-The chosen target is determined during the evolution process and cannot be inferred from the API alone
-(the `targets` array lists all possible options, not the chosen one — visible only at state > 0).
-
-**Note:** Our current implementation does not apply evolution bonuses yet, as the chosen target
-is not returned by the API. This can be added as a manual override or if the API surface changes.
+The `targets` array lists all possible targets for the pet type — **not** the chosen one.
+The chosen target is visible in-game but is not returned by the API.
+**Not currently applied in the calculator** — can be added as a manual override if needed.
 
 ---
 
 ## Pet Mastery Scaling
 
-Your Pet Mastery skill level scales the equipped pet's contribution:
-
-- Mastery 100 → up to **+20% additional stats** from the pet
-- Bonus grows faster after Mastery level 70
-
-**Note:** Pet Mastery bonus is not currently applied in the calculator.
-Can be added as a manual modifier input if needed.
+Pet Mastery skill level scales the equipped pet's contribution up to +20% at level 100.
+**Not currently applied in the calculator.**
 
 ---
 
-## API Endpoint
+## Implementation in Character API Route
 
-`GET /v1/character/{hashed_id}/pets`
+`GET /api/idlemmo/character/[id]` fetches both endpoints in parallel:
+1. `getCharacterInfo` → for character stats
+2. `getCharacterPets` → find by `equipped: true` for full stats
 
-Returns all pets on the account. Key fields per pet:
-
-| Field | Type | Description |
-|---|---|---|
-| `id` | integer | Unique character pet instance ID |
-| `name` | string | Pet base name |
-| `custom_name` | string\|null | Player-set name (prefer this if set) |
-| `level` | integer | Current pet level |
-| `quality` | string | STANDARD / REFINED / PREMIUM / EPIC / LEGENDARY / MYTHIC |
-| `stats.strength` | integer | Contributes to Attack Power |
-| `stats.defence` | integer | Contributes to Protection |
-| `stats.speed` | integer | Contributes to Agility |
-| `equipped` | boolean | **True = this pet is active and contributing** |
-| `evolution.state` | integer | Current evolution stage (0–5) |
-| `evolution.current_bonus` | integer | % bonus from evolution (state × 5) |
-| `evolution.targets` | array | Possible combat stat targets for evolution |
-
-**Rate limiting:** counts toward the 20 req/min shared limit. Fetch in parallel with `getCharacterInfo`.
+Returns `equipped_pet: { id, name, level, quality, image_url, stats, evolution }` or `null`.
