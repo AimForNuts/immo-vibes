@@ -1,17 +1,21 @@
 /**
  * Dungeon difficulty calculations.
- * Source: https://wiki.idle-mmo.com/combat/dungeons#dungeon-difficulty
+ * Source: https://wiki.idle-mmo.com/combat/dungeons
+ *         docs/game-mechanics/dungeons.md
  *
  * Combat stats that count: Attack Power + Protection + Agility + Accuracy
  *
- * Entry requirement: combat stats ≥ 70% of dungeon difficulty
- * Health loss:
- *   ratio < 0.70  → cannot enter
- *   ratio = 0.70  → 100% health loss
- *   ratio = 1.00  → 50% health loss
- *   ratio ≥ 1.30  → 0% health loss + magic find bonus
+ * ratio = totalCombat / dungeonDifficulty
  *
- * (linear interpolation between the three data points)
+ * Entry:      ratio ≥ 0.70 (−30% of difficulty)
+ * HP loss:
+ *   0.70 → 1.00  linear 100% → 50%
+ *   1.00 → 1.30  linear 50% → 10%
+ *   ≥ 1.30       flat 10%
+ * Magic Find:
+ *   < 1.30       none
+ *   1.30 → 1.60  small bonus
+ *   ≥ 1.60       max bonus
  */
 
 export const COMBAT_STAT_KEYS = ["attack_power", "protection", "agility", "accuracy"] as const;
@@ -20,9 +24,11 @@ export function totalCombatStats(stats: Record<string, number>): number {
   return COMBAT_STAT_KEYS.reduce((sum, key) => sum + (stats[key] ?? 0), 0);
 }
 
+export type MFTier = "none" | "small" | "max";
+
 export type DungeonResult =
   | { canEnter: false }
-  | { canEnter: true; healthLossPct: number; canChain: boolean; magicFind: boolean };
+  | { canEnter: true; healthLossPct: number; canChain: boolean; mfTier: MFTier };
 
 export function assessDungeon(combatTotal: number, difficulty: number): DungeonResult {
   if (difficulty <= 0) return { canEnter: false }; // unknown difficulty
@@ -30,25 +36,25 @@ export function assessDungeon(combatTotal: number, difficulty: number): DungeonR
 
   if (ratio < 0.70) return { canEnter: false };
 
-  if (ratio >= 1.30) {
-    return { canEnter: true, healthLossPct: 0, canChain: true, magicFind: true };
-  }
-
+  // HP loss: 100% at 0.70, 50% at 1.00, 10% at 1.30+
   let healthLossPct: number;
   if (ratio < 1.0) {
-    // 70% → 100% ratio: health loss 100% → 50%
     healthLossPct = 100 - ((ratio - 0.70) / 0.30) * 50;
+  } else if (ratio < 1.30) {
+    healthLossPct = 50 - ((ratio - 1.00) / 0.30) * 40;
   } else {
-    // 100% → 130% ratio: health loss 50% → 0%
-    healthLossPct = 50 - ((ratio - 1.0) / 0.30) * 50;
+    healthLossPct = 10;
   }
 
   const healthLossRounded = Math.round(healthLossPct);
+
+  const mfTier: MFTier = ratio >= 1.60 ? "max" : ratio >= 1.30 ? "small" : "none";
+
   return {
     canEnter: true,
     healthLossPct: healthLossRounded,
-    canChain: healthLossRounded < 50,
-    magicFind: false,
+    canChain: healthLossRounded <= 50,
+    mfTier,
   };
 }
 

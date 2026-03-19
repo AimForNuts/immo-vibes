@@ -18,6 +18,17 @@ Keep these files current after every session that changes behaviour:
 - **CLAUDE.md** — mirrors AGENTS.md via `@AGENTS.md`; add anything that only Claude needs to know
 - **README.md** — update on any breaking change or significant feature addition; keep the "Recent changes" section current
 
+# IdleMMO Domain Knowledge
+
+For game mechanics (combat stat formulas, class bonuses, dungeon thresholds, item types/tiers) read the relevant file in `docs/game-mechanics/` before writing code that touches those areas. Do NOT derive these from training data — values differ from wiki.
+
+| Topic | File |
+|---|---|
+| Combat stat formulas, multipliers | `docs/game-mechanics/combat-stats.md` |
+| Class bonuses and talents | `docs/game-mechanics/classes.md` |
+| Dungeon thresholds, HP loss, MF | `docs/game-mechanics/dungeons.md` |
+| Item types, quality tiers, tier formula | `docs/game-mechanics/items.md` |
+
 # Assets
 
 Logo: `public/images/logo.png` — use `<Image>` (next/image) wherever the brand name appears. The logo image includes the wordmark, so pair it with `alt="ImmoWeb Suite"` and no separate text span unless the context requires text-only.
