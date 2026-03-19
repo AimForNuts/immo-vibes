@@ -16,10 +16,10 @@ export async function GET(
 
   try {
     const char = await getCharacterInfo(id, token);
-    // Return only what the gear calculator needs
     return NextResponse.json({
       hashed_id: char.hashed_id,
       name: char.name,
+      skills: char.skills,
       stats: char.stats,
     });
   } catch (e) {
