@@ -3,10 +3,33 @@ import { auth } from "@/lib/auth";
 
 const BASE = "https://api.idle-mmo.com";
 
-/**
- * Debug endpoint — returns the raw IdleMMO /v1/dungeon response without parsing.
- * Navigate to /api/idlemmo/dungeons/raw in the browser to inspect the actual structure.
- */
+const CANDIDATE_PATHS = [
+  "/v1/dungeon",
+  "/v1/dungeons",
+  "/v1/dungeon/list",
+  "/v1/dungeons/list",
+  "/v1/game/dungeons",
+];
+
+async function probe(path: string, token: string) {
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
+      cache: "no-store",
+    });
+    const body = await res.json().catch(() => null);
+    return {
+      path,
+      status: res.status,
+      topLevelType: Array.isArray(body) ? "array" : typeof body,
+      topLevelKeys: body && !Array.isArray(body) && typeof body === "object" ? Object.keys(body as object) : null,
+      firstItem: Array.isArray(body) ? (body as unknown[])[0] : null,
+    };
+  } catch (e) {
+    return { path, error: String(e) };
+  }
+}
+
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -14,44 +37,7 @@ export async function GET(request: NextRequest) {
   const token = session.user.idlemmoToken;
   if (!token) return NextResponse.json({ error: "No API token configured" }, { status: 400 });
 
-  const url = `${BASE}/v1/dungeon`;
-  let status: number;
-  let raw: unknown;
+  const results = await Promise.all(CANDIDATE_PATHS.map((p) => probe(p, token)));
 
-  try {
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "ImmoWebSuite/1.0",
-      },
-      cache: "no-store",
-    });
-    status = res.status;
-    raw = await res.json().catch(() => null);
-  } catch (e) {
-    return NextResponse.json({ error: "Fetch failed", detail: String(e) }, { status: 502 });
-  }
-
-  return NextResponse.json({
-    _debug: {
-      url,
-      httpStatus: status!,
-      topLevelType: Array.isArray(raw) ? "array" : typeof raw,
-      topLevelKeys: raw && !Array.isArray(raw) && typeof raw === "object" ? Object.keys(raw as object) : null,
-      firstItem: Array.isArray(raw) ? (raw as unknown[])[0] : null,
-      dataFirstItem: !Array.isArray(raw) && typeof raw === "object" && raw !== null && Array.isArray((raw as Record<string, unknown>).data)
-        ? ((raw as Record<string, unknown>).data as unknown[])[0]
-        : null,
-      totalItems: Array.isArray(raw)
-        ? (raw as unknown[]).length
-        : !Array.isArray(raw) && typeof raw === "object" && raw !== null
-          ? Object.fromEntries(
-              Object.entries(raw as Record<string, unknown>)
-                .filter(([, v]) => Array.isArray(v))
-                .map(([k, v]) => [k, (v as unknown[]).length])
-            )
-          : null,
-    },
-    raw,
-  });
+  return NextResponse.json({ results });
 }
