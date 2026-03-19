@@ -153,17 +153,16 @@ export interface DungeonInfo {
 }
 
 export async function getDungeons(token: string): Promise<DungeonInfo[]> {
-  const res = await fetch(`${BASE}/v1/dungeon`, {
+  const res = await fetch(`${BASE}/v1/combat/dungeons/list`, {
     headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
     next: { revalidate: 60 },
   });
 
   if (!res.ok) {
-    throw new Error(`IdleMMO /v1/dungeon returned HTTP ${res.status}`);
+    throw new Error(`IdleMMO /v1/combat/dungeons/list returned HTTP ${res.status}`);
   }
 
   const raw = await res.json();
-  console.log("[getDungeons] raw response (first 800 chars):", JSON.stringify(raw).slice(0, 800));
 
   // Handle common API response shapes
   if (Array.isArray(raw)) return raw as DungeonInfo[];
