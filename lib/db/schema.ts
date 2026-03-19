@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -8,7 +8,7 @@ export const user = pgTable("user", {
   image: text("image"),
   username: text("username").unique(),
   displayUsername: text("display_username"),
-  // IdleMMO API token — stored encrypted at rest (Phase 3)
+  role: text("role").notNull().default("user"),
   idlemmoToken: text("idlemmo_token"),
   idlemmoCharacterId: text("idlemmo_character_id"),
   createdAt: timestamp("created_at").notNull(),
@@ -53,4 +53,28 @@ export const verification = pgTable("verification", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at"),
   updatedAt: timestamp("updated_at"),
+});
+
+export const items = pgTable("items", {
+  hashedId: text("hashed_id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  quality: text("quality").notNull(),
+  imageUrl: text("image_url"),
+  syncedAt: timestamp("synced_at").notNull(),
+});
+
+export const gearPresets = pgTable("gear_presets", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  characterId: text("character_id"),
+  weaponStyle: text("weapon_style").notNull(),
+  slots: jsonb("slots")
+    .$type<Record<string, { hashedId: string; tier: number }>>()
+    .notNull(),
+  createdAt: timestamp("created_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
 });
