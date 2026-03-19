@@ -1,0 +1,136 @@
+{
+  "nav": {
+    "brand": "ImmoWeb Suite",
+    "overview": "Visão Geral",
+    "characters": "Personagens",
+    "gear": "Equipamento",
+    "settings": "Definições",
+    "admin": "Admin",
+    "signOut": "Terminar sessão",
+    "signIn": "Entrar",
+    "getStarted": "Começar",
+    "goToDashboard": "Ir para o Painel"
+  },
+  "landing": {
+    "badge": "Acesso antecipado",
+    "headline": "Os seus dados IdleMMO,\nrealmente úteis.",
+    "subheadline": "O ImmoWeb Suite liga-se à API do IdleMMO e transforma dados brutos do jogo em informações úteis — planeamento de skills, economia e muito mais.",
+    "cta": "Criar conta gratuita",
+    "ctaSecondary": "Entrar",
+    "footer": "ImmoWeb Suite — não afiliado com IdleMMO."
+  },
+  "features": {
+    "dashboard": {
+      "title": "Painel do Personagem",
+      "description": "Veja todas as suas estatísticas, skills e progressão de relance — mais detalhe do que a interface do jogo."
+    },
+    "skills": {
+      "title": "Progressão de Skills",
+      "description": "Estime o tempo para subir de nível, compare eficiências de skills e planeie o seu grind."
+    },
+    "economy": {
+      "title": "Informações de Economia",
+      "description": "Registe ouro por hora, monitorize preços de mercado e calcule o valor real do seu inventário."
+    },
+    "combat": {
+      "title": "Registo de Combate e Masmorras",
+      "description": "Reveja horários de chefes mundiais, recompensas de masmorras e tabelas de loot numa só página."
+    },
+    "secure": {
+      "title": "Seguro por Design",
+      "description": "O seu token de API é armazenado encriptado e nunca exposto ao browser. Todas as chamadas são feitas no servidor."
+    },
+    "token": {
+      "title": "Um Token, Acesso Total",
+      "description": "Ligue a sua chave de API do IdleMMO uma vez. O ImmoWeb Suite trata do resto."
+    }
+  },
+  "auth": {
+    "signIn": "Entrar",
+    "signUp": "Registar",
+    "username": "Nome de utilizador",
+    "password": "Palavra-passe",
+    "email": "Email",
+    "signingIn": "A entrar…",
+    "signingUp": "A registar…",
+    "noAccount": "Sem conta?",
+    "createOne": "Criar uma",
+    "haveAccount": "Já tem conta?",
+    "forgotPassword": "Esqueceu a palavra-passe?",
+    "invalidCredentials": "Nome de utilizador ou palavra-passe inválidos.",
+    "confirmPassword": "Confirmar palavra-passe",
+    "passwordMismatch": "As palavras-passe não coincidem.",
+    "passwordTooShort": "A palavra-passe deve ter pelo menos 8 caracteres.",
+    "signUpFailed": "Falha ao criar conta.",
+    "saveFailed": "Falha ao guardar. Tente novamente."
+  },
+  "overview": {
+    "title": "Visão Geral",
+    "welcome": "Bem-vindo, {name}",
+    "characters": "{count} personagens",
+    "noToken": "Configure o seu token de API do IdleMMO e o ID do personagem principal nas Definições para ver os seus personagens aqui.",
+    "goToSettings": "Definições",
+    "cards": {
+      "characters": "Personagens",
+      "gear": "Equipamento",
+      "skills": "Skills",
+      "economy": "Economia",
+      "dungeons": "Masmorras",
+      "guild": "Guilda",
+      "empty": "Slot vazio",
+      "addCard": "Adicionar atalho"
+    },
+    "editLayout": "Personalizar",
+    "saveLayout": "Guardar",
+    "cancelEdit": "Cancelar"
+  },
+  "characters": {
+    "title": "Personagens",
+    "columns": {
+      "name": "Nome",
+      "class": "Classe",
+      "level": "Nível",
+      "location": "Localização",
+      "status": "Estado"
+    },
+    "status": {
+      "online": "Online",
+      "idling": "Inativo",
+      "offline": "Offline"
+    }
+  },
+  "settings": {
+    "title": "Definições",
+    "subtitle": "Gira as preferências da sua conta.",
+    "saveFailed": "Falha ao guardar. Tente novamente.",
+    "account": "Conta",
+    "name": "Nome de exibição",
+    "email": "Email",
+    "password": "Palavra-passe",
+    "currentPassword": "Palavra-passe atual",
+    "newPassword": "Nova palavra-passe",
+    "save": "Guardar alterações",
+    "saving": "A guardar…",
+    "saved": "Guardado",
+    "authChangeWarning": "Alterar o email ou palavra-passe irá terminar a sua sessão.",
+    "idlemmo": "IdleMMO",
+    "apiToken": "Token de API",
+    "characterId": "ID do Personagem Principal",
+    "language": "Idioma",
+    "languageDescription": "Escolha o idioma da interface.",
+    "languages": {
+      "en": "English",
+      "pt": "Português"
+    }
+  },
+  "wip": {
+    "title": "Em Construção",
+    "description": "Esta funcionalidade está a ser desenvolvida. Volte em breve.",
+    "goBack": "Voltar",
+    "dashboard": "Painel"
+  },
+  "errors": {
+    "loadFailed": "Falha ao carregar. Tente novamente.",
+    "generic": "Algo correu mal."
+  }
+}

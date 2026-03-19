@@ -1,53 +1,54 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { user } from "@/lib/db/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-
-async function saveSettings(formData: FormData) {
-  "use server";
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) redirect("/login");
-
-  const token = (formData.get("token") as string).trim();
-  const characterId = (formData.get("characterId") as string).trim();
-
-  await db
-    .update(user)
-    .set({
-      idlemmoToken: token || null,
-      idlemmoCharacterId: characterId || null,
-    })
-    .where(eq(user.id, session.user.id));
-}
+import { LocaleSwitcher } from "@/components/locale-switcher";
+import { SettingsAccountForm } from "@/components/settings-account-form";
+import { saveIdleMMOSettings } from "@/app/actions/account";
 
 export default async function SettingsPage() {
+  const t = await getTranslations("settings");
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
   const currentToken = session.user.idlemmoToken ?? "";
   const currentCharacterId = session.user.idlemmoCharacterId ?? "";
+  const currentName = session.user.name ?? session.user.username ?? "";
 
   return (
     <div className="max-w-2xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your account preferences.</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="text-muted-foreground mt-1">{t("subtitle")}</p>
       </div>
 
+      {/* Account — name & password (client component) */}
+      <SettingsAccountForm currentName={currentName} />
+
+      {/* Language */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">IdleMMO Connection</CardTitle>
+          <CardTitle className="text-base">{t("language")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm text-muted-foreground">{t("languageDescription")}</p>
+          <LocaleSwitcher />
+        </CardContent>
+      </Card>
+
+      {/* IdleMMO connection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t("idlemmo")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={saveSettings} className="flex flex-col gap-5">
+          <form action={saveIdleMMOSettings} className="flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="token">API Token</Label>
+              <Label htmlFor="token">{t("apiToken")}</Label>
               <Input
                 id="token"
                 name="token"
@@ -60,9 +61,8 @@ export default async function SettingsPage() {
                 Found in your IdleMMO account settings. Leave blank to remove.
               </p>
             </div>
-
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="characterId">Primary Character ID</Label>
+              <Label htmlFor="characterId">{t("characterId")}</Label>
               <Input
                 id="characterId"
                 name="characterId"
@@ -76,23 +76,10 @@ export default async function SettingsPage() {
                 then copy the hashed ID from any character&apos;s profile page.
               </p>
             </div>
-
             <Button type="submit" className="w-fit">
-              Save
+              {t("save")}
             </Button>
           </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Account</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm">
-            <span className="text-muted-foreground">Username: </span>
-            {session.user.username ?? session.user.name}
-          </p>
         </CardContent>
       </Card>
     </div>
