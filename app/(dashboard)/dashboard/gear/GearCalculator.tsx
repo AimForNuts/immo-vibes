@@ -493,13 +493,38 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
         quality: meta?.quality ?? "STANDARD",
         imageUrl: meta?.imageUrl ?? null,
         tier,
-        maxTier: null, // filled after Compare or background fetch
+        maxTier: null,
       };
     }
     const loaded: GearSet = { weaponStyle: preset.weaponStyle as WeaponStyle, slots };
     if (side === "A") setSetA(loaded);
     else setSetB(loaded);
     invalidate();
+
+    // Background-fetch maxTier for each unique item in the preset
+    const uniqueIds = [...new Set(Object.values(preset.slots).map((s) => s.hashedId))];
+    for (const hashedId of uniqueIds) {
+      fetch(`/api/idlemmo/item/${hashedId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          const mt: number | undefined = data.item?.max_tier;
+          if (!mt) return;
+          const applyMaxTier = (prev: GearSet): GearSet => {
+            let changed = false;
+            const next = { ...prev.slots };
+            for (const [slot, item] of Object.entries(prev.slots)) {
+              if (item?.hashedId === hashedId && item.maxTier !== mt) {
+                next[slot as SlotKey] = { ...item, maxTier: mt };
+                changed = true;
+              }
+            }
+            return changed ? { ...prev, slots: next } : prev;
+          };
+          if (side === "A") setSetA(applyMaxTier);
+          else setSetB(applyMaxTier);
+        })
+        .catch(() => {});
+    }
   }
 
   async function handleDelete(id: string) {
