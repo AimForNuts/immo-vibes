@@ -106,9 +106,11 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
       for (const [, { hashedId, tier }] of Object.entries(selectedPreset!.slots)) {
         const inspect = inspects[hashedId];
         if (!inspect?.stats) continue;
-        const modifier = inspect.tier_modifiers?.[String(tier)] ?? 1;
-        for (const [stat, value] of Object.entries(inspect.stats)) {
-          stats[stat] = (stats[stat] ?? 0) + Math.round((value as number) * modifier);
+        for (const [stat, baseValue] of Object.entries(inspect.stats)) {
+          // tier_modifiers = { statKey: addendPerTier }; tier 1 = base stats, each tier adds the modifier
+          const addendPerTier = inspect.tier_modifiers?.[stat] ?? 0;
+          const effectiveValue = (baseValue as number) + (tier - 1) * addendPerTier;
+          stats[stat] = (stats[stat] ?? 0) + Math.round(effectiveValue);
         }
       }
 

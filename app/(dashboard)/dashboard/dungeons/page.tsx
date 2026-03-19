@@ -35,12 +35,19 @@ export default async function DungeonsPage() {
 
     if (dungeonResult.status === "fulfilled") {
       const apiDungeons = dungeonResult.value;
-      console.log(`[DungeonsPage] API returned ${apiDungeons.length} dungeons. First:`, JSON.stringify(apiDungeons[0]).slice(0, 300));
-      // Merge API difficulty values into the static list (matched by name, case-insensitive)
+      // Merge API data into the static list (matched by name, case-insensitive)
       const apiMap = new Map(apiDungeons.map((d) => [d.name?.toLowerCase(), d]));
       dungeons = STATIC_DUNGEONS.map((d) => {
         const apiEntry = apiMap.get(d.name.toLowerCase());
-        return { ...d, difficulty: apiEntry?.difficulty ?? d.difficulty };
+        if (!apiEntry) return d;
+        return {
+          ...d,
+          difficulty: apiEntry.difficulty,
+          // API returns duration in ms; convert to seconds
+          durationSec: Math.round(apiEntry.length / 1000),
+          minLevel: apiEntry.level_required,
+          goldCost: apiEntry.cost,
+        };
       });
     } else {
       console.error("[DungeonsPage] getDungeons failed:", dungeonResult.reason);
