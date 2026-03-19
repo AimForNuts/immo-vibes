@@ -82,14 +82,15 @@ const SLOT_LABELS: Record<SlotKey, string> = {
   boots: "Boots",
 };
 
-const QUALITIES = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"] as const;
+const QUALITIES = ["STANDARD", "REFINED", "PREMIUM", "EPIC", "LEGENDARY", "MYTHIC"] as const;
 
 const QUALITY_COLORS: Record<string, string> = {
-  COMMON: "text-zinc-400",
-  UNCOMMON: "text-green-400",
-  RARE: "text-blue-400",
-  EPIC: "text-purple-400",
+  STANDARD:  "text-zinc-400",
+  REFINED:   "text-green-400",
+  PREMIUM:   "text-blue-400",
+  EPIC:      "text-purple-400",
   LEGENDARY: "text-yellow-400",
+  MYTHIC:    "text-red-400",
 };
 
 
