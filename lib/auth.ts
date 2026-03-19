@@ -1,0 +1,32 @@
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { username } from "better-auth/plugins";
+import { db } from "@/lib/db";
+import * as schema from "@/lib/db/schema";
+
+export const auth = betterAuth({
+  database: drizzleAdapter(db, {
+    provider: "sqlite",
+    schema: {
+      user: schema.user,
+      session: schema.session,
+      account: schema.account,
+      verification: schema.verification,
+    },
+  }),
+  emailAndPassword: {
+    enabled: true,
+  },
+  plugins: [username()],
+  user: {
+    additionalFields: {
+      idlemmoToken: {
+        type: "string",
+        required: false,
+        input: false, // not settable at sign-up, managed via settings
+      },
+    },
+  },
+});
+
+export type Session = typeof auth.$Infer.Session;
