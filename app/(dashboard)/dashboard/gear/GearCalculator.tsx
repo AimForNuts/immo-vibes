@@ -110,8 +110,26 @@ function getSlotType(style: WeaponStyle, slot: SlotKey): string {
   return "SWORD";
 }
 
-function capitalize(s: string) {
-  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+/** Character raw stat → derived stat key + multiplier */
+const CHAR_STAT_MAP: Record<string, { key: string; label: string; multiplier: number }> = {
+  strength:  { key: "attack_power", label: "Attack Power", multiplier: 2.4 },
+  defence:   { key: "protection",   label: "Protection",   multiplier: 2.4 },
+  speed:     { key: "agility",      label: "Agility",      multiplier: 2.4 },
+  dexterity: { key: "accuracy",     label: "Accuracy",     multiplier: 2.4 },
+};
+
+/** Human-readable labels for known stat keys */
+const STAT_LABELS: Record<string, string> = {
+  attack_power: "Attack Power",
+  protection:   "Protection",
+  agility:      "Agility",
+  accuracy:     "Accuracy",
+  damage:       "Damage",
+  defence:      "Defence",
+};
+
+function statLabel(key: string) {
+  return STAT_LABELS[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -163,10 +181,14 @@ export function GearCalculator({ presets: initialPresets, characters }: GearCalc
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
+        // Convert raw character stats to derived stats (e.g. strength → attack_power × 2.4)
         const stats: Record<string, number> = {};
         if (data.stats) {
           for (const [k, v] of Object.entries(data.stats as Record<string, { level: number }>)) {
-            stats[k] = v.level;
+            const mapping = CHAR_STAT_MAP[k];
+            if (mapping) {
+              stats[mapping.key] = Math.round(v.level * mapping.multiplier);
+            }
           }
         }
         setCharStats(stats);
@@ -589,7 +611,7 @@ export function GearCalculator({ presets: initialPresets, characters }: GearCalc
                   const delta = b - a;
                   return (
                     <tr key={stat} className="border-b border-border/50">
-                      <td className="py-2 capitalize">{capitalize(stat)}</td>
+                      <td className="py-2">{statLabel(stat)}</td>
                       <td className="py-2 text-right tabular-nums">{a}</td>
                       <td className="py-2 text-right tabular-nums">{b}</td>
                       <td className={`py-2 text-right tabular-nums font-medium ${
