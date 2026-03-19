@@ -54,8 +54,8 @@ export default function DashboardLayout({
             <Image
               src="/images/logo.png"
               alt="ImmoWeb Suite"
-              width={120}
-              height={30}
+              width={160}
+              height={40}
               className="object-contain"
               priority
             />

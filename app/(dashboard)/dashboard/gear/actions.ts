@@ -9,27 +9,46 @@ import { gearPresets } from "@/lib/db/schema";
 
 export type SlotMap = Record<string, { hashedId: string; tier: number }>;
 
+export interface SavedPreset {
+  id: string;
+  name: string;
+  weaponStyle: string;
+  slots: SlotMap;
+  characterId?: string;
+}
+
 export async function savePreset(data: {
   name: string;
   weaponStyle: string;
   slots: SlotMap;
   characterId?: string;
-}) {
+}): Promise<SavedPreset> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Unauthorized");
 
+  const id = crypto.randomUUID();
+  const now = new Date();
+
   await db.insert(gearPresets).values({
-    id: crypto.randomUUID(),
+    id,
     userId: session.user.id,
     name: data.name,
     weaponStyle: data.weaponStyle,
     slots: data.slots,
     characterId: data.characterId ?? null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: now,
+    updatedAt: now,
   });
 
   revalidatePath("/dashboard/gear");
+
+  return {
+    id,
+    name: data.name,
+    weaponStyle: data.weaponStyle,
+    slots: data.slots,
+    characterId: data.characterId,
+  };
 }
 
 export async function deletePreset(id: string) {
