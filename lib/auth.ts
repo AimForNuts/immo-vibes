@@ -20,6 +20,11 @@ export const auth = betterAuth({
   plugins: [username()],
   user: {
     additionalFields: {
+      role: {
+        type: "string",
+        required: false,
+        input: false,
+      },
       idlemmoToken: {
         type: "string",
         required: false,
