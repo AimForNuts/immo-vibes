@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Settings, LogOut } from "lucide-react";
-import { signOut } from "@/lib/auth-client";
+import { LayoutDashboard, Users, Swords, Settings, LogOut, ShieldCheck } from "lucide-react";
+import { signOut, useSession } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/characters", label: "Characters", icon: Users },
+  { href: "/dashboard/gear", label: "Gear", icon: Swords },
 ];
 
 export default function DashboardLayout({
@@ -19,6 +20,8 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
 
   async function handleSignOut() {
     await signOut();
@@ -51,6 +54,21 @@ export default function DashboardLayout({
               {label}
             </Link>
           ))}
+
+          {isAdmin && (
+            <Link
+              href="/dashboard/admin"
+              className={cn(
+                "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors mt-2",
+                pathname === "/dashboard/admin"
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              )}
+            >
+              <ShieldCheck className="size-4 shrink-0" />
+              Admin
+            </Link>
+          )}
         </nav>
       </aside>
 

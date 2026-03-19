@@ -12,6 +12,8 @@ async function apiFetch<T>(path: string, token: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// ─── Characters ──────────────────────────────────────────────────────────────
+
 export interface CharacterDetail {
   id: number;
   hashed_id: string;
@@ -69,4 +71,69 @@ export async function getAltCharacters(
     token
   );
   return data.characters;
+}
+
+// ─── Items ───────────────────────────────────────────────────────────────────
+
+export interface ItemSearchResult {
+  hashed_id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  type: string;
+  quality: string;
+  vendor_price: number | null;
+}
+
+export interface ItemInspect {
+  hashed_id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  type: string;
+  quality: string;
+  vendor_price: number | null;
+  max_tier: number;
+  requirements: Record<string, number> | null;
+  stats: Record<string, number> | null;
+  effects: Array<{
+    attribute: string;
+    target: string;
+    value: number;
+    value_type: string;
+  }> | null;
+  tier_modifiers: Record<string, number> | null;
+}
+
+/** Fetch all pages of items for a given type. */
+export async function searchItemsByType(
+  type: string,
+  token: string
+): Promise<ItemSearchResult[]> {
+  const all: ItemSearchResult[] = [];
+  let page = 1;
+
+  while (true) {
+    const data = await apiFetch<{
+      items: ItemSearchResult[];
+      pagination: { current_page: number; last_page: number };
+    }>(`/v1/item/search?type=${encodeURIComponent(type)}&page=${page}`, token);
+
+    all.push(...data.items);
+    if (data.pagination.current_page >= data.pagination.last_page) break;
+    page++;
+  }
+
+  return all;
+}
+
+export async function inspectItem(
+  hashedId: string,
+  token: string
+): Promise<ItemInspect> {
+  const data = await apiFetch<{ item: ItemInspect }>(
+    `/v1/item/${hashedId}/inspect`,
+    token
+  );
+  return data.item;
 }
