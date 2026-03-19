@@ -73,6 +73,29 @@ export async function getAltCharacters(
   return data.characters;
 }
 
+// ─── Item types ──────────────────────────────────────────────────────────────
+
+/** All item types returned by the IdleMMO API. */
+export const IDLEMMO_ITEM_TYPES = [
+  "BAIT", "BLANK_SCROLL", "BOOTS", "BOW", "CAKE", "CAMPAIGN_ITEM", "CHEST",
+  "CHESTPLATE", "COLLECTABLE", "CONSTRUCTION_MATERIAL", "CRAFTING_MATERIAL",
+  "DAGGER", "EMPTY_CRYSTAL", "ESSENCE_CRYSTAL", "FELLING_AXE", "FISH",
+  "FISHING_ROD", "FOOD", "GAUNTLETS", "GEMSTONE", "GREAVES", "GUIDANCE_SCROLL",
+  "HELMET", "LOG", "MEMBERSHIP", "METAL_BAR", "METAMORPHITE", "NAMESTONE",
+  "ORE", "PET_EGG", "PICKAXE", "POTION", "RECIPE", "RELIC", "SHIELD", "SKIN",
+  "SPECIAL", "SWORD", "TELEPORTATION_STONE", "TOKEN", "UPGRADE_STONE", "VIAL",
+] as const;
+
+export type IdlemmoItemType = (typeof IDLEMMO_ITEM_TYPES)[number];
+
+/** Item types that can be equipped as gear. */
+export const EQUIPMENT_TYPES = [
+  "SWORD", "DAGGER", "BOW", "SHIELD",
+  "HELMET", "CHESTPLATE", "GREAVES", "GAUNTLETS", "BOOTS",
+] as const satisfies readonly IdlemmoItemType[];
+
+export type EquipmentType = (typeof EQUIPMENT_TYPES)[number];
+
 // ─── Items ───────────────────────────────────────────────────────────────────
 
 export interface ItemSearchResult {
@@ -105,19 +128,20 @@ export interface ItemInspect {
   tier_modifiers: Record<string, number> | null;
 }
 
-/** Fetch all pages of items for a given type. */
+/** Fetch all pages of items for a given type. Type is normalized to uppercase. */
 export async function searchItemsByType(
   type: string,
   token: string
 ): Promise<ItemSearchResult[]> {
   const all: ItemSearchResult[] = [];
   let page = 1;
+  const normalizedType = type.toUpperCase();
 
   while (true) {
     const data = await apiFetch<{
       items: ItemSearchResult[];
       pagination: { current_page: number; last_page: number };
-    }>(`/v1/item/search?type=${encodeURIComponent(type)}&page=${page}`, token);
+    }>(`/v1/item/search?type=${encodeURIComponent(normalizedType)}&page=${page}`, token);
 
     all.push(...data.items);
     if (data.pagination.current_page >= data.pagination.last_page) break;

@@ -111,11 +111,13 @@ function getSlotType(style: WeaponStyle, slot: SlotKey): string {
   return "SWORD";
 }
 
+// char.stats keys → combat stat keys.
+// Multiplier empirically derived: strength=100 → attack_power=329 (no weapon equipped).
 const CHAR_STAT_MAP: Record<string, { key: string; label: string; multiplier: number }> = {
-  strength:  { key: "attack_power", label: "Attack Power", multiplier: 2.4 },
-  defence:   { key: "protection",   label: "Protection",   multiplier: 2.4 },
-  speed:     { key: "agility",      label: "Agility",      multiplier: 2.4 },
-  dexterity: { key: "accuracy",     label: "Accuracy",     multiplier: 2.4 },
+  strength:  { key: "attack_power", label: "Attack Power", multiplier: 3.29 },
+  defence:   { key: "protection",   label: "Protection",   multiplier: 3.29 },
+  speed:     { key: "agility",      label: "Agility",      multiplier: 3.29 },
+  dexterity: { key: "accuracy",     label: "Accuracy",     multiplier: 3.29 },
 };
 
 const STAT_LABELS: Record<string, string> = {

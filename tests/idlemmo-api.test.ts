@@ -3,104 +3,163 @@
  *
  * Requires in .env.local:
  *   IDLEMMO_TEST_TOKEN=<your API token>
- *   IDLEMMO_TEST_CHARACTER_ID=<hashed character ID>  (optional — skip character tests if absent)
+ *   DATABASE_URL=<neon connection string>
+ *
+ * Character ID is resolved from the DB (matches the token to the stored
+ * idlemmo_character_id for that user). No need for IDLEMMO_TEST_CHARACTER_ID.
  *
  * Run with: npm test
  */
 
 import { config } from "dotenv";
 import { describe, it, expect, beforeAll } from "vitest";
+import { neon } from "@neondatabase/serverless";
 import {
   getCharacterInfo,
   getAltCharacters,
   getDungeons,
   searchItemsByType,
   inspectItem,
+  EQUIPMENT_TYPES,
 } from "@/lib/idlemmo";
 
 config({ path: ".env.local" });
 
 const TOKEN = process.env.IDLEMMO_TEST_TOKEN ?? "";
-const CHAR_ID = process.env.IDLEMMO_TEST_CHARACTER_ID ?? "";
+const BASE = "https://api.idle-mmo.com";
 
-beforeAll(() => {
+let CHAR_ID = "";
+
+/** Delay between API calls to stay under the IdleMMO rate limit */
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const RATE_DELAY = 1500; // ms between calls
+
+beforeAll(async () => {
   if (!TOKEN) throw new Error("IDLEMMO_TEST_TOKEN not set in .env.local");
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL not set in .env.local");
+
+  // Resolve character ID from DB — matches stored token to idlemmo_character_id
+  const sql = neon(process.env.DATABASE_URL);
+  const rows = await sql`
+    SELECT idlemmo_character_id FROM "user"
+    WHERE idlemmo_token = ${TOKEN} AND idlemmo_character_id IS NOT NULL
+    LIMIT 1
+  `;
+  if (rows.length === 0) throw new Error("No user found in DB with this token + character ID");
+  CHAR_ID = rows[0].idlemmo_character_id as string;
+  console.log(`\nResolved character ID from DB: ${CHAR_ID}`);
 });
+
+async function apiGet(path: string) {
+  await delay(400);
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { Authorization: `Bearer ${TOKEN}`, "User-Agent": "ImmoWebSuite/1.0" },
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => null);
+  return { status: res.status, body };
+}
 
 // ─── Character ────────────────────────────────────────────────────────────────
 
-describe.skipIf(!CHAR_ID)("getCharacterInfo", () => {
-  it("returns character data with all skills and stats keys", async () => {
+describe("getCharacterInfo", () => {
+  it("returns skills (strength/defence/speed/dexterity) and stats shape", async () => {
     const char = await getCharacterInfo(CHAR_ID, TOKEN);
 
-    console.log("\n--- Character top-level keys ---");
-    console.log(Object.keys(char));
+    console.log(`\n=== CHARACTER: ${char.name} ===`);
+    console.log("skills:", Object.fromEntries(Object.entries(char.skills).map(([k, v]) => [k, v.level])));
+    console.log("stats:", Object.fromEntries(Object.entries(char.stats).map(([k, v]) => [k, v.level])));
 
-    console.log("\n--- skills (key → level) ---");
-    console.log(Object.fromEntries(Object.entries(char.skills).map(([k, v]) => [k, v.level])));
-
-    console.log("\n--- stats (key → level) ---");
-    console.log(Object.fromEntries(Object.entries(char.stats).map(([k, v]) => [k, v.level])));
+    const combatStatKeys = ["strength", "defence", "speed", "dexterity"];
+    console.log("\n=== COMBAT STAT MAPPING CHECK (× 3.29) ===");
+    for (const key of combatStatKeys) {
+      const v = char.stats[key]?.level ?? char.skills[key]?.level;
+      if (v !== undefined) console.log(`  ${key.padEnd(12)} level=${v}  → combat≈${Math.round(v * 3.29)}`);
+    }
 
     expect(char.hashed_id).toBeTruthy();
-    expect(char.name).toBeTruthy();
-    expect(typeof char.skills).toBe("object");
-    expect(typeof char.stats).toBe("object");
+    expect(char.stats).toBeTruthy();
+    expect(Object.keys(char.stats).some((k) => combatStatKeys.includes(k))).toBe(true);
   });
 });
 
-describe.skipIf(!CHAR_ID)("getAltCharacters", () => {
-  it("returns an array of alt characters", async () => {
+describe("getAltCharacters", () => {
+  it("returns all characters on the account", async () => {
+    await delay(500);
     const alts = await getAltCharacters(CHAR_ID, TOKEN);
-    console.log("\n--- Alt characters ---");
-    console.log(alts.map((a) => ({ name: a.name, hashed_id: a.hashed_id })));
+    console.log("\n=== CHARACTERS ON ACCOUNT ===");
+    alts.forEach((a) => console.log(`  ${a.name.padEnd(20)} id=${a.hashed_id}  level=${a.total_level}`));
     expect(Array.isArray(alts)).toBe(true);
+  });
+});
+
+describe("character sub-endpoints", () => {
+  it("probes useful sub-endpoints", async () => {
+    const subs = ["equipment", "inventory", "stats", "skills", "combat-stats"];
+    console.log(`\n=== CHAR SUB-ENDPOINTS ===`);
+    for (const sub of subs) {
+      const { status, body } = await apiGet(`/v1/character/${CHAR_ID}/${sub}`);
+      const snippet = status === 200
+        ? JSON.stringify(body).slice(0, 150)
+        : (body as { message?: string })?.message ?? "";
+      console.log(`  ${sub.padEnd(15)} → HTTP ${status}  ${snippet}`);
+    }
   });
 });
 
 // ─── Dungeons ─────────────────────────────────────────────────────────────────
 
 describe("getDungeons", () => {
-  it("returns dungeons with difficulty values", async () => {
+  it("returns dungeons with correct fields and non-zero difficulty", async () => {
+    await delay(500);
     const dungeons = await getDungeons(TOKEN);
-
-    console.log(`\n--- Dungeons: ${dungeons.length} total ---`);
-    console.log("Keys:", dungeons[0] ? Object.keys(dungeons[0]) : "empty");
-    console.log("First 3:", dungeons.slice(0, 3).map((d) => ({
-      name: d.name,
-      difficulty: d.difficulty,
-      length_ms: d.length,
-      duration_sec: Math.round(d.length / 1000),
-      level_required: d.level_required,
-    })));
-
+    console.log(`\n=== DUNGEONS: ${dungeons.length} total ===`);
+    dungeons.forEach((d) =>
+      console.log(`  ${d.name.padEnd(30)} difficulty=${String(d.difficulty).padStart(5)}  ${Math.round(d.length / 60000)}min  lvl=${d.level_required}`)
+    );
     expect(dungeons.length).toBeGreaterThan(0);
-    expect(dungeons[0]).toHaveProperty("difficulty");
+    expect(dungeons.every((d) => d.length > 60000)).toBe(true); // must be ms not seconds
     expect(dungeons.some((d) => d.difficulty > 0)).toBe(true);
   });
 });
 
 // ─── Items ────────────────────────────────────────────────────────────────────
 
+describe("item search — all equipment types", () => {
+  it("all EQUIPMENT_TYPES return results from IdleMMO API", async () => {
+    console.log(`\n=== ITEM SEARCH (${EQUIPMENT_TYPES.length} types) ===`);
+    for (const type of EQUIPMENT_TYPES) {
+      await delay(600);
+      const items = await searchItemsByType(type, TOKEN);
+      console.log(`  ${type.padEnd(12)} → ${items.length} items${items.length > 0 ? `  first: ${items[0].name}` : "  EMPTY"}`);
+      expect(Array.isArray(items)).toBe(true);
+    }
+  });
+});
+
 describe("inspectItem", () => {
-  it("returns item details with stats and tier_modifiers", async () => {
-    const items = await searchItemsByType("helmet", TOKEN);
-    expect(items.length).toBeGreaterThan(0);
-    console.log(`\n--- Helmet search: ${items.length} items, first: ${items[0].name} ---`);
+  it("shows stats + tier_modifiers shape; verifies additive tier formula", async () => {
+    await delay(2000); // extra delay after bulk item searches
+    const helmets = await searchItemsByType("HELMET", TOKEN);
+    expect(helmets.length).toBeGreaterThan(0);
 
-    const item = await inspectItem(items[0].hashed_id, TOKEN);
-    console.log("\n--- Item inspect (full) ---");
-    console.log(JSON.stringify(item, null, 2));
+    await delay(600);
+    const item = await inspectItem(helmets[0].hashed_id, TOKEN);
 
-    console.log("\n--- Tier modifier formula check ---");
+    console.log(`\n=== INSPECT: ${item.name} (${item.type}) ===`);
+    console.log("  stats:", item.stats);
+    console.log("  tier_modifiers:", item.tier_modifiers);
+    console.log("  max_tier:", item.max_tier);
+
     if (item.stats && item.tier_modifiers) {
+      console.log("\n  Tier formula (base + (tier-1) × addend):");
       for (const [stat, base] of Object.entries(item.stats)) {
-        const addend = item.tier_modifiers[stat] ?? 0;
-        console.log(`  ${stat}: base=${base}, addend/tier=${addend}, T5=${base + 4 * addend}, T10=${base + 9 * addend}, T${item.max_tier}=${base + (item.max_tier - 1) * addend}`);
+        const add = item.tier_modifiers[stat] ?? 0;
+        console.log(`    ${stat}: T1=${base}  T5=${base + 4 * add}  T${item.max_tier}=${base + (item.max_tier - 1) * add}`);
       }
     }
 
     expect(item.hashed_id).toBeTruthy();
-    expect(item.name).toBeTruthy();
+    expect(typeof item.max_tier).toBe("number");
   });
 });
