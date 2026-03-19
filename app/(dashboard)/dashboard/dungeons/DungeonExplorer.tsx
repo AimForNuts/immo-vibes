@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skull, User, Swords, Shield, Wind, Crosshair, Zap, Link2, Sparkles, AlertTriangle, Ban, Clock, Coins } from "lucide-react";
+import {
+  Skull, User, Swords, Shield, Wind, Crosshair, Zap,
+  Link2, Sparkles, AlertTriangle, Ban, Clock, ChevronDown, ChevronRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   assessDungeon,
@@ -11,18 +14,19 @@ import {
   formatDuration,
   COMBAT_STAT_KEYS,
   type StaticDungeon,
+  type MFTier,
 } from "./difficulty";
 import type { SavedPreset } from "../gear/actions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// char.stats keys → combat stat keys.
-// Multiplier empirically derived: strength=100 → attack_power=329 (no weapon equipped).
-const CHAR_STAT_MAP: Record<string, { key: string; multiplier: number }> = {
-  strength:  { key: "attack_power", multiplier: 3.29 },
-  defence:   { key: "protection",   multiplier: 3.29 },
-  speed:     { key: "agility",      multiplier: 3.29 },
-  dexterity: { key: "accuracy",     multiplier: 3.29 },
+// char.stats keys → combat stat keys. Multiplier: 2.4 per level (wiki-documented).
+// See docs/game-mechanics/combat-stats.md
+const CHAR_STAT_MAP: Record<string, { key: string; skillLabel: string; multiplier: number }> = {
+  strength:  { key: "attack_power", skillLabel: "Strength",  multiplier: 2.4 },
+  defence:   { key: "protection",   skillLabel: "Defence",   multiplier: 2.4 },
+  speed:     { key: "agility",      skillLabel: "Speed",     multiplier: 2.4 },
+  dexterity: { key: "accuracy",     skillLabel: "Dexterity", multiplier: 2.4 },
 };
 
 const COMBAT_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
@@ -46,6 +50,17 @@ const SLOT_LABELS: Record<string, string> = {
   chestplate: "Chestplate", greaves: "Greaves", gauntlets: "Gauntlets", boots: "Boots",
 };
 
+const NO_GEAR_ID = "__NO_GEAR__";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface StatBreakdown {
+  skillLabel: string;
+  skillLevel: number;
+  charBase: number;
+  gear: Array<{ slotLabel: string; value: number }>;
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface DungeonExplorerProps {
@@ -60,71 +75,89 @@ interface DungeonExplorerProps {
 
 export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDifficultyData }: DungeonExplorerProps) {
   const [characterId, setCharacterId] = useState(characters[0]?.hashed_id ?? "");
-  const [presetId, setPresetId] = useState(presets[0]?.id ?? "");
+  const [presetId, setPresetId] = useState(presets[0]?.id ?? NO_GEAR_ID);
   const [combatStats, setCombatStats] = useState<Record<string, number> | null>(null);
+  const [breakdown, setBreakdown] = useState<Record<string, StatBreakdown> | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Custom modifiers
-  const [efficiencyPct, setEfficiencyPct] = useState(0);
-  const [attackPowerBoostPct, setAttackPowerBoostPct] = useState(0);
+  // Expanded stat breakdown
+  const [expandedStat, setExpandedStat] = useState<string | null>(null);
 
-  const selectedPreset = presets.find((p) => p.id === presetId) ?? null;
+  // Override total combat
+  const [overrideEnabled, setOverrideEnabled] = useState(false);
+  const [overrideValue, setOverrideValue] = useState(0);
+
+  // Efficiency modifier
+  const [efficiencyPct, setEfficiencyPct] = useState(0);
+
+  const noGear = presetId === NO_GEAR_ID;
+  const selectedPreset = noGear ? null : (presets.find((p) => p.id === presetId) ?? null);
 
   // Compute combat stats whenever character or preset changes
   useEffect(() => {
-    if (!characterId || !selectedPreset) { setCombatStats(null); return; }
+    if (!characterId) { setCombatStats(null); setBreakdown(null); return; }
     let cancelled = false;
     setLoading(true);
 
     async function compute() {
       const stats: Record<string, number> = {};
+      const bk: Record<string, StatBreakdown> = {};
 
-      // 1. Character base combat stats — char.stats has strength/defence/speed/dexterity
+      // 1. Character base combat stats
       try {
         const res = await fetch(`/api/idlemmo/character/${characterId}`);
         const data = await res.json();
         if (data.stats) {
           for (const [k, v] of Object.entries(data.stats as Record<string, { level: number }>)) {
             const m = CHAR_STAT_MAP[k];
-            if (m) stats[m.key] = Math.round(v.level * m.multiplier);
+            if (!m) continue;
+            const base = Math.floor(v.level * m.multiplier);
+            stats[m.key] = base;
+            bk[m.key] = { skillLabel: m.skillLabel, skillLevel: v.level, charBase: base, gear: [] };
           }
         }
       } catch { /* skip */ }
 
       if (cancelled) return;
 
-      // 2. Gear stats from preset — inspect each unique item
-      const slots = Object.values(selectedPreset!.slots);
-      const uniqueIds = [...new Set(slots.map((s) => s.hashedId))];
+      // 2. Gear stats from preset (skip if "no gear")
+      if (selectedPreset) {
+        const slots = Object.entries(selectedPreset.slots);
+        const uniqueIds = [...new Set(slots.map(([, s]) => s.hashedId))];
 
-      const inspects: Record<string, { stats: Record<string, number> | null; tier_modifiers: Record<string, number> | null }> = {};
-      await Promise.all(
-        uniqueIds.map(async (id) => {
-          try {
-            const res = await fetch(`/api/idlemmo/item/${id}`);
-            const data = await res.json();
-            inspects[id] = data.item;
-          } catch {
-            inspects[id] = { stats: null, tier_modifiers: null };
+        const inspects: Record<string, { stats: Record<string, number> | null; tier_modifiers: Record<string, number> | null }> = {};
+        await Promise.all(
+          uniqueIds.map(async (id) => {
+            try {
+              const res = await fetch(`/api/idlemmo/item/${id}`);
+              const data = await res.json();
+              inspects[id] = data.item;
+            } catch {
+              inspects[id] = { stats: null, tier_modifiers: null };
+            }
+          })
+        );
+
+        if (cancelled) return;
+
+        for (const [slot, { hashedId, tier }] of slots) {
+          const inspect = inspects[hashedId];
+          if (!inspect?.stats) continue;
+          const slotLabel = SLOT_LABELS[slot] ?? slot;
+          const itemName = itemsMap[hashedId]?.name ?? hashedId;
+          for (const [stat, baseValue] of Object.entries(inspect.stats)) {
+            const addendPerTier = inspect.tier_modifiers?.[stat] ?? 0;
+            const effectiveValue = Math.round((baseValue as number) + (tier - 1) * addendPerTier);
+            stats[stat] = (stats[stat] ?? 0) + effectiveValue;
+            if (!bk[stat]) bk[stat] = { skillLabel: "", skillLevel: 0, charBase: 0, gear: [] };
+            bk[stat].gear.push({ slotLabel: `${slotLabel} — ${itemName} T${tier}`, value: effectiveValue });
           }
-        })
-      );
-
-      if (cancelled) return;
-
-      for (const [, { hashedId, tier }] of Object.entries(selectedPreset!.slots)) {
-        const inspect = inspects[hashedId];
-        if (!inspect?.stats) continue;
-        for (const [stat, baseValue] of Object.entries(inspect.stats)) {
-          // tier_modifiers = { statKey: addendPerTier }; tier 1 = base stats, each tier adds the modifier
-          const addendPerTier = inspect.tier_modifiers?.[stat] ?? 0;
-          const effectiveValue = (baseValue as number) + (tier - 1) * addendPerTier;
-          stats[stat] = (stats[stat] ?? 0) + Math.round(effectiveValue);
         }
       }
 
       if (!cancelled) {
         setCombatStats(stats);
+        setBreakdown(bk);
         setLoading(false);
       }
     }
@@ -133,20 +166,14 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
     return () => { cancelled = true; };
   }, [characterId, presetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Apply attack power % boost before computing total
-  const effectiveStats: Record<string, number> | null = combatStats
-    ? {
-        ...combatStats,
-        attack_power: Math.round((combatStats.attack_power ?? 0) * (1 + attackPowerBoostPct / 100)),
-      }
-    : null;
+  const computedTotal = combatStats ? totalCombatStats(combatStats) : null;
+  const combatTotal = overrideEnabled ? overrideValue : computedTotal;
 
-  const combatTotal = effectiveStats ? totalCombatStats(effectiveStats) : null;
-
-  // Efficiency formula from wiki: Final = Initial / ((Efficiency% + 100) / 100)
   function effectiveDuration(durationSec: number): number {
     return Math.round(durationSec / ((efficiencyPct + 100) / 100));
   }
+
+  const showStatsSection = noGear || selectedPreset !== null;
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -156,7 +183,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dungeon Planner</h1>
           <p className="text-xs text-muted-foreground font-mono mt-0.5">
-            Combat stats ≥ 70% of difficulty to enter · ≥ 100% to chain · ≥ 130% for Magic Find
+            ≥ 70% difficulty to enter · ≥ 100% to chain · 130–160% small MF · ≥ 160% max MF
           </p>
         </div>
       </div>
@@ -188,7 +215,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
             onChange={(e) => setPresetId(e.target.value)}
             className="w-full text-sm bg-background border border-border rounded-md px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           >
-            <option value="">— Select gear preset —</option>
+            <option value={NO_GEAR_ID}>— No gear (base stats only) —</option>
             {presets.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -196,7 +223,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
         </div>
       </div>
 
-      {/* Custom modifiers */}
+      {/* Efficiency modifier */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
@@ -218,62 +245,47 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
             )}
           </div>
         </div>
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-            <Swords className="size-3" /> Attack Power Bonus %
-            <span className="normal-case font-normal text-muted-foreground/60">— scales ATK before difficulty check</span>
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={0}
-              max={9999}
-              value={attackPowerBoostPct}
-              onChange={(e) => setAttackPowerBoostPct(Math.max(0, parseInt(e.target.value, 10) || 0))}
-              className="w-24 text-sm bg-background border border-border rounded-md px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
-            />
-            <span className="text-sm text-muted-foreground">%</span>
-            {attackPowerBoostPct > 0 && (
-              <button onClick={() => setAttackPowerBoostPct(0)} className="text-xs text-muted-foreground hover:text-foreground">reset</button>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Gear preview + Combat stats */}
-      {selectedPreset && (
+      {showStatsSection && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Gear slot preview */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-                Gear — {selectedPreset.name}
+                {noGear ? "Gear — None equipped" : `Gear — ${selectedPreset!.name}`}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1">
-              {Object.entries(selectedPreset.slots).map(([slot, { hashedId, tier }]) => {
-                const meta = itemsMap[hashedId];
-                return (
-                  <div key={slot} className="flex items-center gap-2 text-sm">
-                    <span className="w-24 text-xs text-muted-foreground shrink-0">{SLOT_LABELS[slot] ?? slot}</span>
-                    {meta ? (
-                      <>
-                        <span className={cn("flex-1 truncate font-medium", QUALITY_COLORS[meta.quality] ?? "")}>
-                          {meta.name}
-                        </span>
-                        <span className="text-xs font-mono text-muted-foreground shrink-0">T{tier}</span>
-                      </>
-                    ) : (
-                      <span className="flex-1 text-xs font-mono text-muted-foreground/50 truncate">{hashedId}</span>
-                    )}
-                  </div>
-                );
-              })}
+            <CardContent>
+              {noGear ? (
+                <p className="text-xs text-muted-foreground/50 font-mono">No gear — showing base character stats only.</p>
+              ) : (
+                <div className="space-y-1">
+                  {Object.entries(selectedPreset!.slots).map(([slot, { hashedId, tier }]) => {
+                    const meta = itemsMap[hashedId];
+                    return (
+                      <div key={slot} className="flex items-center gap-2 text-sm">
+                        <span className="w-24 text-xs text-muted-foreground shrink-0">{SLOT_LABELS[slot] ?? slot}</span>
+                        {meta ? (
+                          <>
+                            <span className={cn("flex-1 truncate font-medium", QUALITY_COLORS[meta.quality] ?? "")}>
+                              {meta.name}
+                            </span>
+                            <span className="text-xs font-mono text-muted-foreground shrink-0">T{tier}</span>
+                          </>
+                        ) : (
+                          <span className="flex-1 text-xs font-mono text-muted-foreground/50 truncate">{hashedId}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Combat stats */}
+          {/* Combat stats with breakdown */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center justify-between">
@@ -281,34 +293,96 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                 {loading && <span className="text-muted-foreground/50 normal-case font-normal">Computing…</span>}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                {COMBAT_STAT_KEYS.map((key) => {
-                  const { label, icon: Icon } = COMBAT_LABELS[key];
-                  const base = combatStats?.[key] ?? null;
-                  const effective = effectiveStats?.[key] ?? null;
-                  const boosted = key === "attack_power" && attackPowerBoostPct > 0;
-                  return (
-                    <div key={key} className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/40 border border-border/50">
+            <CardContent className="space-y-2">
+              {COMBAT_STAT_KEYS.map((key) => {
+                const { label, icon: Icon } = COMBAT_LABELS[key];
+                const value = combatStats?.[key] ?? null;
+                const bk = breakdown?.[key];
+                const expanded = expandedStat === key;
+
+                return (
+                  <div key={key}>
+                    <button
+                      onClick={() => setExpandedStat(expanded ? null : key)}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-md bg-muted/40 border border-border/50 hover:bg-muted/60 transition-colors text-left"
+                    >
                       <Icon className="size-3.5 text-muted-foreground shrink-0" />
-                      <div className="min-w-0">
+                      <div className="flex-1 min-w-0">
                         <p className="text-[10px] text-muted-foreground/70 font-mono uppercase">{label}</p>
                         <p className="text-sm font-bold tabular-nums">
-                          {loading ? <span className="text-muted-foreground/30">—</span> : (effective ?? <span className="text-muted-foreground/30">—</span>)}
-                          {boosted && base !== null && (
-                            <span className="text-[10px] font-normal text-muted-foreground/50 ml-1">(base {base})</span>
-                          )}
+                          {loading ? <span className="text-muted-foreground/30">—</span> : (value ?? <span className="text-muted-foreground/30">—</span>)}
                         </p>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      {bk && !loading && (
+                        expanded
+                          ? <ChevronDown className="size-3 text-muted-foreground/40 shrink-0" />
+                          : <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
+                      )}
+                    </button>
 
-              {combatTotal !== null && !loading && (
+                    {expanded && bk && !loading && (
+                      <div className="mt-1 ml-3 pl-3 border-l border-border/40 space-y-0.5">
+                        {bk.charBase > 0 && (
+                          <div className="flex items-center justify-between text-[11px] font-mono">
+                            <span className="text-muted-foreground">
+                              {bk.skillLabel} ({bk.skillLevel} × {CHAR_STAT_MAP[bk.skillLabel.toLowerCase()]?.multiplier ?? 2.4})
+                            </span>
+                            <span className="tabular-nums text-foreground/70">+{bk.charBase}</span>
+                          </div>
+                        )}
+                        {bk.gear.map((g, i) => (
+                          <div key={i} className="flex items-center justify-between text-[11px] font-mono">
+                            <span className="text-muted-foreground truncate max-w-[200px]">{g.slotLabel}</span>
+                            <span className="tabular-nums text-foreground/70 shrink-0 ml-2">+{g.value}</span>
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-between text-[11px] font-mono border-t border-border/30 pt-0.5 mt-0.5">
+                          <span className="text-muted-foreground/60">Total</span>
+                          <span className="tabular-nums font-bold">{value}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Total combat */}
+              {computedTotal !== null && !loading && (
                 <div className="flex items-center justify-between px-3 py-2 rounded-md bg-primary/5 border border-primary/20">
                   <span className="text-xs font-mono uppercase tracking-wide text-muted-foreground">Total Combat</span>
-                  <span className="text-lg font-bold tabular-nums text-primary">{combatTotal.toLocaleString()}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={cn("text-lg font-bold tabular-nums", overrideEnabled ? "text-muted-foreground/40 line-through text-sm" : "text-primary")}>
+                      {computedTotal.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Override */}
+              {computedTotal !== null && !loading && (
+                <div className="flex items-center gap-3 px-3 py-2 rounded-md border border-border/40 bg-muted/20">
+                  <input
+                    type="checkbox"
+                    id="override-toggle"
+                    checked={overrideEnabled}
+                    onChange={(e) => {
+                      setOverrideEnabled(e.target.checked);
+                      if (e.target.checked && overrideValue === 0) setOverrideValue(computedTotal);
+                    }}
+                    className="accent-primary"
+                  />
+                  <label htmlFor="override-toggle" className="text-xs font-mono text-muted-foreground cursor-pointer">
+                    Override total
+                  </label>
+                  {overrideEnabled && (
+                    <input
+                      type="number"
+                      min={0}
+                      value={overrideValue}
+                      onChange={(e) => setOverrideValue(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-24 text-sm bg-background border border-primary/40 rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums ml-auto"
+                    />
+                  )}
                 </div>
               )}
             </CardContent>
@@ -317,7 +391,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
       )}
 
       {/* No presets notice */}
-      {presets.length === 0 && (
+      {presets.length === 0 && !noGear && (
         <div className="flex items-center gap-3 p-4 rounded-lg border border-dashed border-border text-sm text-muted-foreground">
           <Swords className="size-4 shrink-0" />
           No gear presets saved yet. Go to the <a href="/dashboard/gear" className="underline underline-offset-4 hover:text-foreground">Gear Calculator</a> to create one.
@@ -326,7 +400,6 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
 
       {/* Dungeon table */}
       <div className="rounded-lg border border-border overflow-hidden">
-        {/* Table header */}
         <div className="grid grid-cols-[1fr_3rem_5rem_10rem_6rem_5rem_5rem] items-center gap-3 px-4 py-2 bg-muted/40 border-b border-border">
           {(["Dungeon", "Lvl", "Difficulty", "Readiness", "Status", "HP Loss", "Duration"] as const).map((h) => (
             <span key={h} className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">{h}</span>
@@ -341,24 +414,26 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
 
           const ratio =
             combatTotal !== null && dungeon.difficulty > 0
-              ? Math.min(combatTotal / dungeon.difficulty, 1.5)
+              ? combatTotal / dungeon.difficulty
               : null;
 
-          // Bar fill: 0% = 0, 100% of bar = ratio≥1.5
-          // Threshold marks at 70% and 130%
-          const barPct = ratio !== null ? Math.min(ratio / 1.5, 1) * 100 : 0;
+          // Bar max = 2.0 (200% of difficulty); thresholds at 70%, 130%, 160%
+          const BAR_MAX = 2.0;
+          const barPct = ratio !== null ? Math.min(ratio / BAR_MAX, 1) * 100 : 0;
 
           const barColor =
             !assessment ? "bg-muted-foreground/20" :
             !assessment.canEnter ? "bg-red-500/70" :
-            assessment.magicFind ? "bg-emerald-500" :
+            assessment.mfTier === "max" ? "bg-emerald-400" :
+            assessment.mfTier === "small" ? "bg-emerald-600" :
             assessment.canChain ? "bg-green-500" :
             "bg-amber-500";
 
           const leftBorder =
             !assessment ? "border-l-muted-foreground/20" :
             !assessment.canEnter ? "border-l-red-500/60" :
-            assessment.magicFind ? "border-l-emerald-500" :
+            assessment.mfTier === "max" ? "border-l-emerald-400" :
+            assessment.mfTier === "small" ? "border-l-emerald-600" :
             assessment.canChain ? "border-l-green-500" :
             "border-l-amber-500";
 
@@ -386,21 +461,15 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                 {dungeon.difficulty > 0 ? dungeon.difficulty.toLocaleString() : "—"}
               </span>
 
-              {/* Readiness bar */}
+              {/* Readiness bar — thresholds at 70% (35%), 130% (65%), 160% (80%) of bar */}
               <div className="relative h-5 rounded-sm overflow-hidden bg-muted/30 border border-border/40">
-                {/* Fill */}
-                <div
-                  className={cn("h-full transition-all duration-500", barColor)}
-                  style={{ width: `${barPct}%` }}
-                />
-                {/* Threshold markers */}
-                <div className="absolute inset-0 flex items-center">
-                  {/* 70% threshold = 70/150 = 46.7% of bar */}
-                  <div className="absolute top-0 bottom-0 w-px bg-foreground/20" style={{ left: "46.7%" }} />
-                  {/* 130% threshold = 130/150 = 86.7% of bar */}
-                  <div className="absolute top-0 bottom-0 w-px bg-foreground/20" style={{ left: "86.7%" }} />
+                <div className={cn("h-full transition-all duration-500", barColor)} style={{ width: `${barPct}%` }} />
+                <div className="absolute inset-0">
+                  <div className="absolute top-0 bottom-0 w-px bg-foreground/20" style={{ left: "35%" }} />
+                  <div className="absolute top-0 bottom-0 w-px bg-foreground/20" style={{ left: "65%" }} />
+                  <div className="absolute top-0 bottom-0 w-px bg-foreground/10" style={{ left: "80%" }} />
                   {ratio !== null && (
-                    <span className="absolute right-1 text-[9px] font-mono text-foreground/50">
+                    <span className="absolute right-1 top-0 bottom-0 flex items-center text-[9px] font-mono text-foreground/50">
                       {Math.round(ratio * 100)}%
                     </span>
                   )}
@@ -415,9 +484,13 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                   <Badge variant="destructive" className="text-[10px] px-1.5 py-0 gap-0.5 h-5">
                     <Ban className="size-2.5" /> Blocked
                   </Badge>
-                ) : assessment.magicFind ? (
-                  <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                    <Sparkles className="size-2.5" /> Magic Find
+                ) : assessment.mfTier === "max" ? (
+                  <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-emerald-400/20 text-emerald-300 border-emerald-400/30">
+                    <Sparkles className="size-2.5" /> Max MF
+                  </Badge>
+                ) : assessment.mfTier === "small" ? (
+                  <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-emerald-600/20 text-emerald-500 border-emerald-600/30">
+                    <Sparkles className="size-2.5" /> MF
                   </Badge>
                 ) : assessment.canChain ? (
                   <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-green-500/20 text-green-400 border-green-500/30">
@@ -435,12 +508,11 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                 "text-xs font-mono tabular-nums text-right",
                 !assessment ? "text-muted-foreground/40" :
                 !assessment.canEnter ? "text-red-500" :
-                assessment.magicFind ? "text-emerald-400" :
+                assessment.mfTier !== "none" ? "text-emerald-400" :
                 assessment.healthLossPct > 50 ? "text-amber-400" : "text-green-400"
               )}>
                 {!assessment ? "—" :
-                 !assessment.canEnter ? "✗" :
-                 assessment.magicFind ? "MF" :
+                 !assessment.canEnter ? "100%" :
                  `${assessment.healthLossPct}%`}
               </span>
 
@@ -449,7 +521,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                 <Clock className="size-2.5 shrink-0" />
                 {formatDuration(effectiveDuration(dungeon.durationSec))}
                 {efficiencyPct > 0 && (
-                  <span className="text-muted-foreground/40 ml-0.5">(base {formatDuration(dungeon.durationSec)})</span>
+                  <span className="text-muted-foreground/40 ml-0.5">({formatDuration(dungeon.durationSec)})</span>
                 )}
               </span>
             </div>
@@ -459,13 +531,14 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] text-muted-foreground font-mono">
-        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-red-500/70 inline-block" /> &lt; 70% — Cannot enter</span>
-        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-amber-500 inline-block" /> 70–100% — Risky (high HP loss)</span>
-        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-green-500 inline-block" /> 100–130% — Chain ready (&lt;50% HP loss)</span>
-        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-emerald-500 inline-block" /> &gt; 130% — Magic Find bonus</span>
+        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-red-500/70 inline-block" /> &lt; 70% — Blocked</span>
+        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-amber-500 inline-block" /> 70–100% — Risky (100%→50% HP loss)</span>
+        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-green-500 inline-block" /> 100–130% — Chain (50%→10% HP loss)</span>
+        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-emerald-600 inline-block" /> 130–160% — Small MF (10% HP loss)</span>
+        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-emerald-400 inline-block" /> ≥ 160% — Max MF (10% HP loss)</span>
         {!hasDifficultyData && (
           <span className="flex items-center gap-1.5 text-amber-500/80">
-            <Zap className="size-3" /> Difficulty data unavailable — the IdleMMO API may not expose dungeon data yet; difficulty values will show "—"
+            <Zap className="size-3" /> Difficulty data unavailable — difficulty values will show "—"
           </span>
         )}
       </div>
