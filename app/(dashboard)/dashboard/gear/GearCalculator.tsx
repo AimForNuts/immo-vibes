@@ -16,7 +16,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { savePreset, deletePreset, type SlotMap } from "./actions";
+import { savePreset, deletePreset, type SlotMap, type SavedPreset } from "./actions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,14 +55,6 @@ interface CatalogItem {
 interface ComputedStats {
   setA: Record<string, number>;
   setB: Record<string, number>;
-}
-
-interface SavedPreset {
-  id: string;
-  name: string;
-  weaponStyle: string;
-  slots: Record<string, { hashedId: string; tier: number }>;
-  characterId?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -137,10 +129,12 @@ function statLabel(key: string) {
 
 interface GearCalculatorProps {
   presets: SavedPreset[];
+  /** Item details keyed by hashedId — used to resolve names/quality/imageUrl when loading presets */
+  itemsMap: Record<string, { name: string; quality: string; imageUrl: string | null }>;
   characters: { hashed_id: string; name: string }[];
 }
 
-export function GearCalculator({ presets: initialPresets, characters }: GearCalculatorProps) {
+export function GearCalculator({ presets: initialPresets, itemsMap, characters }: GearCalculatorProps) {
   const [setA, setSetA] = useState<GearSet>(EMPTY_SET());
   const [setB, setSetB] = useState<GearSet>(EMPTY_SET());
   const [presets, setPresets] = useState(initialPresets);
@@ -167,6 +161,9 @@ export function GearCalculator({ presets: initialPresets, characters }: GearCalc
   const [presetName, setPresetName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Running items map — merges server-provided map with items discovered during the session
+  const [localItemsMap, setLocalItemsMap] = useState(itemsMap);
+
   // Clear computed whenever slots change
   function invalidate() {
     setComputed(null);
@@ -182,7 +179,6 @@ export function GearCalculator({ presets: initialPresets, characters }: GearCalc
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
-        // Convert raw character stats to derived stats (e.g. strength → attack_power × 2.4)
         const stats: Record<string, number> = {};
         if (data.stats) {
           for (const [k, v] of Object.entries(data.stats as Record<string, { level: number }>)) {
@@ -198,6 +194,15 @@ export function GearCalculator({ presets: initialPresets, characters }: GearCalc
       .catch(() => setCharStats({}))
       .finally(() => { if (!cancelled) setCharLoading(false); });
     return () => { cancelled = true; };
+  }, [characterId]);
+
+  // ── Auto-load preset when character is selected ────────────────────────────
+
+  useEffect(() => {
+    if (!characterId) return;
+    const linked = presets.find((p) => p.characterId === characterId);
+    if (linked) loadPreset(linked, "A");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
 
   // ── Item picker search ─────────────────────────────────────────────────────
@@ -220,12 +225,25 @@ export function GearCalculator({ presets: initialPresets, characters }: GearCalc
         if (qualityFilter) params.set("quality", qualityFilter);
         const res = await fetch(`/api/items?${params}`);
         const data = await res.json();
-        setResults((data.items ?? []).map((i: { hashedId: string; name: string; quality: string; imageUrl: string | null }) => ({
-          hashedId: i.hashedId,
-          name: i.name,
-          quality: i.quality,
-          imageUrl: i.imageUrl,
-        })));
+        const fetched: CatalogItem[] = (data.items ?? []).map(
+          (i: { hashedId: string; name: string; quality: string; imageUrl: string | null }) => ({
+            hashedId: i.hashedId,
+            name: i.name,
+            quality: i.quality,
+            imageUrl: i.imageUrl,
+          })
+        );
+        setResults(fetched);
+        // Extend local items map with freshly fetched items
+        setLocalItemsMap((prev) => {
+          const additions: typeof prev = {};
+          for (const i of fetched) {
+            if (!prev[i.hashedId]) {
+              additions[i.hashedId] = { name: i.name, quality: i.quality, imageUrl: i.imageUrl };
+            }
+          }
+          return Object.keys(additions).length ? { ...prev, ...additions } : prev;
+        });
       } catch {
         setResults([]);
       } finally {
@@ -235,7 +253,7 @@ export function GearCalculator({ presets: initialPresets, characters }: GearCalc
     return () => clearTimeout(timer);
   }, [query, qualityFilter, picker, setA.weaponStyle, setB.weaponStyle]);
 
-  // ── Item selection (catalog only — no inspect fetch) ──────────────────────
+  // ── Item selection ─────────────────────────────────────────────────────────
 
   const selectItem = useCallback(
     (catalogItem: CatalogItem) => {
@@ -316,13 +334,11 @@ export function GearCalculator({ presets: initialPresets, characters }: GearCalc
     setComparing(true);
     setComputed(null);
 
-    // Collect unique item IDs across both sets
     const allIds = new Set([
       ...Object.values(setA.slots).filter(Boolean).map((i) => i!.hashedId),
       ...Object.values(setB.slots).filter(Boolean).map((i) => i!.hashedId),
     ]);
 
-    // Fetch inspect for each unique item
     const inspects: Record<string, { stats: Record<string, number> | null; tier_modifiers: Record<string, number> | null }> = {};
     await Promise.all(
       Array.from(allIds).map(async (id) => {
@@ -367,12 +383,13 @@ export function GearCalculator({ presets: initialPresets, characters }: GearCalc
     for (const [slot, item] of Object.entries(set.slots)) {
       if (item) slots[slot] = { hashedId: item.hashedId, tier: item.tier };
     }
-    await savePreset({
+    const newPreset = await savePreset({
       name: presetName.trim(),
       weaponStyle: set.weaponStyle,
       slots,
       characterId: characterId || undefined,
     });
+    setPresets((p) => [...p, newPreset]);
     setPresetName("");
     setSaveTarget(null);
     setSaving(false);
@@ -381,7 +398,14 @@ export function GearCalculator({ presets: initialPresets, characters }: GearCalc
   function loadPreset(preset: SavedPreset, side: "A" | "B") {
     const slots: Partial<Record<SlotKey, SlotSelection>> = {};
     for (const [slot, { hashedId, tier }] of Object.entries(preset.slots)) {
-      slots[slot as SlotKey] = { hashedId, name: hashedId, quality: "COMMON", imageUrl: null, tier };
+      const meta = localItemsMap[hashedId];
+      slots[slot as SlotKey] = {
+        hashedId,
+        name: meta?.name ?? hashedId,
+        quality: meta?.quality ?? "STANDARD",
+        imageUrl: meta?.imageUrl ?? null,
+        tier,
+      };
     }
     const loaded: GearSet = { weaponStyle: preset.weaponStyle as WeaponStyle, slots };
     if (side === "A") setSetA(loaded);
@@ -431,14 +455,24 @@ export function GearCalculator({ presets: initialPresets, characters }: GearCalc
             <CardTitle className="text-sm font-medium text-muted-foreground">Saved Presets</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            {presets.map((p) => (
-              <div key={p.id} className="flex items-center gap-1 border border-border rounded-md px-2 py-1 text-sm">
-                <span>{p.name}</span>
-                <button onClick={() => loadPreset(p, "A")} className="text-xs text-muted-foreground hover:text-foreground px-1" title="Load into Set A">→A</button>
-                <button onClick={() => loadPreset(p, "B")} className="text-xs text-muted-foreground hover:text-foreground px-1" title="Load into Set B">→B</button>
-                <button onClick={() => handleDelete(p.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-3" /></button>
-              </div>
-            ))}
+            {presets.map((p) => {
+              const linkedChar = p.characterId
+                ? characters.find((c) => c.hashed_id === p.characterId)
+                : null;
+              return (
+                <div key={p.id} className="flex items-center gap-1 border border-border rounded-md px-2 py-1 text-sm">
+                  <span>{p.name}</span>
+                  {linkedChar && (
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
+                      {linkedChar.name}
+                    </Badge>
+                  )}
+                  <button onClick={() => loadPreset(p, "A")} className="text-xs text-muted-foreground hover:text-foreground px-1" title="Load into Set A">→A</button>
+                  <button onClick={() => loadPreset(p, "B")} className="text-xs text-muted-foreground hover:text-foreground px-1" title="Load into Set B">→B</button>
+                  <button onClick={() => handleDelete(p.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-3" /></button>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       )}

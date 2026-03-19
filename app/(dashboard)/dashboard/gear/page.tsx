@@ -1,9 +1,9 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { gearPresets } from "@/lib/db/schema";
+import { gearPresets, items } from "@/lib/db/schema";
 import { getCharacterInfo, getAltCharacters } from "@/lib/idlemmo";
 import { GearCalculator } from "./GearCalculator";
 
@@ -16,6 +16,36 @@ export default async function GearPage() {
     .from(gearPresets)
     .where(eq(gearPresets.userId, session.user.id))
     .orderBy(gearPresets.createdAt);
+
+  // Collect all unique item hashedIds referenced in presets
+  const allHashedIds = Array.from(
+    new Set(
+      presets.flatMap((p) =>
+        Object.values(p.slots as Record<string, { hashedId: string; tier: number }>).map(
+          (s) => s.hashedId
+        )
+      )
+    )
+  );
+
+  // Fetch item details from local catalog for all preset slots
+  const itemRows =
+    allHashedIds.length > 0
+      ? await db
+          .select({
+            hashedId: items.hashedId,
+            name: items.name,
+            quality: items.quality,
+            imageUrl: items.imageUrl,
+          })
+          .from(items)
+          .where(inArray(items.hashedId, allHashedIds))
+      : [];
+
+  const itemsMap: Record<string, { name: string; quality: string; imageUrl: string | null }> = {};
+  for (const row of itemRows) {
+    itemsMap[row.hashedId] = { name: row.name, quality: row.quality, imageUrl: row.imageUrl };
+  }
 
   // Load character list for selector (best-effort — no token = empty list)
   type CharOption = { hashed_id: string; name: string };
@@ -46,6 +76,7 @@ export default async function GearPage() {
         slots: p.slots as Record<string, { hashedId: string; tier: number }>,
         characterId: p.characterId ?? undefined,
       }))}
+      itemsMap={itemsMap}
       characters={characters}
     />
   );

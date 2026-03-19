@@ -43,8 +43,8 @@ export default async function LandingPage() {
           <Image
             src="/images/logo.png"
             alt="ImmoWeb Suite"
-            width={140}
-            height={36}
+            width={180}
+            height={46}
             className="object-contain"
             priority
           />
