@@ -71,10 +71,10 @@ describe("getCharacterInfo", () => {
     console.log("stats:", Object.fromEntries(Object.entries(char.stats).map(([k, v]) => [k, v.level])));
 
     const combatStatKeys = ["strength", "defence", "speed", "dexterity"];
-    console.log("\n=== COMBAT STAT MAPPING CHECK (× 3.29) ===");
+    console.log("\n=== COMBAT STAT MAPPING CHECK (× 2.4) ===");
     for (const key of combatStatKeys) {
       const v = char.stats[key]?.level ?? char.skills[key]?.level;
-      if (v !== undefined) console.log(`  ${key.padEnd(12)} level=${v}  → combat≈${Math.round(v * 3.29)}`);
+      if (v !== undefined) console.log(`  ${key.padEnd(12)} level=${v}  → combat≈${Math.floor(v * 2.4)}`);
     }
 
     expect(char.hashed_id).toBeTruthy();
