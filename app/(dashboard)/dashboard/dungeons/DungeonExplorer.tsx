@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Skull, User, Swords, Shield, Wind, Crosshair, Zap,
-  Link2, Sparkles, AlertTriangle, Ban, Clock, ChevronDown, ChevronRight,
+  Link2, Sparkles, AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, PawPrint,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -61,6 +61,14 @@ interface StatBreakdown {
   gear: Array<{ slotLabel: string; value: number }>;
 }
 
+interface EquippedPet {
+  name: string;
+  level: number;
+  quality: string;
+  image_url: string | null;
+  stats: { strength: number; defence: number; speed: number };
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface DungeonExplorerProps {
@@ -78,6 +86,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
   const [presetId, setPresetId] = useState(presets[0]?.id ?? NO_GEAR_ID);
   const [combatStats, setCombatStats] = useState<Record<string, number> | null>(null);
   const [breakdown, setBreakdown] = useState<Record<string, StatBreakdown> | null>(null);
+  const [equippedPet, setEquippedPet] = useState<EquippedPet | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Expanded stat breakdown
@@ -95,7 +104,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
 
   // Compute combat stats whenever character or preset changes
   useEffect(() => {
-    if (!characterId) { setCombatStats(null); setBreakdown(null); return; }
+    if (!characterId) { setCombatStats(null); setBreakdown(null); setEquippedPet(null); return; }
     let cancelled = false;
     setLoading(true);
 
@@ -122,10 +131,8 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
         // Equipped pet → adds strength/defence/speed × 2.4 to combat stats
         // See docs/game-mechanics/pets.md
         if (data.equipped_pet) {
-          const pet = data.equipped_pet as {
-            name: string;
-            stats: { strength: number; defence: number; speed: number };
-          };
+          const pet = data.equipped_pet as EquippedPet;
+          setEquippedPet(pet);
           const petStatMap: Record<string, string> = {
             strength: "attack_power",
             defence:  "protection",
@@ -139,6 +146,8 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
             if (!bk[combatKey]) bk[combatKey] = { skillLabel: "", skillLevel: 0, charBase: 0, gear: [] };
             bk[combatKey].gear.push({ slotLabel: `Pet — ${pet.name}`, value });
           }
+        } else {
+          setEquippedPet(null);
         }
       } catch { /* skip */ }
 
@@ -183,6 +192,8 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
         setCombatStats(stats);
         setBreakdown(bk);
         setLoading(false);
+      } else {
+        setEquippedPet(null);
       }
     }
 
@@ -304,6 +315,32 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {/* Equipped pet */}
+              {equippedPet && !loading && (
+                <div className={cn("mt-3 pt-3 border-t border-border/40", noGear && "mt-0 pt-0 border-t-0")}>
+                  <div className="flex items-center gap-2">
+                    <PawPrint className="size-3 text-muted-foreground/60 shrink-0" />
+                    <span className="text-xs text-muted-foreground w-20 shrink-0">Pet</span>
+                    {equippedPet.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={equippedPet.image_url} alt="" className="size-4 object-contain shrink-0" />
+                    )}
+                    <span className={cn("flex-1 text-sm font-medium truncate", QUALITY_COLORS[equippedPet.quality] ?? "")}>
+                      {equippedPet.name}
+                    </span>
+                    <span className="text-xs font-mono text-muted-foreground shrink-0">L{equippedPet.level}</span>
+                  </div>
+                  <div className="mt-1 ml-[1.375rem] pl-[1.375rem] flex gap-3 text-[10px] font-mono text-muted-foreground/60">
+                    <span>str {equippedPet.stats.strength}</span>
+                    <span>def {equippedPet.stats.defence}</span>
+                    <span>spd {equippedPet.stats.speed}</span>
+                    {equippedPet.stats.strength === 0 && equippedPet.stats.defence === 0 && equippedPet.stats.speed === 0 && (
+                      <span className="text-muted-foreground/40 italic">no trained stats</span>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
