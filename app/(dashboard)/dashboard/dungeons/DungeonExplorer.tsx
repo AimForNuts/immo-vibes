@@ -103,10 +103,12 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
       const stats: Record<string, number> = {};
       const bk: Record<string, StatBreakdown> = {};
 
-      // 1. Character base combat stats
+      // 1. Character base combat stats + equipped pet
       try {
         const res = await fetch(`/api/idlemmo/character/${characterId}`);
         const data = await res.json();
+
+        // Character skills → combat stats (×2.4 per level)
         if (data.stats) {
           for (const [k, v] of Object.entries(data.stats as Record<string, { level: number }>)) {
             const m = CHAR_STAT_MAP[k];
@@ -114,6 +116,28 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
             const base = Math.floor(v.level * m.multiplier);
             stats[m.key] = base;
             bk[m.key] = { skillLabel: m.skillLabel, skillLevel: v.level, charBase: base, gear: [] };
+          }
+        }
+
+        // Equipped pet → adds strength/defence/speed × 2.4 to combat stats
+        // See docs/game-mechanics/pets.md
+        if (data.equipped_pet) {
+          const pet = data.equipped_pet as {
+            name: string;
+            stats: { strength: number; defence: number; speed: number };
+          };
+          const petStatMap: Record<string, string> = {
+            strength: "attack_power",
+            defence:  "protection",
+            speed:    "agility",
+          };
+          for (const [petStat, combatKey] of Object.entries(petStatMap)) {
+            const level = pet.stats[petStat as keyof typeof pet.stats] ?? 0;
+            if (level === 0) continue;
+            const value = Math.floor(level * 2.4);
+            stats[combatKey] = (stats[combatKey] ?? 0) + value;
+            if (!bk[combatKey]) bk[combatKey] = { skillLabel: "", skillLevel: 0, charBase: 0, gear: [] };
+            bk[combatKey].gear.push({ slotLabel: `Pet — ${pet.name}`, value });
           }
         }
       } catch { /* skip */ }
