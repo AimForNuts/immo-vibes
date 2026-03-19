@@ -3,12 +3,7 @@ import { sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
-import { searchItemsByType } from "@/lib/idlemmo";
-
-const EQUIPMENT_TYPES = [
-  "SWORD", "DAGGER", "BOW", "SHIELD",
-  "HELMET", "CHESTPLATE", "GREAVES", "GAUNTLETS", "BOOTS",
-] as const;
+import { searchItemsByType, EQUIPMENT_TYPES } from "@/lib/idlemmo";
 
 export async function POST(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });

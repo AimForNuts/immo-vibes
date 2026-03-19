@@ -16,6 +16,15 @@ import type { SavedPreset } from "../gear/actions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// char.stats keys → combat stat keys.
+// Multiplier empirically derived: strength=100 → attack_power=329 (no weapon equipped).
+const CHAR_STAT_MAP: Record<string, { key: string; multiplier: number }> = {
+  strength:  { key: "attack_power", multiplier: 3.29 },
+  defence:   { key: "protection",   multiplier: 3.29 },
+  speed:     { key: "agility",      multiplier: 3.29 },
+  dexterity: { key: "accuracy",     multiplier: 3.29 },
+};
+
 const COMBAT_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
   attack_power: { label: "Attack Power", icon: Swords },
   protection:   { label: "Protection",   icon: Shield },
@@ -70,14 +79,14 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
     async function compute() {
       const stats: Record<string, number> = {};
 
-      // 1. Character base combat stats (attack_power, protection, agility, accuracy)
+      // 1. Character base combat stats — char.stats has strength/defence/speed/dexterity
       try {
         const res = await fetch(`/api/idlemmo/character/${characterId}`);
         const data = await res.json();
         if (data.stats) {
-          for (const key of COMBAT_STAT_KEYS) {
-            const entry = (data.stats as Record<string, { level: number }>)[key];
-            if (entry) stats[key] = entry.level;
+          for (const [k, v] of Object.entries(data.stats as Record<string, { level: number }>)) {
+            const m = CHAR_STAT_MAP[k];
+            if (m) stats[m.key] = Math.round(v.level * m.multiplier);
           }
         }
       } catch { /* skip */ }
