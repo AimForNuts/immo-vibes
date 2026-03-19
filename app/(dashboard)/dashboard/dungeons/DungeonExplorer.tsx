@@ -51,15 +51,20 @@ interface DungeonExplorerProps {
   presets: SavedPreset[];
   itemsMap: Record<string, { name: string; quality: string; imageUrl: string | null }>;
   characters: { hashed_id: string; name: string }[];
+  hasDifficultyData: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function DungeonExplorer({ dungeons, presets, itemsMap, characters }: DungeonExplorerProps) {
+export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDifficultyData }: DungeonExplorerProps) {
   const [characterId, setCharacterId] = useState(characters[0]?.hashed_id ?? "");
   const [presetId, setPresetId] = useState(presets[0]?.id ?? "");
   const [combatStats, setCombatStats] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Custom modifiers
+  const [efficiencyPct, setEfficiencyPct] = useState(0);
+  const [attackPowerBoostPct, setAttackPowerBoostPct] = useState(0);
 
   const selectedPreset = presets.find((p) => p.id === presetId) ?? null;
 
@@ -124,8 +129,20 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters }: Dun
     return () => { cancelled = true; };
   }, [characterId, presetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const combatTotal = combatStats ? totalCombatStats(combatStats) : null;
-  const hasDifficulty = dungeons.some((d) => d.difficulty > 0);
+  // Apply attack power % boost before computing total
+  const effectiveStats: Record<string, number> | null = combatStats
+    ? {
+        ...combatStats,
+        attack_power: Math.round((combatStats.attack_power ?? 0) * (1 + attackPowerBoostPct / 100)),
+      }
+    : null;
+
+  const combatTotal = effectiveStats ? totalCombatStats(effectiveStats) : null;
+
+  // Efficiency formula from wiki: Final = Initial / ((Efficiency% + 100) / 100)
+  function effectiveDuration(durationSec: number): number {
+    return Math.round(durationSec / ((efficiencyPct + 100) / 100));
+  }
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -175,6 +192,51 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters }: Dun
         </div>
       </div>
 
+      {/* Custom modifiers */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <Zap className="size-3" /> Efficiency Bonus %
+            <span className="normal-case font-normal text-muted-foreground/60">— reduces run time</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              max={9999}
+              value={efficiencyPct}
+              onChange={(e) => setEfficiencyPct(Math.max(0, parseInt(e.target.value, 10) || 0))}
+              className="w-24 text-sm bg-background border border-border rounded-md px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
+            />
+            <span className="text-sm text-muted-foreground">%</span>
+            {efficiencyPct > 0 && (
+              <button onClick={() => setEfficiencyPct(0)} className="text-xs text-muted-foreground hover:text-foreground">reset</button>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <Swords className="size-3" /> Attack Power Bonus %
+            <span className="normal-case font-normal text-muted-foreground/60">— scales ATK before difficulty check</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              max={9999}
+              value={attackPowerBoostPct}
+              onChange={(e) => setAttackPowerBoostPct(Math.max(0, parseInt(e.target.value, 10) || 0))}
+              className="w-24 text-sm bg-background border border-border rounded-md px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
+            />
+            <span className="text-sm text-muted-foreground">%</span>
+            {attackPowerBoostPct > 0 && (
+              <button onClick={() => setAttackPowerBoostPct(0)} className="text-xs text-muted-foreground hover:text-foreground">reset</button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Gear preview + Combat stats */}
       {selectedPreset && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -219,14 +281,19 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters }: Dun
               <div className="grid grid-cols-2 gap-2">
                 {COMBAT_STAT_KEYS.map((key) => {
                   const { label, icon: Icon } = COMBAT_LABELS[key];
-                  const value = combatStats?.[key] ?? null;
+                  const base = combatStats?.[key] ?? null;
+                  const effective = effectiveStats?.[key] ?? null;
+                  const boosted = key === "attack_power" && attackPowerBoostPct > 0;
                   return (
                     <div key={key} className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/40 border border-border/50">
                       <Icon className="size-3.5 text-muted-foreground shrink-0" />
                       <div className="min-w-0">
                         <p className="text-[10px] text-muted-foreground/70 font-mono uppercase">{label}</p>
                         <p className="text-sm font-bold tabular-nums">
-                          {loading ? <span className="text-muted-foreground/30">—</span> : (value ?? <span className="text-muted-foreground/30">—</span>)}
+                          {loading ? <span className="text-muted-foreground/30">—</span> : (effective ?? <span className="text-muted-foreground/30">—</span>)}
+                          {boosted && base !== null && (
+                            <span className="text-[10px] font-normal text-muted-foreground/50 ml-1">(base {base})</span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -376,7 +443,10 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters }: Dun
               {/* Duration */}
               <span className="text-[10px] font-mono text-muted-foreground/60 flex items-center gap-0.5">
                 <Clock className="size-2.5 shrink-0" />
-                {formatDuration(dungeon.durationSec)}
+                {formatDuration(effectiveDuration(dungeon.durationSec))}
+                {efficiencyPct > 0 && (
+                  <span className="text-muted-foreground/40 ml-0.5">(base {formatDuration(dungeon.durationSec)})</span>
+                )}
               </span>
             </div>
           );
@@ -389,9 +459,9 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters }: Dun
         <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-amber-500 inline-block" /> 70–100% — Risky (high HP loss)</span>
         <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-green-500 inline-block" /> 100–130% — Chain ready (&lt;50% HP loss)</span>
         <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-emerald-500 inline-block" /> &gt; 130% — Magic Find bonus</span>
-        {!hasDifficulty && (
+        {!hasDifficultyData && (
           <span className="flex items-center gap-1.5 text-amber-500/80">
-            <Zap className="size-3" /> Difficulty data unavailable — connect your IdleMMO token to assess
+            <Zap className="size-3" /> Difficulty data unavailable — the IdleMMO API may not expose dungeon data yet; difficulty values will show "—"
           </span>
         )}
       </div>

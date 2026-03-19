@@ -31,13 +31,13 @@ type SlotKey =
   | "gauntlets"
   | "boots";
 
-/** What we store before Compare — catalog data only, no stats */
 interface SlotSelection {
   hashedId: string;
   name: string;
   quality: string;
   imageUrl: string | null;
   tier: number;
+  maxTier: number | null;
 }
 
 interface GearSet {
@@ -52,10 +52,19 @@ interface CatalogItem {
   imageUrl: string | null;
 }
 
+type InspectEntry = {
+  stats: Record<string, number> | null;
+  tier_modifiers: Record<string, number> | null;
+  max_tier?: number;
+};
+
 interface ComputedStats {
   setA: Record<string, number>;
   setB: Record<string, number>;
 }
+
+// Per-slot item stat contributions, populated after Compare
+type SlotStatsMap = Partial<Record<SlotKey, Record<string, number>>>;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -85,7 +94,6 @@ const QUALITY_COLORS: Record<string, string> = {
   MYTHIC:    "text-red-400",
 };
 
-
 function getSlots(style: WeaponStyle): SlotKey[] {
   const armor: SlotKey[] = ["helmet", "chestplate", "greaves", "gauntlets", "boots"];
   return style === "BOW" ? ["main_hand", ...armor] : ["main_hand", "off_hand", ...armor];
@@ -103,7 +111,6 @@ function getSlotType(style: WeaponStyle, slot: SlotKey): string {
   return "SWORD";
 }
 
-/** Character raw stat → derived stat key + multiplier */
 const CHAR_STAT_MAP: Record<string, { key: string; label: string; multiplier: number }> = {
   strength:  { key: "attack_power", label: "Attack Power", multiplier: 2.4 },
   defence:   { key: "protection",   label: "Protection",   multiplier: 2.4 },
@@ -111,7 +118,6 @@ const CHAR_STAT_MAP: Record<string, { key: string; label: string; multiplier: nu
   dexterity: { key: "accuracy",     label: "Accuracy",     multiplier: 2.4 },
 };
 
-/** Human-readable labels for known stat keys */
 const STAT_LABELS: Record<string, string> = {
   attack_power: "Attack Power",
   protection:   "Protection",
@@ -129,7 +135,6 @@ function statLabel(key: string) {
 
 interface GearCalculatorProps {
   presets: SavedPreset[];
-  /** Item details keyed by hashedId — used to resolve names/quality/imageUrl when loading presets */
   itemsMap: Record<string, { name: string; quality: string; imageUrl: string | null }>;
   characters: { hashed_id: string; name: string }[];
 }
@@ -139,14 +144,18 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
   const [setB, setSetB] = useState<GearSet>(EMPTY_SET());
   const [presets, setPresets] = useState(initialPresets);
 
-  // Character selector
-  const [characterId, setCharacterId] = useState("");
+  // Pre-select primary character (first in list)
+  const [characterId, setCharacterId] = useState(characters[0]?.hashed_id ?? "");
   const [charStats, setCharStats] = useState<Record<string, number>>({});
   const [charLoading, setCharLoading] = useState(false);
 
   // Computed stats — null until Compare is clicked
   const [computed, setComputed] = useState<ComputedStats | null>(null);
   const [comparing, setComparing] = useState(false);
+
+  // Per-slot item stat contributions — populated after Compare
+  const [slotStatsA, setSlotStatsA] = useState<SlotStatsMap>({});
+  const [slotStatsB, setSlotStatsB] = useState<SlotStatsMap>({});
 
   // Item picker
   const [picker, setPicker] = useState<{ side: "A" | "B"; slot: SlotKey } | null>(null);
@@ -161,15 +170,16 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
   const [presetName, setPresetName] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Preset update UI — tracks which preset chip is in update-from mode
+  // Preset update UI
   const [updateTarget, setUpdateTarget] = useState<string | null>(null);
 
   // Running items map — merges server-provided map with items discovered during the session
   const [localItemsMap, setLocalItemsMap] = useState(itemsMap);
 
-  // Clear computed whenever slots change
   function invalidate() {
     setComputed(null);
+    setSlotStatsA({});
+    setSlotStatsB({});
   }
 
   // ── Character stats ────────────────────────────────────────────────────────
@@ -186,9 +196,7 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
         if (data.stats) {
           for (const [k, v] of Object.entries(data.stats as Record<string, { level: number }>)) {
             const mapping = CHAR_STAT_MAP[k];
-            if (mapping) {
-              stats[mapping.key] = Math.round(v.level * mapping.multiplier);
-            }
+            if (mapping) stats[mapping.key] = Math.round(v.level * mapping.multiplier);
           }
         }
         setCharStats(stats);
@@ -237,7 +245,6 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
           })
         );
         setResults(fetched);
-        // Extend local items map with freshly fetched items
         setLocalItemsMap((prev) => {
           const additions: typeof prev = {};
           for (const i of fetched) {
@@ -267,6 +274,7 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
         quality: catalogItem.quality,
         imageUrl: catalogItem.imageUrl,
         tier: 1,
+        maxTier: null,
       };
       const update = (prev: GearSet): GearSet => ({
         ...prev,
@@ -276,6 +284,23 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
       else setSetB(update);
       invalidate();
       setPicker(null);
+
+      // Background fetch for maxTier
+      const { side, slot } = picker;
+      fetch(`/api/idlemmo/item/${catalogItem.hashedId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          const mt: number | undefined = data.item?.max_tier;
+          if (!mt) return;
+          const updateMaxTier = (prev: GearSet): GearSet => {
+            const existing = prev.slots[slot];
+            if (!existing || existing.hashedId !== catalogItem.hashedId) return prev;
+            return { ...prev, slots: { ...prev.slots, [slot]: { ...existing, maxTier: mt } } };
+          };
+          if (side === "A") setSetA(updateMaxTier);
+          else setSetB(updateMaxTier);
+        })
+        .catch(() => {});
     },
     [picker]
   );
@@ -287,7 +312,8 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
     const update = (prev: GearSet): GearSet => {
       const existing = prev.slots[slot];
       if (!existing) return prev;
-      return { ...prev, slots: { ...prev.slots, [slot]: { ...existing, tier } } };
+      const capped = existing.maxTier ? Math.min(tier, existing.maxTier) : tier;
+      return { ...prev, slots: { ...prev.slots, [slot]: { ...existing, tier: capped } } };
     };
     if (side === "A") setSetA(update);
     else setSetB(update);
@@ -336,13 +362,15 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
   async function compare() {
     setComparing(true);
     setComputed(null);
+    setSlotStatsA({});
+    setSlotStatsB({});
 
     const allIds = new Set([
       ...Object.values(setA.slots).filter(Boolean).map((i) => i!.hashedId),
       ...Object.values(setB.slots).filter(Boolean).map((i) => i!.hashedId),
     ]);
 
-    const inspects: Record<string, { stats: Record<string, number> | null; tier_modifiers: Record<string, number> | null }> = {};
+    const inspects: Record<string, InspectEntry> = {};
     await Promise.all(
       Array.from(allIds).map(async (id) => {
         try {
@@ -354,6 +382,42 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
         }
       })
     );
+
+    // Update maxTier on all slots from inspect data
+    const applyMaxTier = (prev: GearSet): GearSet => {
+      let changed = false;
+      const next = { ...prev.slots };
+      for (const [slot, item] of Object.entries(prev.slots)) {
+        if (!item) continue;
+        const mt = inspects[item.hashedId]?.max_tier;
+        if (mt !== undefined && mt !== item.maxTier) {
+          next[slot as SlotKey] = { ...item, maxTier: mt };
+          changed = true;
+        }
+      }
+      return changed ? { ...prev, slots: next } : prev;
+    };
+    setSetA(applyMaxTier);
+    setSetB(applyMaxTier);
+
+    // Compute per-slot item stat contributions
+    function buildSlotStats(set: GearSet): SlotStatsMap {
+      const result: SlotStatsMap = {};
+      for (const [slot, item] of Object.entries(set.slots)) {
+        if (!item) continue;
+        const inspect = inspects[item.hashedId];
+        if (!inspect?.stats) continue;
+        const modifier = inspect.tier_modifiers?.[String(item.tier)] ?? 1;
+        const stats: Record<string, number> = {};
+        for (const [stat, value] of Object.entries(inspect.stats)) {
+          stats[stat] = Math.round(value * modifier);
+        }
+        result[slot as SlotKey] = stats;
+      }
+      return result;
+    }
+    setSlotStatsA(buildSlotStats(setA));
+    setSlotStatsB(buildSlotStats(setB));
 
     function computeStats(set: GearSet, base: Record<string, number>): Record<string, number> {
       const totals = { ...base };
@@ -398,6 +462,21 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
     setSaving(false);
   }
 
+  async function handleUpdate(id: string, side: "A" | "B") {
+    const set = side === "A" ? setA : setB;
+    const slots: SlotMap = {};
+    for (const [slot, item] of Object.entries(set.slots)) {
+      if (item) slots[slot] = { hashedId: item.hashedId, tier: item.tier };
+    }
+    await updatePreset(id, { weaponStyle: set.weaponStyle, slots, characterId: characterId || undefined });
+    setPresets((p) =>
+      p.map((x) =>
+        x.id === id ? { ...x, weaponStyle: set.weaponStyle, slots, characterId: characterId || undefined } : x
+      )
+    );
+    setUpdateTarget(null);
+  }
+
   function loadPreset(preset: SavedPreset, side: "A" | "B") {
     const slots: Partial<Record<SlotKey, SlotSelection>> = {};
     for (const [slot, { hashedId, tier }] of Object.entries(preset.slots)) {
@@ -408,33 +487,13 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
         quality: meta?.quality ?? "STANDARD",
         imageUrl: meta?.imageUrl ?? null,
         tier,
+        maxTier: null, // filled after Compare or background fetch
       };
     }
     const loaded: GearSet = { weaponStyle: preset.weaponStyle as WeaponStyle, slots };
     if (side === "A") setSetA(loaded);
     else setSetB(loaded);
     invalidate();
-  }
-
-  async function handleUpdate(id: string, side: "A" | "B") {
-    const set = side === "A" ? setA : setB;
-    const slots: SlotMap = {};
-    for (const [slot, item] of Object.entries(set.slots)) {
-      if (item) slots[slot] = { hashedId: item.hashedId, tier: item.tier };
-    }
-    await updatePreset(id, {
-      weaponStyle: set.weaponStyle,
-      slots,
-      characterId: characterId || undefined,
-    });
-    setPresets((p) =>
-      p.map((x) =>
-        x.id === id
-          ? { ...x, weaponStyle: set.weaponStyle, slots, characterId: characterId || undefined }
-          : x
-      )
-    );
-    setUpdateTarget(null);
   }
 
   async function handleDelete(id: string) {
@@ -480,17 +539,13 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {presets.map((p) => {
-              const linkedChar = p.characterId
-                ? characters.find((c) => c.hashed_id === p.characterId)
-                : null;
+              const linkedChar = p.characterId ? characters.find((c) => c.hashed_id === p.characterId) : null;
               const isUpdating = updateTarget === p.id;
               return (
                 <div key={p.id} className="flex items-center gap-1 border border-border rounded-md px-2 py-1 text-sm">
                   <span>{p.name}</span>
                   {linkedChar && (
-                    <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
-                      {linkedChar.name}
-                    </Badge>
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">{linkedChar.name}</Badge>
                   )}
                   <button onClick={() => loadPreset(p, "A")} className="text-xs text-muted-foreground hover:text-foreground px-1" title="Load into Set A">→A</button>
                   <button onClick={() => loadPreset(p, "B")} className="text-xs text-muted-foreground hover:text-foreground px-1" title="Load into Set B">→B</button>
@@ -516,11 +571,13 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {(["A", "B"] as const).map((side) => {
           const set = side === "A" ? setA : setB;
+          const slotStats = side === "A" ? slotStatsA : slotStatsB;
           return (
             <GearSetPanel
               key={side}
               label={side}
               set={set}
+              slotStats={slotStats}
               onSlotClick={(slot) => setPicker({ side, slot })}
               onTierChange={(slot, tier) => setTier(side, slot, tier)}
               onRemove={(slot) => removeItem(side, slot)}
@@ -540,7 +597,6 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
 
         <div className="flex-1" />
 
-        {/* Save presets */}
         {(["A", "B"] as const).map((side) => (
           <div key={side} className="flex items-center gap-2">
             {saveTarget === side ? (
@@ -593,16 +649,10 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
               placeholder="Search by name…"
               className="h-8 text-sm"
             />
-
-            {/* Quality filter */}
             <div className="flex flex-wrap gap-1.5">
               <button
                 onClick={() => setQualityFilter("")}
-                className={`px-2 py-0.5 rounded text-xs border transition-colors ${
-                  qualityFilter === ""
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                }`}
+                className={`px-2 py-0.5 rounded text-xs border transition-colors ${qualityFilter === "" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
               >
                 All
               </button>
@@ -610,17 +660,12 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
                 <button
                   key={q}
                   onClick={() => setQualityFilter(qualityFilter === q ? "" : q)}
-                  className={`px-2 py-0.5 rounded text-xs border transition-colors ${
-                    qualityFilter === q
-                      ? "border-current font-medium " + QUALITY_COLORS[q]
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`px-2 py-0.5 rounded text-xs border transition-colors ${qualityFilter === q ? "border-current font-medium " + QUALITY_COLORS[q] : "border-border text-muted-foreground hover:text-foreground"}`}
                 >
                   {q.charAt(0) + q.slice(1).toLowerCase()}
                 </button>
               ))}
             </div>
-
             <div className="max-h-56 overflow-y-auto flex flex-col gap-0.5">
               {searching && <p className="text-xs text-muted-foreground py-3 text-center">Searching…</p>}
               {!searching && results.length === 0 && (
@@ -684,16 +729,12 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
                       <td className="py-2">{statLabel(stat)}</td>
                       <td className="py-2 text-right tabular-nums">{a}</td>
                       <td className="py-2 text-right tabular-nums">{b}</td>
-                      <td className={`py-2 text-right tabular-nums font-medium ${
-                        delta > 0 ? "text-green-500" : delta < 0 ? "text-red-500" : "text-muted-foreground"
-                      }`}>
+                      <td className={`py-2 text-right tabular-nums font-medium ${delta > 0 ? "text-green-500" : delta < 0 ? "text-red-500" : "text-muted-foreground"}`}>
                         {delta > 0 ? `+${delta}` : delta === 0 ? "—" : delta}
                       </td>
                     </tr>
                   );
                 })}
-
-                {/* Sum row */}
                 {allStatKeys.length > 1 && (() => {
                   const sumA = allStatKeys.reduce((s, k) => s + (computed.setA[k] ?? 0), 0);
                   const sumB = allStatKeys.reduce((s, k) => s + (computed.setB[k] ?? 0), 0);
@@ -703,9 +744,7 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
                       <td className="py-2">Total</td>
                       <td className="py-2 text-right tabular-nums">{sumA}</td>
                       <td className="py-2 text-right tabular-nums">{sumB}</td>
-                      <td className={`py-2 text-right tabular-nums ${
-                        d > 0 ? "text-green-500" : d < 0 ? "text-red-500" : "text-muted-foreground"
-                      }`}>
+                      <td className={`py-2 text-right tabular-nums ${d > 0 ? "text-green-500" : d < 0 ? "text-red-500" : "text-muted-foreground"}`}>
                         {d > 0 ? `+${d}` : d === 0 ? "—" : d}
                       </td>
                     </tr>
@@ -727,17 +766,11 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
 // ─── GearSetPanel ─────────────────────────────────────────────────────────────
 
 function GearSetPanel({
-  label,
-  set,
-  onSlotClick,
-  onTierChange,
-  onRemove,
-  onWeaponStyleChange,
-  onClear,
-  activePicker,
+  label, set, slotStats, onSlotClick, onTierChange, onRemove, onWeaponStyleChange, onClear, activePicker,
 }: {
   label: string;
   set: GearSet;
+  slotStats: SlotStatsMap;
   onSlotClick: (slot: SlotKey) => void;
   onTierChange: (slot: SlotKey, tier: number) => void;
   onRemove: (slot: SlotKey) => void;
@@ -749,39 +782,30 @@ function GearSetPanel({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">Set {label}</h2>
-        <button
-          onClick={onClear}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          title="Clear all slots"
-        >
+        <button onClick={onClear} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors" title="Clear all slots">
           <Eraser className="size-3.5" /> Clear
         </button>
       </div>
 
-      {/* Weapon style toggle */}
       <div className="flex gap-1 p-1 bg-muted rounded-md w-fit text-xs">
         {(["SWORD_SHIELD", "DUAL_DAGGER", "BOW"] as WeaponStyle[]).map((style) => (
           <button
             key={style}
             onClick={() => onWeaponStyleChange(style)}
-            className={`px-2.5 py-1 rounded transition-colors ${
-              set.weaponStyle === style
-                ? "bg-background text-foreground shadow-sm font-medium"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`px-2.5 py-1 rounded transition-colors ${set.weaponStyle === style ? "bg-background text-foreground shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
           >
             {style === "SWORD_SHIELD" ? "Sword & Shield" : style === "DUAL_DAGGER" ? "Dual Dagger" : "Bow"}
           </button>
         ))}
       </div>
 
-      {/* Slots */}
       <div className="flex flex-col gap-2">
         {getSlots(set.weaponStyle).map((slot) => (
           <SlotCard
             key={slot}
             slotKey={slot}
             item={set.slots[slot] ?? null}
+            itemStats={slotStats[slot] ?? null}
             isActive={activePicker === slot}
             onEdit={() => onSlotClick(slot)}
             onTierChange={(tier) => onTierChange(slot, tier)}
@@ -795,25 +819,28 @@ function GearSetPanel({
 
 // ─── SlotCard ─────────────────────────────────────────────────────────────────
 
+const STAT_LABELS_SHORT: Record<string, string> = {
+  attack_power: "ATK", protection: "PROT", agility: "AGI", accuracy: "ACC",
+  damage: "DMG", defence: "DEF",
+};
+
+function shortStatLabel(key: string) {
+  return STAT_LABELS_SHORT[key] ?? key.replace(/_/g, " ").slice(0, 4).toUpperCase();
+}
+
 function SlotCard({
-  slotKey,
-  item,
-  isActive,
-  onEdit,
-  onTierChange,
-  onRemove,
+  slotKey, item, itemStats, isActive, onEdit, onTierChange, onRemove,
 }: {
   slotKey: SlotKey;
   item: SlotSelection | null;
+  itemStats: Record<string, number> | null;
   isActive: boolean;
   onEdit: () => void;
   onTierChange: (tier: number) => void;
   onRemove: () => void;
 }) {
   return (
-    <div className={`border rounded-md px-3 py-2.5 transition-colors ${
-      isActive ? "border-primary bg-primary/5" : "border-border"
-    }`}>
+    <div className={`border rounded-md px-3 py-2.5 transition-colors ${isActive ? "border-primary bg-primary/5" : "border-border"}`}>
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground w-24 shrink-0">{SLOT_LABELS[slotKey]}</span>
 
@@ -836,10 +863,7 @@ function SlotCard({
             </button>
           </>
         ) : (
-          <button
-            onClick={onEdit}
-            className="flex-1 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
-          >
+          <button onClick={onEdit} className="flex-1 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors text-left">
             <Plus className="size-3.5" /> Add item
           </button>
         )}
@@ -852,13 +876,38 @@ function SlotCard({
           <input
             type="number"
             min={1}
+            max={item.maxTier ?? undefined}
             value={item.tier}
             onChange={(e) => {
               const v = parseInt(e.target.value, 10);
               if (!isNaN(v) && v >= 1) onTierChange(v);
             }}
-            className="w-14 h-6 text-xs text-center bg-background border border-border rounded px-1 tabular-nums focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-10 h-6 text-xs text-center bg-background border border-border rounded px-1 tabular-nums focus:outline-none focus:ring-1 focus:ring-primary"
           />
+          {item.maxTier != null && (
+            <>
+              <span className="text-xs text-muted-foreground/50">/ {item.maxTier}</span>
+              {item.tier < item.maxTier && (
+                <button
+                  onClick={() => onTierChange(item.maxTier!)}
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+                >
+                  Max
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Per-item stats (shown after Compare) */}
+      {item && itemStats && Object.keys(itemStats).length > 0 && (
+        <div className="mt-2 ml-[6.5rem] flex flex-wrap gap-x-3 gap-y-0.5">
+          {Object.entries(itemStats).map(([stat, value]) => (
+            <span key={stat} className="text-[10px] font-mono text-muted-foreground">
+              {shortStatLabel(stat)} <span className="text-foreground/70">+{value}</span>
+            </span>
+          ))}
         </div>
       )}
     </div>
