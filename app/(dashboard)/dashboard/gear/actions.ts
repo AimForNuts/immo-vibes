@@ -51,6 +51,26 @@ export async function savePreset(data: {
   };
 }
 
+export async function updatePreset(
+  id: string,
+  data: { weaponStyle: string; slots: SlotMap; characterId?: string }
+): Promise<void> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) throw new Error("Unauthorized");
+
+  await db
+    .update(gearPresets)
+    .set({
+      weaponStyle: data.weaponStyle,
+      slots: data.slots,
+      characterId: data.characterId ?? null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(gearPresets.id, id), eq(gearPresets.userId, session.user.id)));
+
+  revalidatePath("/dashboard/gear");
+}
+
 export async function deletePreset(id: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Unauthorized");

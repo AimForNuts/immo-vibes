@@ -137,3 +137,22 @@ export async function inspectItem(
   );
   return data.item;
 }
+
+// ─── Dungeons ─────────────────────────────────────────────────────────────────
+
+export interface DungeonInfo {
+  id: number;
+  hashed_id: string;
+  name: string;
+  difficulty: number;
+  min_level: number;
+  duration: number; // seconds
+  gold_cost: number;
+  location: string | null;
+  image_url: string | null;
+}
+
+export async function getDungeons(token: string): Promise<DungeonInfo[]> {
+  const data = await apiFetch<{ dungeons: DungeonInfo[] }>("/v1/dungeon", token);
+  return data.dungeons;
+}
