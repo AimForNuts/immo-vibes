@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search, Mountain, FlaskConical, Sword, Hammer, Gem,
   Package, Coins, Loader2, X, SlidersHorizontal, ChevronRight,
-  Skull, Swords, Globe,
+  Skull, Swords, Globe, ShoppingBag, Sparkles, BookOpen, Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MARKET_TABS } from "@/lib/market-config";
@@ -42,6 +42,10 @@ const TAB_ICONS: Record<string, React.ElementType> = {
   gear:         Sword,
   tools:        Hammer,
   collectables: Gem,
+  merchants:    ShoppingBag,
+  event:        Sparkles,
+  recipes:      BookOpen,
+  legacy:       Archive,
 };
 
 const ALL_QUALITIES = Object.keys(QUALITY_COLORS);
@@ -55,13 +59,13 @@ interface MarketPrice {
 }
 
 interface Filters {
-  rarities:    Set<string>;
-  types:       Set<string>;
-  name:        string;
-  vendorMin:   string;
-  vendorMax:   string;
-  marketMin:   string;
-  marketMax:   string;
+  rarities:  Set<string>;
+  types:     Set<string>;
+  name:      string;
+  vendorMin: string;
+  vendorMax: string;
+  marketMin: string;
+  marketMax: string;
 }
 
 const DEFAULT_FILTERS: Filters = {
@@ -74,7 +78,6 @@ const DEFAULT_FILTERS: Filters = {
   marketMax: "",
 };
 
-
 // ─── Item card ────────────────────────────────────────────────────────────────
 
 interface ItemCardProps {
@@ -85,9 +88,9 @@ interface ItemCardProps {
 }
 
 function ItemCard({ item, marketPrice, selected, onClick }: ItemCardProps) {
-  const qualityText   = QUALITY_COLORS[item.quality]            ?? "text-zinc-400";
-  const borderHover   = QUALITY_BORDER_COLOR[item.quality]      ?? "rgba(113,113,122,0.5)";
-  const glowHover     = QUALITY_GLOW_COLOR[item.quality]        ?? "transparent";
+  const qualityText = QUALITY_COLORS[item.quality]       ?? "text-zinc-400";
+  const borderHover = QUALITY_BORDER_COLOR[item.quality] ?? "rgba(113,113,122,0.5)";
+  const glowHover   = QUALITY_GLOW_COLOR[item.quality]   ?? "transparent";
 
   function onEnter(e: React.MouseEvent<HTMLDivElement>) {
     if (selected) return;
@@ -147,7 +150,6 @@ function ItemCard({ item, marketPrice, selected, onClick }: ItemCardProps) {
 
       {/* Prices row */}
       <div className="w-full flex flex-col gap-0.5 mt-auto">
-        {/* Vendor price */}
         {item.vendor_price != null && item.vendor_price > 0 ? (
           <div className="flex items-center gap-1 text-[10px] text-zinc-500">
             <Coins className="size-2.5 shrink-0" />
@@ -155,7 +157,6 @@ function ItemCard({ item, marketPrice, selected, onClick }: ItemCardProps) {
           </div>
         ) : null}
 
-        {/* Market price */}
         {marketPrice === undefined ? (
           <div className="h-3 w-14 bg-zinc-800 rounded animate-pulse" />
         ) : marketPrice?.price != null ? (
@@ -187,12 +188,12 @@ function SkeletonCard() {
 // ─── Filter bar ───────────────────────────────────────────────────────────────
 
 interface FilterBarProps {
-  filters:        Filters;
-  setFilters:     React.Dispatch<React.SetStateAction<Filters>>;
-  availableTypes: string[];  // types present in current tab
-  isAllTab:       boolean;
+  filters:          Filters;
+  setFilters:       React.Dispatch<React.SetStateAction<Filters>>;
+  availableTypes:   string[];
+  isAllTab:         boolean;
   hasActiveFilters: boolean;
-  onReset:        () => void;
+  onReset:          () => void;
 }
 
 function FilterBar({ filters, setFilters, availableTypes, isAllTab, hasActiveFilters, onReset }: FilterBarProps) {
@@ -337,18 +338,21 @@ function FilterBar({ filters, setFilters, availableTypes, isAllTab, hasActiveFil
 // ─── Item detail panel ────────────────────────────────────────────────────────
 
 interface DetailPanelProps {
-  item:        ItemSearchResult;
-  detail:      ItemInspect | null | "loading";
-  marketPrice: MarketPrice | null | "loading";
-  onClose:     () => void;
+  item:                 ItemSearchResult;
+  detail:               ItemInspect | null | "loading";
+  marketPrice:          MarketPrice | null | "loading";
+  /** Market prices for recipe materials; keyed by hashed_item_id. undefined = loading */
+  materialPrices:       Record<string, MarketPrice | null | undefined>;
+  showsRecipes:         boolean;
+  onClose:              () => void;
 }
 
-function DetailPanel({ item, detail, marketPrice, onClose }: DetailPanelProps) {
+function DetailPanel({ item, detail, marketPrice, materialPrices, showsRecipes, onClose }: DetailPanelProps) {
   const qualityText = QUALITY_COLORS[item.quality] ?? "text-zinc-400";
   const borderColor = QUALITY_BORDER_COLOR[item.quality] ?? "rgba(113,113,122,0.4)";
 
   const isLoading = detail === "loading";
-  const d = detail !== "loading" ? detail : null;
+  const d  = detail !== "loading" ? detail : null;
   const mp = marketPrice !== "loading" ? marketPrice : null;
 
   function statLabel(key: string) {
@@ -482,8 +486,8 @@ function DetailPanel({ item, detail, marketPrice, onClose }: DetailPanelProps) {
               </div>
             )}
 
-            {/* Recipe */}
-            {d?.recipe && (
+            {/* Recipe — shown for alchemy/gear/tools tabs */}
+            {showsRecipes && d?.recipe && (
               <div>
                 <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Recipe</p>
                 <div className="bg-zinc-900 border border-zinc-800 rounded-md p-3 space-y-2">
@@ -491,14 +495,26 @@ function DetailPanel({ item, detail, marketPrice, onClose }: DetailPanelProps) {
                     <span className="text-zinc-500">Skill</span>
                     <span className="text-zinc-200">{d.recipe.skill} Lv.{d.recipe.level_required}</span>
                   </div>
-                  <div className="border-t border-zinc-800 pt-2 space-y-1.5">
+                  <div className="border-t border-zinc-800 pt-2 space-y-2">
                     <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Materials</p>
-                    {d.recipe.materials.map((mat, i) => (
-                      <div key={i} className="flex items-center justify-between text-xs">
-                        <span className="text-zinc-300">{mat.item_name}</span>
-                        <span className="font-mono text-zinc-500">×{mat.quantity}</span>
-                      </div>
-                    ))}
+                    {d.recipe.materials.map((mat) => {
+                      const mp = materialPrices[mat.hashed_item_id];
+                      return (
+                        <div key={mat.hashed_item_id} className="flex items-center justify-between text-xs gap-2">
+                          <span className="text-zinc-300 truncate">{mat.item_name}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-mono text-zinc-500">×{mat.quantity}</span>
+                            {mp === undefined ? (
+                              <div className="h-3 w-10 bg-zinc-800 rounded animate-pulse" />
+                            ) : mp?.price != null ? (
+                              <span className="font-mono text-amber-400/70 text-[10px]">
+                                {(mp.price * mat.quantity).toLocaleString()}g
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   {d.recipe.result && (
                     <div className="border-t border-zinc-800 pt-2 flex items-center justify-between text-xs">
@@ -585,21 +601,31 @@ export function MarketBrowser() {
   const [error, setError]               = useState<string | null>(null);
 
   // Filters
-  const [showFilters, setShowFilters]   = useState(false);
-  const [filters, setFilters]           = useState<Filters>(DEFAULT_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters]         = useState<Filters>(DEFAULT_FILTERS);
 
-  // Market prices: undefined = not fetched, null = no data
+  // Market prices: undefined = not fetched yet, null = fetched but no data
+  // Persists across tab switches — no need to re-fetch prices we already have.
   const [marketPrices, setMarketPrices] = useState<Record<string, MarketPrice | null | undefined>>({});
 
   // Selected item detail panel
   const [selectedItem, setSelectedItem]       = useState<ItemSearchResult | null>(null);
   const [itemDetail, setItemDetail]           = useState<ItemInspect | null | "loading">(null);
   const [itemMarketPrice, setItemMarketPrice] = useState<MarketPrice | null | "loading">(null);
+  // Market prices for recipe materials in the detail panel
+  const [materialPrices, setMaterialPrices]   = useState<Record<string, MarketPrice | null | undefined>>({});
 
-  const searchTimerRef     = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const cancelFetchRef     = useRef(false);
-  const cancelPriceRef     = useRef(false);
-  const priceFetchingRef   = useRef<Set<string>>(new Set());
+  const searchTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const cancelFetchRef   = useRef(false);
+  const cancelPriceRef   = useRef(false);
+  const priceFetchingRef = useRef<Set<string>>(new Set());
+
+  /**
+   * Tab item cache — persists loaded items per tab so switching back is instant.
+   * Tabs that were cancelled mid-load are NOT in tabLoadedRef, so they refetch.
+   */
+  const tabItemsCache = useRef<Map<string, ItemSearchResult[]>>(new Map());
+  const tabLoadedRef  = useRef<Set<string>>(new Set());
 
   // Cleanup search timer on unmount
   useEffect(() => {
@@ -617,6 +643,15 @@ export function MarketBrowser() {
       return;
     }
 
+    // Restore from cache if fully loaded before
+    if (tabLoadedRef.current.has(activeTab)) {
+      const cached = tabItemsCache.current.get(activeTab) ?? [];
+      setItems(cached);
+      setLoading(false);
+      setLoadProgress(null);
+      return;
+    }
+
     const tab = MARKET_TABS.find((t) => t.id === activeTab);
     if (!tab || tab.types.length === 0) return;
 
@@ -626,6 +661,8 @@ export function MarketBrowser() {
     setError(null);
     cancelFetchRef.current = false;
 
+    const accumulated: ItemSearchResult[] = [];
+
     (async () => {
       for (let i = 0; i < tab.types.length; i++) {
         if (cancelFetchRef.current) break;
@@ -633,6 +670,7 @@ export function MarketBrowser() {
           const res  = await fetch(`/api/market?type=${encodeURIComponent(tab.types[i])}&page=1`);
           const data = await res.json();
           if (!cancelFetchRef.current && Array.isArray(data.items) && data.items.length > 0) {
+            accumulated.push(...data.items);
             setItems((prev) => [...prev, ...data.items]);
           }
         } catch { /* individual type failures silently skipped */ }
@@ -644,7 +682,14 @@ export function MarketBrowser() {
           await new Promise((r) => setTimeout(r, 250));
         }
       }
-      if (!cancelFetchRef.current) setLoading(false);
+
+      if (!cancelFetchRef.current) {
+        // Full load complete — save to cache
+        tabItemsCache.current.set(activeTab, accumulated);
+        tabLoadedRef.current.add(activeTab);
+        setLoading(false);
+      }
+      // If cancelled, we do NOT add to tabLoadedRef, so the tab will refetch next visit
     })();
 
     return () => { cancelFetchRef.current = true; };
@@ -733,14 +778,15 @@ export function MarketBrowser() {
   // ── Tab switch ──────────────────────────────────────────────────────────────
 
   function switchTab(tabId: string) {
-    cancelFetchRef.current  = true;
-    cancelPriceRef.current  = true;
+    cancelFetchRef.current = true;
+    cancelPriceRef.current = true;
     clearTimeout(searchTimerRef.current);
     setSearchQuery("");
     setFilters(DEFAULT_FILTERS);
-    setMarketPrices({});
+    // Do NOT clear marketPrices — keep accumulated prices across all tabs
     priceFetchingRef.current.clear();
     setSelectedItem(null);
+    setMaterialPrices({});
     setActiveTab(tabId);
   }
 
@@ -750,10 +796,32 @@ export function MarketBrowser() {
     setSelectedItem(item);
     setItemDetail("loading");
     setItemMarketPrice("loading");
+    setMaterialPrices({});
 
+    // Fetch inspect data (includes recipe, stats, effects, where_to_find)
     fetch(`/api/idlemmo/item/${item.hashed_id}`)
       .then((r) => r.json())
-      .then((data) => setItemDetail(data.item ?? null))
+      .then((data) => {
+        const detail: ItemInspect | null = data.item ?? null;
+        setItemDetail(detail);
+
+        // If item has a recipe, fetch market prices for each material
+        if (detail?.recipe?.materials?.length) {
+          const mats = detail.recipe.materials;
+          // Pre-seed with undefined (loading state)
+          setMaterialPrices(Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])));
+
+          for (const mat of mats) {
+            fetch(`/api/market/price/${mat.hashed_item_id}?tier=0`)
+              .then((r) => r.json())
+              .then((d) => setMaterialPrices((prev) => ({
+                ...prev,
+                [mat.hashed_item_id]: { price: d.price ?? null, sold_at: d.sold_at ?? null, quantity: d.quantity ?? null },
+              })))
+              .catch(() => setMaterialPrices((prev) => ({ ...prev, [mat.hashed_item_id]: null })));
+          }
+        }
+      })
       .catch(() => setItemDetail(null));
 
     // Use already-loaded market price if available, else fetch fresh
@@ -956,6 +1024,8 @@ export function MarketBrowser() {
             item={selectedItem}
             detail={itemDetail}
             marketPrice={itemMarketPrice}
+            materialPrices={materialPrices}
+            showsRecipes={tab?.showsRecipes ?? false}
             onClose={() => setSelectedItem(null)}
           />
         </div>
