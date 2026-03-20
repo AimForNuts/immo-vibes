@@ -33,12 +33,15 @@ export async function GET(request: NextRequest) {
     : `query=${encodeURIComponent(query!)}&page=${page}`;
 
   try {
+    // No server-side cache — market listings change continuously and the Next.js
+    // data cache is keyed by URL only (ignoring the Authorization header), so a
+    // stale cached response from any user's token would be served to all others.
     const res = await fetch(`${BASE}/v1/item/search?${qs}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         "User-Agent": "ImmoWebSuite/1.0",
       },
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
 
     if (!res.ok) {
