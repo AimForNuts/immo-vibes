@@ -37,22 +37,24 @@ export async function POST(request: NextRequest) {
       .insert(items)
       .values(
         fetched.map((item) => ({
-          hashedId: item.hashed_id,
-          name: item.name,
-          type: item.type.toUpperCase(),
-          quality: item.quality.toUpperCase(),
-          imageUrl: item.image_url ?? null,
-          syncedAt: now,
+          hashedId:    item.hashed_id,
+          name:        item.name,
+          type:        item.type.toUpperCase(),
+          quality:     item.quality.toUpperCase(),
+          imageUrl:    item.image_url ?? null,
+          vendorPrice: item.vendor_price ?? null,
+          syncedAt:    now,
         }))
       )
       .onConflictDoUpdate({
         target: items.hashedId,
         set: {
-          name: sql`excluded.name`,
-          type: sql`excluded.type`,
-          quality: sql`excluded.quality`,
-          imageUrl: sql`excluded.image_url`,
-          syncedAt: now,
+          name:        sql`excluded.name`,
+          type:        sql`excluded.type`,
+          quality:     sql`excluded.quality`,
+          imageUrl:    sql`excluded.image_url`,
+          vendorPrice: sql`excluded.vendor_price`,
+          syncedAt:    now,
         },
       });
   }
