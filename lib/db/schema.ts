@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -93,6 +93,20 @@ export const userPreferences = pgTable("user_preferences", {
     .notNull()
     .default(DEFAULT_DASHBOARD_LAYOUT),
   updatedAt: timestamp("updated_at").notNull(),
+});
+
+export const priceTracker = pgTable("price_tracker", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  itemHashedId: text("item_hashed_id").notNull(),
+  itemName: text("item_name").notNull(),
+  itemQuality: text("item_quality").notNull(),
+  itemType: text("item_type").notNull(),
+  imageUrl: text("image_url"),
+  tier: integer("tier").notNull().default(1),
+  createdAt: timestamp("created_at").notNull(),
 });
 
 export const gearPresets = pgTable("gear_presets", {

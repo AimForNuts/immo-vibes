@@ -3,13 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Swords, Settings, ShieldCheck, Skull, Sword, ShoppingBag } from "lucide-react";
+import { LayoutDashboard, Swords, Settings, ShieldCheck, Skull, Sword } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { useTranslations } from "next-intl";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { SignOutButton } from "@/components/sign-out-button";
 import { CharactersNav } from "@/components/characters-nav";
+import { EconomyNav } from "@/components/economy-nav";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
@@ -27,7 +28,6 @@ export default function DashboardLayout({
     { href: "/dashboard/gear",     label: t("gear"),      icon: Swords },
     { href: "/dashboard/dungeons", label: t("dungeons"),  icon: Skull },
     { href: "/dashboard/combat",   label: t("combat"),    icon: Sword },
-    { href: "/dashboard/market",   label: t("market"),    icon: ShoppingBag },
   ];
 
   function NavLink({ href, label, icon: Icon }: typeof navItems[number]) {
@@ -74,6 +74,9 @@ export default function DashboardLayout({
           {navItems.slice(1).map((item) => (
             <NavLink key={item.href} {...item} />
           ))}
+
+          {/* Economy section with Market + Investments sub-nav */}
+          <EconomyNav />
 
           {isAdmin && (
             <Link
