@@ -67,6 +67,12 @@ export const items = pgTable("items", {
    * Populated by POST /api/admin/sync-recipes. Null for non-recipe items.
    */
   recipeResultHashedId: text("recipe_result_hashed_id"),
+  /** NPC buy price — stable, set by the game. Populated during catalog sync. */
+  vendorPrice:          integer("vendor_price"),
+  /** Latest known market sale price. Updated by POST /api/admin/sync-prices. */
+  lastSoldPrice:        integer("last_sold_price"),
+  /** When the latest known sale happened. */
+  lastSoldAt:           timestamp("last_sold_at"),
 });
 
 // Card types available in the 3×2 dashboard grid

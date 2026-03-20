@@ -10,8 +10,20 @@ import {
 import { cn } from "@/lib/utils";
 import { MARKET_TABS } from "@/lib/market-config";
 import { QUALITY_COLORS } from "@/lib/game-constants";
-import type { ItemSearchResult, ItemInspect } from "@/lib/idlemmo";
+import type { ItemInspect } from "@/lib/idlemmo";
 import { idleMmoQueue, type IdleMmoQueueStatus } from "@/lib/idlemmo-queue";
+
+/** Item shape returned by the DB-backed GET /api/market route. */
+interface DbItem {
+  hashed_id:       string;
+  name:            string;
+  type:            string;
+  quality:         string;
+  image_url:       string | null;
+  vendor_price:    number | null;
+  last_sold_price: number | null;
+  last_sold_at:    string | null;
+}
 
 function isAbortError(e: unknown): boolean {
   return e instanceof DOMException && e.name === "AbortError";
@@ -123,13 +135,12 @@ function LoadingStatus({ loading, status }: { loading: boolean; status: IdleMmoQ
 // ─── Item card ────────────────────────────────────────────────────────────────
 
 interface ItemCardProps {
-  item:        ItemSearchResult;
-  marketPrice: MarketPrice | null | undefined; // undefined = loading, null = no data
-  selected:    boolean;
-  onClick:     () => void;
+  item:     DbItem;
+  selected: boolean;
+  onClick:  () => void;
 }
 
-function ItemCard({ item, marketPrice, selected, onClick }: ItemCardProps) {
+function ItemCard({ item, selected, onClick }: ItemCardProps) {
   const qualityText = QUALITY_COLORS[item.quality]       ?? "text-zinc-400";
   const borderHover = QUALITY_BORDER_COLOR[item.quality] ?? "rgba(113,113,122,0.5)";
   const glowHover   = QUALITY_GLOW_COLOR[item.quality]   ?? "transparent";
@@ -199,12 +210,10 @@ function ItemCard({ item, marketPrice, selected, onClick }: ItemCardProps) {
           </div>
         ) : null}
 
-        {marketPrice === undefined ? (
-          <div className="h-3 w-14 bg-zinc-800 rounded animate-pulse" />
-        ) : marketPrice?.price != null ? (
+        {item.last_sold_price != null ? (
           <div className="flex items-center gap-1 text-[10px] text-amber-400/80">
             <span className="font-mono">⚖</span>
-            <span>{marketPrice.price.toLocaleString()}g</span>
+            <span>{item.last_sold_price.toLocaleString()}g</span>
           </div>
         ) : (
           <div className="text-[10px] text-zinc-700">no listings</div>
@@ -362,20 +371,18 @@ function FilterBar({ filters, setFilters, availableTypes, hasActiveFilters, onRe
 // ─── Item detail panel ────────────────────────────────────────────────────────
 
 interface DetailPanelProps {
-  item:           ItemSearchResult;
+  item:           DbItem;
   detail:         ItemInspect | null | "loading";
-  marketPrice:    MarketPrice | null | "loading";
   materialPrices: Record<string, MarketPrice | null | undefined>;
   onClose:        () => void;
 }
 
-function DetailPanel({ item, detail, marketPrice, materialPrices, onClose }: DetailPanelProps) {
+function DetailPanel({ item, detail, materialPrices, onClose }: DetailPanelProps) {
   const qualityText = QUALITY_COLORS[item.quality] ?? "text-zinc-400";
   const borderColor = QUALITY_BORDER_COLOR[item.quality] ?? "rgba(113,113,122,0.4)";
 
   const isLoading = detail === "loading";
-  const d  = detail !== "loading" ? detail : null;
-  const mp = marketPrice !== "loading" ? marketPrice : null;
+  const d = detail !== "loading" ? detail : null;
 
   function statLabel(key: string) {
     return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -443,14 +450,12 @@ function DetailPanel({ item, detail, marketPrice, materialPrices, onClose }: Det
               </div>
               <div className="bg-zinc-900 rounded-md p-3 border border-zinc-800">
                 <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mb-1">Market</p>
-                {marketPrice === "loading" ? (
-                  <div className="h-4 w-16 bg-zinc-800 rounded animate-pulse" />
-                ) : mp?.price != null ? (
+                {item.last_sold_price != null ? (
                   <div>
-                    <p className="text-sm font-mono text-amber-400">{mp.price.toLocaleString()}g</p>
-                    {mp.sold_at && (
+                    <p className="text-sm font-mono text-amber-400">{item.last_sold_price.toLocaleString()}g</p>
+                    {item.last_sold_at && (
                       <p className="text-[9px] text-zinc-600 mt-0.5">
-                        {new Date(mp.sold_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {new Date(item.last_sold_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </p>
                     )}
                   </div>
@@ -616,12 +621,12 @@ function DetailPanel({ item, detail, marketPrice, materialPrices, onClose }: Det
 
 export function MarketBrowser() {
   const [activeTab, setActiveTab]     = useState("all");
-  const [items, setItems]             = useState<ItemSearchResult[]>([]);
+  const [items, setItems]             = useState<DbItem[]>([]);
   const [loading, setLoading]         = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError]             = useState<string | null>(null);
 
-  // Queue status for the loading indicator
+  // Queue status for the inspect rate-limit indicator
   const [queueStatus, setQueueStatus] = useState<IdleMmoQueueStatus>({
     remaining: 20, resetAt: 0, queueSize: 0, throttled: false,
   });
@@ -630,61 +635,30 @@ export function MarketBrowser() {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters]         = useState<Filters>(DEFAULT_FILTERS);
 
-  // Market prices: undefined = not fetched yet, null = fetched but no data
-  const [marketPrices, setMarketPrices] = useState<Record<string, MarketPrice | null | undefined>>({});
-
   // Selected item detail panel
-  const [selectedItem, setSelectedItem]       = useState<ItemSearchResult | null>(null);
-  const [itemDetail, setItemDetail]           = useState<ItemInspect | null | "loading">(null);
-  const [itemMarketPrice, setItemMarketPrice] = useState<MarketPrice | null | "loading">(null);
-  const [materialPrices, setMaterialPrices]   = useState<Record<string, MarketPrice | null | undefined>>({});
+  const [selectedItem, setSelectedItem]     = useState<DbItem | null>(null);
+  const [itemDetail, setItemDetail]         = useState<ItemInspect | null | "loading">(null);
+  const [materialPrices, setMaterialPrices] = useState<Record<string, MarketPrice | null | undefined>>({});
 
-  const searchTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const priceFetchingRef = useRef<Set<string>>(new Set());
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const searchAbortRef = useRef<AbortController | null>(null);
 
-  // Subscribe to queue status changes + cleanup on unmount
+  // Subscribe to queue status for the inspect indicator
   useEffect(() => {
     idleMmoQueue.onStatusChange = setQueueStatus;
     return () => {
       idleMmoQueue.onStatusChange = null;
       clearTimeout(searchTimerRef.current);
+      searchAbortRef.current?.abort();
     };
   }, []);
 
-  // ── Batch-fetch market prices when search results load ───────────────────
-
-  useEffect(() => {
-    if (items.length === 0) return;
-
-    const priceTag = `prices:${activeTab}`;
-    const toFetch  = items.filter(
-      (i) => marketPrices[i.hashed_id] === undefined && !priceFetchingRef.current.has(i.hashed_id)
-    );
-    if (toFetch.length === 0) return;
-
-    for (const item of toFetch) {
-      priceFetchingRef.current.add(item.hashed_id);
-      idleMmoQueue.fetch(`/api/market/price/${item.hashed_id}?tier=0`, priceTag)
-        .then((r) => r.json())
-        .then((data) => setMarketPrices((prev) => ({
-          ...prev,
-          [item.hashed_id]: { price: data.price ?? null, sold_at: data.sold_at ?? null, quantity: data.quantity ?? null },
-        })))
-        .catch((e: unknown) => {
-          if (isAbortError(e)) return;
-          setMarketPrices((prev) => ({ ...prev, [item.hashed_id]: null }));
-        })
-        .finally(() => priceFetchingRef.current.delete(item.hashed_id));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
-
-  // ── Search ───────────────────────────────────────────────────────────────
+  // ── Search (DB — no rate limit) ──────────────────────────────────────────
 
   function handleSearchInput(value: string) {
     setSearchQuery(value);
     clearTimeout(searchTimerRef.current);
-    idleMmoQueue.cancelByTag("search");
+    searchAbortRef.current?.abort();
     setError(null);
 
     if (!value.trim()) {
@@ -695,24 +669,20 @@ export function MarketBrowser() {
 
     setLoading(true);
     searchTimerRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
       try {
-        const res  = await idleMmoQueue.fetch(`/api/market?query=${encodeURIComponent(value)}&page=1`, "search");
+        const url = `/api/market?query=${encodeURIComponent(value)}&tab=${encodeURIComponent(activeTab)}&page=1`;
+        const res  = await fetch(url, { signal: controller.signal });
         const data = await res.json();
-
         if (!res.ok) {
           setError(data.error ?? "Search failed");
           setItems([]);
         } else {
-          // Filter results to the active tab's types (client-side)
-          const results: ItemSearchResult[] = data.items ?? [];
-          const tab = MARKET_TABS.find((t) => t.id === activeTab);
-          const tabFiltered = tab && tab.types.length > 0
-            ? results.filter((i) => tab.types.includes(i.type))
-            : results;
-          setItems(tabFiltered);
+          setItems(data.items ?? []);
         }
       } catch (e) {
-        if (isAbortError(e)) return;
+        if (e instanceof DOMException && e.name === "AbortError") return;
         setError("Search failed. Please try again.");
       } finally {
         setLoading(false);
@@ -723,13 +693,12 @@ export function MarketBrowser() {
   // ── Tab switch ──────────────────────────────────────────────────────────
 
   function switchTab(tabId: string) {
-    idleMmoQueue.cancelByTag("search");
-    idleMmoQueue.cancelByTag(`prices:${activeTab}`);
     clearTimeout(searchTimerRef.current);
+    searchAbortRef.current?.abort();
+    idleMmoQueue.cancelByTag("inspect");
     setItems([]);
     setSearchQuery("");
     setFilters(DEFAULT_FILTERS);
-    priceFetchingRef.current.clear();
     setSelectedItem(null);
     setMaterialPrices({});
     setLoading(false);
@@ -739,21 +708,20 @@ export function MarketBrowser() {
 
   // ── Item click → detail panel ───────────────────────────────────────────
 
-  const handleItemClick = useCallback((item: ItemSearchResult) => {
+  const handleItemClick = useCallback((item: DbItem) => {
     idleMmoQueue.cancelByTag("inspect");
-
     setSelectedItem(item);
     setItemDetail("loading");
     setMaterialPrices({});
 
-    // Fetch inspect data
+    // Fetch inspect data (stats, recipe, effects — not in DB)
     idleMmoQueue.fetch(`/api/idlemmo/item/${item.hashed_id}`, "inspect")
       .then((r) => r.json())
       .then((data) => {
         const detail: ItemInspect | null = data.item ?? null;
         setItemDetail(detail);
 
-        // Fetch market prices for recipe materials
+        // Fetch market prices for recipe materials via price route
         if (detail?.recipe?.materials?.length) {
           const mats = detail.recipe.materials;
           setMaterialPrices(Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])));
@@ -776,26 +744,7 @@ export function MarketBrowser() {
         if (isAbortError(e)) return;
         setItemDetail(null);
       });
-
-    // Use cached market price if available; otherwise fetch
-    const cached = marketPrices[item.hashed_id];
-    if (cached !== undefined) {
-      setItemMarketPrice(cached);
-    } else {
-      setItemMarketPrice("loading");
-      idleMmoQueue.fetch(`/api/market/price/${item.hashed_id}?tier=0`, "inspect")
-        .then((r) => r.json())
-        .then((data) => setItemMarketPrice({
-          price:    data.price    ?? null,
-          sold_at:  data.sold_at  ?? null,
-          quantity: data.quantity ?? null,
-        }))
-        .catch((e: unknown) => {
-          if (isAbortError(e)) return;
-          setItemMarketPrice(null);
-        });
-    }
-  }, [marketPrices]);
+  }, []);
 
   // ── Client-side filters ─────────────────────────────────────────────────
 
@@ -807,7 +756,7 @@ export function MarketBrowser() {
     if (filters.vendorMin !== "" && vp < Number(filters.vendorMin)) return false;
     if (filters.vendorMax !== "" && vp > Number(filters.vendorMax)) return false;
 
-    const mp = marketPrices[item.hashed_id]?.price ?? null;
+    const mp = item.last_sold_price;
     if (filters.marketMin !== "" && mp !== null && mp < Number(filters.marketMin)) return false;
     if (filters.marketMax !== "" && mp !== null && mp > Number(filters.marketMax)) return false;
 
@@ -918,7 +867,7 @@ export function MarketBrowser() {
           )}
         </div>
 
-        {/* Loading / throttle status */}
+        {/* Loading status */}
         <LoadingStatus loading={loading} status={queueStatus} />
 
         {error && (
@@ -945,7 +894,6 @@ export function MarketBrowser() {
                 <ItemCard
                   key={item.hashed_id}
                   item={item}
-                  marketPrice={marketPrices[item.hashed_id]}
                   selected={selectedItem?.hashed_id === item.hashed_id}
                   onClick={() => handleItemClick(item)}
                 />
@@ -976,7 +924,6 @@ export function MarketBrowser() {
           <DetailPanel
             item={selectedItem}
             detail={itemDetail}
-            marketPrice={itemMarketPrice}
             materialPrices={materialPrices}
             onClose={() => setSelectedItem(null)}
           />
