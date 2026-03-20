@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CheckCircle, XCircle, Loader, BookOpen, TrendingUp, Clock } from "lucide-react";
+import { RefreshCw, CheckCircle, XCircle, Loader, TrendingUp, Clock } from "lucide-react";
 import { MARKET_TABS } from "@/lib/market-config";
 
 // Build tab-grouped type list from MARKET_TABS (excludes "all" tab which has no types)
@@ -31,13 +31,6 @@ interface PriceStatus {
   error?:   string;
 }
 
-interface RecipeStatus {
-  state:   SyncState;
-  synced?: number;
-  total?:  number;
-  error?:  string;
-}
-
 export default function AdminPage() {
   const [statuses, setStatuses] = useState<Record<string, TypeStatus>>(
     Object.fromEntries(ALL_TYPES.map((t) => [t, { state: "idle" }]))
@@ -45,7 +38,6 @@ export default function AdminPage() {
   const [priceStatuses, setPriceStatuses] = useState<Record<string, PriceStatus>>(
     Object.fromEntries(ALL_TYPES.map((t) => [t, { state: "idle" }]))
   );
-  const [recipeStatus, setRecipeStatus] = useState<RecipeStatus>({ state: "idle" });
   const [running, setRunning] = useState(false);
 
   function setStatus(type: string, update: TypeStatus) {
@@ -92,21 +84,6 @@ export default function AdminPage() {
     setPriceStatuses(Object.fromEntries(ALL_TYPES.map((t) => [t, { state: "idle" }])));
     for (const type of ALL_TYPES) await syncPricesForType(type);
     setRunning(false);
-  }
-
-  async function syncRecipes() {
-    setRunning(true);
-    setRecipeStatus({ state: "syncing" });
-    try {
-      const res  = await fetch("/api/admin/sync-recipes", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) setRecipeStatus({ state: "error", error: data.error ?? "Failed" });
-      else         setRecipeStatus({ state: "done", synced: data.synced, total: data.total });
-    } catch {
-      setRecipeStatus({ state: "error", error: "Network error" });
-    } finally {
-      setRunning(false);
-    }
   }
 
   return (
@@ -196,46 +173,6 @@ export default function AdminPage() {
         </Card>
       ))}
 
-      {/* Recipe Sync */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BookOpen className="size-4" />
-            Recipe Sync
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Fetches all RECIPE-type items and inspects each to persist the crafted item
-            reference (<code className="text-xs">recipe_result_hashed_id</code>). Rate-limited
-            — may take several minutes.
-          </p>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <StatusIcon state={recipeStatus.state} />
-              {recipeStatus.state === "idle"    && <span className="text-sm text-muted-foreground">Not started</span>}
-              {recipeStatus.state === "syncing" && <span className="text-sm text-muted-foreground">Syncing…</span>}
-              {recipeStatus.state === "done"    && (
-                <span className="text-sm text-muted-foreground">
-                  {recipeStatus.synced} / {recipeStatus.total} recipes synced
-                </span>
-              )}
-              {recipeStatus.state === "error"   && <span className="text-sm text-destructive">{recipeStatus.error}</span>}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={syncRecipes}
-              disabled={recipeStatus.state === "syncing"}
-              className="h-7 text-xs"
-            >
-              <RefreshCw className={`size-3 mr-1.5 ${recipeStatus.state === "syncing" ? "animate-spin" : ""}`} />
-              Sync Recipes
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Cron info */}
       <Card>
         <CardHeader className="pb-3">
@@ -248,8 +185,8 @@ export default function AdminPage() {
           <p className="text-sm text-muted-foreground">
             Item catalog syncs automatically every day at <span className="font-mono text-foreground">00:00 UTC</span> via
             Vercel Cron (<code className="text-xs">POST /api/cron/sync-market</code>).
-            Prices are not synced by cron — use the <strong>Sync All Prices</strong> button above or the per-category
-            price button to update last-sold data.
+            Prices are not synced by cron — use <strong>Sync All Prices</strong> above to update last-sold data.
+            For the <strong>Recipes</strong> category, price sync also populates the crafted item reference automatically.
           </p>
         </CardContent>
       </Card>
