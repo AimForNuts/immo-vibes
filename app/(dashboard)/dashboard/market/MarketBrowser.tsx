@@ -10,6 +10,11 @@ import { cn } from "@/lib/utils";
 import { MARKET_TABS } from "@/lib/market-config";
 import { QUALITY_COLORS } from "@/lib/game-constants";
 import type { ItemSearchResult, ItemInspect } from "@/lib/idlemmo";
+import { idleMmoQueue } from "@/lib/idlemmo-queue";
+
+function isAbortError(e: unknown): boolean {
+  return e instanceof DOMException && e.name === "AbortError";
+}
 
 // ─── Quality decoration (inline styles — Tailwind can't build dynamic rgba) ──
 
@@ -615,8 +620,6 @@ export function MarketBrowser() {
   const [materialPrices, setMaterialPrices]   = useState<Record<string, MarketPrice | null | undefined>>({});
 
   const searchTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const cancelFetchRef   = useRef(false);
-  const cancelPriceRef   = useRef(false);
   const priceFetchingRef = useRef<Set<string>>(new Set());
 
   /**
@@ -626,8 +629,9 @@ export function MarketBrowser() {
   const tabItemsCache = useRef<Map<string, ItemSearchResult[]>>(new Map());
   const tabLoadedRef  = useRef<Set<string>>(new Set());
 
-  // Cleanup search timer on unmount
+  // Init queue rate limit + cleanup search timer on unmount
   useEffect(() => {
+    idleMmoQueue.init();
     return () => { clearTimeout(searchTimerRef.current); };
   }, []);
 
@@ -658,92 +662,62 @@ export function MarketBrowser() {
     setLoading(true);
     setLoadProgress({ current: 0, total: tab.types.length });
     setError(null);
-    cancelFetchRef.current = false;
 
+    const tabTag      = `tab:${activeTab}`;
+    const capturedTab = activeTab;
     const accumulated: ItemSearchResult[] = [];
 
     (async () => {
       for (let i = 0; i < tab.types.length; i++) {
-        if (cancelFetchRef.current) break;
         try {
-          const res  = await fetch(`/api/market?type=${encodeURIComponent(tab.types[i])}&page=1`);
+          const res  = await idleMmoQueue.fetch(`/api/market?type=${encodeURIComponent(tab.types[i])}&page=1`, tabTag);
           const data = await res.json();
-          if (!cancelFetchRef.current && Array.isArray(data.items) && data.items.length > 0) {
+          if (Array.isArray(data.items) && data.items.length > 0) {
             accumulated.push(...data.items);
             setItems((prev) => [...prev, ...data.items]);
           }
-        } catch { /* individual type failures silently skipped */ }
-
-        if (!cancelFetchRef.current) {
-          setLoadProgress({ current: i + 1, total: tab.types.length });
+        } catch (e) {
+          if (isAbortError(e)) return; // tab switched
+          // individual type failures silently skipped
         }
-        if (i < tab.types.length - 1 && !cancelFetchRef.current) {
-          await new Promise((r) => setTimeout(r, 250));
-        }
+        setLoadProgress({ current: i + 1, total: tab.types.length });
       }
 
-      if (!cancelFetchRef.current) {
-        // Full load complete — save to cache
-        tabItemsCache.current.set(activeTab, accumulated);
-        tabLoadedRef.current.add(activeTab);
-        setLoading(false);
-      }
-      // If cancelled, we do NOT add to tabLoadedRef, so the tab will refetch next visit
+      // Full load complete — save to cache
+      tabItemsCache.current.set(capturedTab, accumulated);
+      tabLoadedRef.current.add(capturedTab);
+      setLoading(false);
+      // If aborted mid-loop via AbortError we return early above, so capturedTab is NOT added to tabLoadedRef
     })();
 
-    return () => { cancelFetchRef.current = true; };
+    return () => { idleMmoQueue.cancelByTag(tabTag); };
   }, [activeTab]);
 
   // ── Batch-fetch market prices when items load ───────────────────────────────
 
   useEffect(() => {
     if (items.length === 0) return;
-    cancelPriceRef.current = false;
 
-    const toFetch = items.filter(
+    const priceTag = `prices:${activeTab}`;
+    const toFetch  = items.filter(
       (i) => marketPrices[i.hashed_id] === undefined && !priceFetchingRef.current.has(i.hashed_id)
     );
     if (toFetch.length === 0) return;
 
-    const BATCH = 5;
-    const DELAY = 400;
-
-    (async () => {
-      for (let i = 0; i < toFetch.length; i += BATCH) {
-        if (cancelPriceRef.current) break;
-        const batch = toFetch.slice(i, i + BATCH);
-        batch.forEach((item) => priceFetchingRef.current.add(item.hashed_id));
-
-        await Promise.all(batch.map(async (item) => {
-          try {
-            const r    = await fetch(`/api/market/price/${item.hashed_id}?tier=0`);
-            const data = await r.json();
-            if (!cancelPriceRef.current) {
-              setMarketPrices((prev) => ({
-                ...prev,
-                [item.hashed_id]: {
-                  price:    data.price    ?? null,
-                  sold_at:  data.sold_at  ?? null,
-                  quantity: data.quantity ?? null,
-                },
-              }));
-            }
-          } catch {
-            if (!cancelPriceRef.current) {
-              setMarketPrices((prev) => ({ ...prev, [item.hashed_id]: null }));
-            }
-          } finally {
-            priceFetchingRef.current.delete(item.hashed_id);
-          }
-        }));
-
-        if (i + BATCH < toFetch.length && !cancelPriceRef.current) {
-          await new Promise((r) => setTimeout(r, DELAY));
-        }
-      }
-    })();
-
-    return () => { cancelPriceRef.current = true; };
+    for (const item of toFetch) {
+      priceFetchingRef.current.add(item.hashed_id);
+      idleMmoQueue.fetch(`/api/market/price/${item.hashed_id}?tier=0`, priceTag)
+        .then((r) => r.json())
+        .then((data) => setMarketPrices((prev) => ({
+          ...prev,
+          [item.hashed_id]: { price: data.price ?? null, sold_at: data.sold_at ?? null, quantity: data.quantity ?? null },
+        })))
+        .catch((e: unknown) => {
+          if (isAbortError(e)) return;
+          setMarketPrices((prev) => ({ ...prev, [item.hashed_id]: null }));
+        })
+        .finally(() => priceFetchingRef.current.delete(item.hashed_id));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 
@@ -763,10 +737,11 @@ export function MarketBrowser() {
     setLoading(true);
     searchTimerRef.current = setTimeout(async () => {
       try {
-        const res  = await fetch(`/api/market?query=${encodeURIComponent(value)}&page=1`);
+        const res  = await idleMmoQueue.fetch(`/api/market?query=${encodeURIComponent(value)}&page=1`, "search");
         const data = await res.json();
         setItems(data.items ?? []);
-      } catch {
+      } catch (e) {
+        if (isAbortError(e)) return;
         setError("Failed to search. Please try again.");
       } finally {
         setLoading(false);
@@ -777,9 +752,10 @@ export function MarketBrowser() {
   // ── Tab switch ──────────────────────────────────────────────────────────────
 
   function switchTab(tabId: string) {
-    cancelFetchRef.current = true;
-    cancelPriceRef.current = true;
+    idleMmoQueue.cancelByTag(`tab:${activeTab}`);
+    idleMmoQueue.cancelByTag(`prices:${activeTab}`);
     clearTimeout(searchTimerRef.current);
+    idleMmoQueue.cancelByTag("search");
     setSearchQuery("");
     setFilters(DEFAULT_FILTERS);
     // Do NOT clear marketPrices — keep accumulated prices across all tabs
@@ -792,13 +768,15 @@ export function MarketBrowser() {
   // ── Item click → detail panel ───────────────────────────────────────────────
 
   const handleItemClick = useCallback((item: ItemSearchResult) => {
+    // Cancel any in-flight inspect/material requests from a previous selection
+    idleMmoQueue.cancelByTag("inspect");
+
     setSelectedItem(item);
     setItemDetail("loading");
-    setItemMarketPrice("loading");
     setMaterialPrices({});
 
     // Fetch inspect data (includes recipe, stats, effects, where_to_find)
-    fetch(`/api/idlemmo/item/${item.hashed_id}`)
+    idleMmoQueue.fetch(`/api/idlemmo/item/${item.hashed_id}`, "inspect")
       .then((r) => r.json())
       .then((data) => {
         const detail: ItemInspect | null = data.item ?? null;
@@ -807,35 +785,44 @@ export function MarketBrowser() {
         // If item has a recipe, fetch market prices for each material
         if (detail?.recipe?.materials?.length) {
           const mats = detail.recipe.materials;
-          // Pre-seed with undefined (loading state)
           setMaterialPrices(Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])));
 
           for (const mat of mats) {
-            fetch(`/api/market/price/${mat.hashed_item_id}?tier=0`)
+            idleMmoQueue.fetch(`/api/market/price/${mat.hashed_item_id}?tier=0`, "inspect")
               .then((r) => r.json())
               .then((d) => setMaterialPrices((prev) => ({
                 ...prev,
                 [mat.hashed_item_id]: { price: d.price ?? null, sold_at: d.sold_at ?? null, quantity: d.quantity ?? null },
               })))
-              .catch(() => setMaterialPrices((prev) => ({ ...prev, [mat.hashed_item_id]: null })));
+              .catch((e: unknown) => {
+                if (isAbortError(e)) return;
+                setMaterialPrices((prev) => ({ ...prev, [mat.hashed_item_id]: null }));
+              });
           }
         }
       })
-      .catch(() => setItemDetail(null));
+      .catch((e: unknown) => {
+        if (isAbortError(e)) return;
+        setItemDetail(null);
+      });
 
-    // Use already-loaded market price if available, else fetch fresh
+    // Use already-loaded market price if available (skip loading state), else fetch fresh
     const cached = marketPrices[item.hashed_id];
     if (cached !== undefined) {
       setItemMarketPrice(cached);
     } else {
-      fetch(`/api/market/price/${item.hashed_id}?tier=0`)
+      setItemMarketPrice("loading");
+      idleMmoQueue.fetch(`/api/market/price/${item.hashed_id}?tier=0`, "inspect")
         .then((r) => r.json())
         .then((data) => setItemMarketPrice({
           price:    data.price    ?? null,
           sold_at:  data.sold_at  ?? null,
           quantity: data.quantity ?? null,
         }))
-        .catch(() => setItemMarketPrice(null));
+        .catch((e: unknown) => {
+          if (isAbortError(e)) return;
+          setItemMarketPrice(null);
+        });
     }
   }, [marketPrices]);
 
