@@ -61,14 +61,14 @@ Used by:
 ## Market Browser Tab Assignments
 
 The market browser groups these types into tabs. Defined in `lib/market-config.ts`.
-Tabs marked ✦ display recipe info and recipe material market prices in the detail panel.
+The detail panel shows recipe info and material market prices for any item that has a recipe (regardless of tab).
 
 | Tab | Types |
 |---|---|
 | **Resources** | `CAKE`, `CAMPAIGN_ITEM`, `CHEST`, `CONSTRUCTION_MATERIAL`, `CRAFTING_MATERIAL`, `FISH`, `FOOD`, `GUIDANCE_SCROLL`, `LOG`, `MEMBERSHIP`, `METAL_BAR`, `ORE`, `PET_EGG`, `RELIC`, `TELEPORTATION_STONE`, `TOKEN`, `UPGRADE_STONE` |
-| **Alchemy** ✦ | `POTION` |
-| **Gear** ✦ | `BOOTS`, `BOW`, `CHESTPLATE`, `DAGGER`, `GAUNTLETS`, `GREAVES`, `HELMET`, `SHIELD`, `SWORD` |
-| **Tools** ✦ | `FELLING_AXE`, `FISHING_ROD`, `PICKAXE` |
+| **Alchemy** | `POTION` |
+| **Gear** | `BOOTS`, `BOW`, `CHESTPLATE`, `DAGGER`, `GAUNTLETS`, `GREAVES`, `HELMET`, `SHIELD`, `SWORD` |
+| **Tools** | `FELLING_AXE`, `FISHING_ROD`, `PICKAXE` |
 | **Collectables** | `COLLECTABLE` |
 | **Merchants** | `BAIT`, `BLANK_SCROLL`, `EMPTY_CRYSTAL`, `ESSENCE_CRYSTAL`, `METAMORPHITE`, `NAMESTONE`, `SKIN`, `VIAL` |
 | **Event** | `SPECIAL` |

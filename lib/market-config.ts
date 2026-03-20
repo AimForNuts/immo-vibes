@@ -18,11 +18,6 @@ export interface MarketTab {
    * Empty array = "All" tab, which uses name-based search instead.
    */
   types: string[];
-  /**
-   * When true, the detail panel will prominently display the item's recipe
-   * (if it has one) and fetch market prices for each recipe material.
-   */
-  showsRecipes?: boolean;
 }
 
 export const MARKET_TABS: MarketTab[] = [
@@ -41,22 +36,19 @@ export const MARKET_TABS: MarketTab[] = [
     ],
   },
   {
-    id:          "alchemy",
-    label:       "Alchemy",
-    types:       ["POTION"],
-    showsRecipes: true,
+    id:    "alchemy",
+    label: "Alchemy",
+    types: ["POTION"],
   },
   {
-    id:          "gear",
-    label:       "Gear",
-    types:       ["BOOTS", "BOW", "CHESTPLATE", "DAGGER", "GAUNTLETS", "GREAVES", "HELMET", "SHIELD", "SWORD"],
-    showsRecipes: true,
+    id:    "gear",
+    label: "Gear",
+    types: ["BOOTS", "BOW", "CHESTPLATE", "DAGGER", "GAUNTLETS", "GREAVES", "HELMET", "SHIELD", "SWORD"],
   },
   {
-    id:          "tools",
-    label:       "Tools",
-    types:       ["FELLING_AXE", "FISHING_ROD", "PICKAXE"],
-    showsRecipes: true,
+    id:    "tools",
+    label: "Tools",
+    types: ["FELLING_AXE", "FISHING_ROD", "PICKAXE"],
   },
   {
     id:    "collectables",
