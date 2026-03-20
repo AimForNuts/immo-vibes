@@ -32,17 +32,28 @@ export async function GET(request: NextRequest) {
     ? `type=${encodeURIComponent(type.toUpperCase())}&page=${page}`
     : `query=${encodeURIComponent(query!)}&page=${page}`;
 
+  const reqHeaders = {
+    Authorization: `Bearer ${token}`,
+    "User-Agent": "ImmoWebSuite/1.0",
+  };
+
   try {
     // No server-side cache — market listings change continuously and the Next.js
     // data cache is keyed by URL only (ignoring the Authorization header), so a
     // stale cached response from any user's token would be served to all others.
-    const res = await fetch(`${BASE}/v1/item/search?${qs}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "ImmoWebSuite/1.0",
-      },
+    let res = await fetch(`${BASE}/v1/item/search?${qs}`, {
+      headers: reqHeaders,
       cache: "no-store",
     });
+
+    // Single retry after a short wait if rate-limited
+    if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, 3_000));
+      res = await fetch(`${BASE}/v1/item/search?${qs}`, {
+        headers: reqHeaders,
+        cache: "no-store",
+      });
+    }
 
     if (!res.ok) {
       return NextResponse.json(
