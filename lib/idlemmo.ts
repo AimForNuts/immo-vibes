@@ -190,6 +190,7 @@ export interface ItemInspect {
   type: string;
   quality: string;
   vendor_price: number | null;
+  is_tradeable: boolean;
   /** Maximum tier this item can be upgraded to. */
   max_tier: number;
   requirements: Record<string, number> | null;
@@ -207,6 +208,18 @@ export interface ItemInspect {
    * See docs/game-mechanics/items.md
    */
   tier_modifiers: Record<string, number> | null;
+  recipe: {
+    skill: string;
+    level_required: number;
+    max_uses: number;
+    materials: Array<{ hashed_item_id: string; item_name: string; quantity: number }>;
+    result: { hashed_item_id: string; item_name: string } | null;
+  } | null;
+  where_to_find: {
+    enemies: Array<{ id: number; name: string; level: number }>;
+    dungeons: Array<{ id: number; name: string }>;
+    world_bosses: Array<{ id: number; name: string }>;
+  } | null;
 }
 
 /**

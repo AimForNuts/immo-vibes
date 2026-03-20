@@ -10,22 +10,24 @@
 
 /** Tailwind text-colour class for each IdleMMO quality tier. */
 export const QUALITY_COLORS: Record<string, string> = {
-  STANDARD:  "text-zinc-400",
-  REFINED:   "text-green-400",
-  PREMIUM:   "text-blue-400",
+  STANDARD:  "text-zinc-100",
+  REFINED:   "text-blue-400",
+  PREMIUM:   "text-green-400",
   EPIC:      "text-purple-400",
-  LEGENDARY: "text-yellow-400",
-  MYTHIC:    "text-red-400",
+  LEGENDARY: "text-orange-400",
+  MYTHIC:    "text-fuchsia-400",
+  UNIQUE:    "text-violet-400",
 };
 
 /** Tailwind left-border colour class for each IdleMMO quality tier. */
 export const QUALITY_BORDER_COLORS: Record<string, string> = {
-  STANDARD:  "border-l-zinc-500",
-  REFINED:   "border-l-green-500",
-  PREMIUM:   "border-l-blue-500",
-  EPIC:      "border-l-purple-500",
-  LEGENDARY: "border-l-yellow-500",
-  MYTHIC:    "border-l-red-500",
+  STANDARD:  "border-l-zinc-300",
+  REFINED:   "border-l-blue-400",
+  PREMIUM:   "border-l-green-400",
+  EPIC:      "border-l-purple-400",
+  LEGENDARY: "border-l-orange-400",
+  MYTHIC:    "border-l-fuchsia-400",
+  UNIQUE:    "border-l-violet-400",
 };
 
 // ─── Gear slots ───────────────────────────────────────────────────────────────
