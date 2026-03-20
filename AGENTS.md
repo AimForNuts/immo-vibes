@@ -31,6 +31,7 @@ For game mechanics (combat stat formulas, class bonuses, dungeon thresholds, ite
 | Pet combat contribution, evolution, mastery | `docs/game-mechanics/pets.md` |
 | Combat system, hunting formula, stances, scaling, XP, food | `docs/game-mechanics/combat.md` |
 | Enemy combat stats (AP/Prot/Agi/Acc — not in API) | `data/enemy-combat-stats.ts` |
+| Shared UI constants (QUALITY_COLORS, SLOT_LABELS, CHAR_STAT_MAP, STATUS_DOT_COLOR) | `lib/game-constants.ts` |
 
 # Assets
 
