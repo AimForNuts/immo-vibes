@@ -94,22 +94,51 @@ XP per kill at scaled level is proportional to level — empirical base values n
 
 ---
 
-## Enemy Data Model
+## Enemy Data — API (`/v1/combat/enemies/list`)
 
-Each enemy has:
-- `name` — display name
-- `zone` — which area they belong to
-- `baseLevel` — their default level
-- `baseXP` — XP at base level (to be confirmed empirically)
-- `baseHP` — HP at base level
-- `stats` — `{ attack_power, protection, agility, accuracy }` at base level
+Returns 47 enemies. Response shape: `{ enemies: EnemyInfo[], endpoint_updates_at: string }`.
 
-All values scale linearly with level when enemy scaling is applied:
+Each enemy object:
+```json
+{
+  "id": 1,
+  "name": "Rabbit",
+  "image_url": "https://cdn.idle-mmo.com/...",
+  "level": 1,
+  "experience": 3,
+  "health": 23,
+  "chance_of_loot": 30,
+  "location": { "id": 1, "name": "Bluebell Hollow" },
+  "loot": [{ "hashed_item_id": "...", "name": "...", "quality": "PREMIUM", "quantity": 1, "chance": 20 }]
+}
 ```
-scaled_stat = base_stat × (scaled_level / base_level)
-```
 
-> ⚠️ Scaling formula is an assumption — needs validation against in-game numbers.
+**Available from API:** `name`, `level`, `health` (HP), `experience` (XP/kill), `location` (zone), `chance_of_loot`, loot table.
+
+**NOT in API:** `attack_power`, `protection`, `agility`, `accuracy` — stored in `data/enemy-combat-stats.ts`, keyed by enemy `id`.
+
+### 10 Zones (confirmed)
+
+| Zone | Level Range | Enemy Count |
+|---|---|---|
+| Bluebell Hollow | L1–L6 | 4 |
+| Whispering Woods | L8–L16 | 5 |
+| Eldoria | L18–L28 | 6 |
+| Crystal Caverns | L32–L42 | 5 |
+| Skyreach Peak | L48–L58 | 4 |
+| Enchanted Oasis | L60–L69 | 5 |
+| Floating Gardens of Aetheria | L70–L76 | 4 |
+| Celestial Observatory | L78–L89 | 5 |
+| Isle of Whispers | L92–L99 | 4 |
+| The Citadel | L100 | 5 |
+
+### Scaling formula (assumption — validate against in-game)
+
+```
+scaled_stat = round(base_stat × (scaled_level / base_level))
+scaled_hp   = round(base_hp   × (scaled_level / base_level))
+scaled_xp   = round(base_xp   × (scaled_level / base_level))
+```
 
 ---
 

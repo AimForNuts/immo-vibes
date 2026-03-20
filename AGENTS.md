@@ -30,7 +30,7 @@ For game mechanics (combat stat formulas, class bonuses, dungeon thresholds, ite
 | Item types, quality tiers, tier formula | `docs/game-mechanics/items.md` |
 | Pet combat contribution, evolution, mastery | `docs/game-mechanics/pets.md` |
 | Combat system, hunting formula, stances, scaling, XP, food | `docs/game-mechanics/combat.md` |
-| Zone and enemy static data (base stats, XP per kill) | `data/zones.ts` |
+| Enemy combat stats (AP/Prot/Agi/Acc — not in API) | `data/enemy-combat-stats.ts` |
 
 # Assets
 

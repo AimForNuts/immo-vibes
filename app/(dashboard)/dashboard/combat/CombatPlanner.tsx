@@ -1,22 +1,18 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Sword, Shield, Wind, Crosshair, User, Zap, TrendingUp,
-  ChevronDown, ChevronRight, Flame, Coffee, AlertTriangle,
-  Activity,
+  ChevronDown, ChevronRight, Flame, Coffee, Activity, Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Zone, Enemy } from "@/data/zones";
+import type { EnemyInfo } from "@/lib/idlemmo";
+import type { EnemyCombatStats } from "@/data/enemy-combat-stats";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface CharacterStats {
   combatLevel: number;
-  /** Movement speed in m/s — from character skills.speed or manual input */
-  movementSpeed: number;
   attack_power: number;
   protection: number;
   agility: number;
@@ -25,98 +21,69 @@ interface CharacterStats {
 
 interface CombatPlannerProps {
   characters: { hashed_id: string; name: string }[];
-  zones: Zone[];
+  enemies: EnemyInfo[];
+  combatStats: Record<number, EnemyCombatStats>;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STAT_COLS = [
-  { key: "attack_power", label: "AP",   icon: Sword,      title: "Attack Power" },
-  { key: "protection",   label: "Prot", icon: Shield,     title: "Protection" },
-  { key: "agility",      label: "Agi",  icon: Wind,       title: "Agility" },
-  { key: "accuracy",     label: "Acc",  icon: Crosshair,  title: "Accuracy" },
-] as const;
+  { key: "attack_power" as const, label: "AP",   icon: Sword,     title: "Attack Power" },
+  { key: "protection"   as const, label: "Prot", icon: Shield,    title: "Protection" },
+  { key: "agility"      as const, label: "Agi",  icon: Wind,      title: "Agility" },
+  { key: "accuracy"     as const, label: "Acc",  icon: Crosshair, title: "Accuracy" },
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function scaleStat(base: number | null, baseLevel: number, scaledLevel: number): number | null {
-  if (base === null || baseLevel === 0) return null;
+function scaleStat(base: number, baseLevel: number, scaledLevel: number): number {
+  if (baseLevel === 0) return base;
   return Math.round(base * (scaledLevel / baseLevel));
 }
 
-function scaleXP(baseXP: number | null, baseLevel: number, scaledLevel: number): number | null {
-  if (baseXP === null || baseLevel === 0) return null;
-  return Math.round(baseXP * (scaledLevel / baseLevel));
-}
-
-/** Enemies found per hour from the hunting formula. See docs/game-mechanics/combat.md */
+/** Enemies found per hour — see docs/game-mechanics/combat.md */
 function enemiesPerHour(combatLevel: number, movementSpeed: number): number {
   const levelNorm = Math.min(combatLevel / 100, 1);
   const speedNorm = Math.min(movementSpeed / 50, 1);
-  const perSec = 0.03 * (1 + levelNorm + speedNorm);
-  return Math.round(perSec * 3600);
+  return Math.round(0.03 * (1 + levelNorm + speedNorm) * 3600);
 }
 
-/**
- * Threat level of an enemy vs the player.
- * Based on how much damage the enemy deals per hit vs player protection.
- * "danger" = enemy AP significantly exceeds player Prot
- * "risky"  = enemy AP is close to player Prot
- * "safe"   = player outclasses enemy
- */
-function threatLevel(enemyAP: number | null, playerProt: number): "unknown" | "danger" | "risky" | "safe" {
-  if (enemyAP === null) return "unknown";
-  const netDamage = enemyAP - playerProt;
-  if (netDamage > 40) return "danger";
-  if (netDamage > 0)  return "risky";
-  return "safe";
-}
-
-const THREAT_COLORS = {
-  unknown: "bg-muted-foreground/30",
-  danger:  "bg-red-500",
-  risky:   "bg-amber-500",
-  safe:    "bg-emerald-500",
-};
-
-const THREAT_LABELS = {
-  unknown: "?",
-  danger:  "Danger",
-  risky:   "Risky",
-  safe:    "Safe",
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function StatCell({ value, player, compare }: {
-  value: number | null;
-  player?: number;
-  /** if true, color red when value > player (enemy AP > player protection) */
-  compare?: boolean;
-}) {
-  if (value === null) return <span className="text-muted-foreground/30 tabular-nums">—</span>;
-  const color = compare && player !== undefined
-    ? value > player ? "text-red-400" : value > player * 0.7 ? "text-amber-400" : "text-emerald-400"
-    : "text-foreground/80";
-  return <span className={cn("tabular-nums text-xs font-mono", color)}>{value.toLocaleString()}</span>;
+function threatColor(enemyAP: number | null, playerProt: number): string {
+  if (enemyAP === null) return "bg-muted-foreground/25";
+  const net = enemyAP - playerProt;
+  if (net > 40)  return "bg-red-500";
+  if (net > 0)   return "bg-amber-500";
+  return "bg-emerald-500";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CombatPlanner({ characters, zones }: CombatPlannerProps) {
+export function CombatPlanner({ characters, enemies, combatStats }: CombatPlannerProps) {
   const [characterId, setCharacterId] = useState(characters[0]?.hashed_id ?? "");
   const [charStats, setCharStats] = useState<CharacterStats | null>(null);
   const [loadingChar, setLoadingChar] = useState(false);
-
-  // Manual movement speed override (since it's not always in the API)
   const [movementSpeed, setMovementSpeed] = useState(20);
 
-  // Scaling — enabled when combat L80+
+  // Scaling
   const [scalingEnabled, setScalingEnabled] = useState(false);
   const [scaledLevel, setScaledLevel] = useState(80);
 
-  // Zone expand state
-  const [expandedZones, setExpandedZones] = useState<Set<string>>(new Set(zones.map((z) => z.id)));
+  // Zone expand state — all expanded by default
+  const zones = useMemo(() => {
+    const map = new Map<string, EnemyInfo[]>();
+    for (const e of enemies) {
+      const loc = e.location.name;
+      if (!map.has(loc)) map.set(loc, []);
+      map.get(loc)!.push(e);
+    }
+    // Sort each zone's enemies by level
+    for (const arr of map.values()) arr.sort((a, b) => a.level - b.level);
+    return map;
+  }, [enemies]);
+
+  const [expandedZones, setExpandedZones] = useState<Set<string>>(
+    () => new Set(zones.keys())
+  );
 
   // Fetch character stats when selection changes
   useEffect(() => {
@@ -130,21 +97,17 @@ export function CombatPlanner({ characters, zones }: CombatPlannerProps) {
         if (cancelled) return;
         const stats = data.stats as Record<string, { level: number }> | undefined;
         if (!stats) return;
-
         const combatLevel = stats.combat?.level ?? 0;
         setCharStats({
           combatLevel,
-          movementSpeed,
-          attack_power: Math.floor((stats.strength?.level ?? 0) * 2.4),
-          protection:   Math.floor((stats.defence?.level  ?? 0) * 2.4),
-          agility:      Math.floor((stats.speed?.level    ?? 0) * 2.4),
+          attack_power: Math.floor((stats.strength?.level  ?? 0) * 2.4),
+          protection:   Math.floor((stats.defence?.level   ?? 0) * 2.4),
+          agility:      Math.floor((stats.speed?.level     ?? 0) * 2.4),
           accuracy:     Math.floor((stats.dexterity?.level ?? 0) * 2.4),
         });
-
-        // Auto-set scaled level to combat level (capped at 150)
         setScaledLevel(Math.min(Math.max(combatLevel, 1), 150));
       })
-      .catch(() => { if (!cancelled) setLoadingChar(false); })
+      .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingChar(false); });
 
     return () => { cancelled = true; };
@@ -152,49 +115,19 @@ export function CombatPlanner({ characters, zones }: CombatPlannerProps) {
   }, [characterId]);
 
   const canScale = (charStats?.combatLevel ?? 0) >= 80;
+  const scaling = scalingEnabled && canScale;
 
-  const effectiveScaling = scalingEnabled && canScale;
-
-  function toggleZone(zoneId: string) {
+  function toggleZone(name: string) {
     setExpandedZones((prev) => {
       const next = new Set(prev);
-      next.has(zoneId) ? next.delete(zoneId) : next.add(zoneId);
+      next.has(name) ? next.delete(name) : next.add(name);
       return next;
     });
   }
 
-  // XP/hour and food estimates for a zone (uses first enemy's stats as representative)
-  function zoneEstimates(zone: Zone) {
-    const eph = charStats ? enemiesPerHour(charStats.combatLevel, movementSpeed) : null;
+  const eph = charStats ? enemiesPerHour(charStats.combatLevel, movementSpeed) : null;
 
-    // Average XP per kill across enemies in zone
-    const xpValues = zone.enemies
-      .map((e) => {
-        const lvl = effectiveScaling ? scaledLevel : e.baseLevel;
-        return scaleXP(e.baseXP, e.baseLevel, lvl);
-      })
-      .filter((v): v is number => v !== null);
-    const avgXP = xpValues.length > 0 ? Math.round(xpValues.reduce((a, b) => a + b, 0) / xpValues.length) : null;
-
-    const xpPerHour = eph !== null && avgXP !== null ? Math.round(eph * avgXP) : null;
-
-    // Damage estimate: avg (enemy_AP - player_Prot, min 1) per enemy per hit
-    // Rough hits per enemy = 1 (simplified — actual depends on HP and hit chance)
-    const playerProt = charStats?.protection ?? 0;
-    const dmgValues = zone.enemies
-      .map((e) => {
-        const lvl = effectiveScaling ? scaledLevel : e.baseLevel;
-        const ap = scaleStat(e.stats.attack_power, e.baseLevel, lvl);
-        return ap !== null ? Math.max(1, ap - playerProt) : null;
-      })
-      .filter((v): v is number => v !== null);
-    const avgDmg = dmgValues.length > 0 ? Math.round(dmgValues.reduce((a, b) => a + b, 0) / dmgValues.length) : null;
-    const dmgPerHour = eph !== null && avgDmg !== null ? Math.round(eph * avgDmg) : null;
-
-    return { eph, avgXP, xpPerHour, avgDmg, dmgPerHour };
-  }
-
-  const hasAnyData = zones.some((z) => z.enemies.some((e) => e.baseXP !== null || e.baseHP !== null || e.stats.attack_power !== null));
+  const hasCombatStats = Object.keys(combatStats).length > 0;
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -204,14 +137,13 @@ export function CombatPlanner({ characters, zones }: CombatPlannerProps) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Combat Planner</h1>
           <p className="text-xs text-muted-foreground font-mono mt-0.5">
-            Enemy zones · Scaling XP · Food consumption estimate
+            {enemies.length} enemies across {zones.size} zones · Scaling XP · Food consumption estimate
           </p>
         </div>
       </div>
 
       {/* Controls */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Character */}
         <div className="space-y-1.5">
           <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <User className="size-3" /> Character
@@ -228,7 +160,6 @@ export function CombatPlanner({ characters, zones }: CombatPlannerProps) {
           </select>
         </div>
 
-        {/* Movement speed */}
         <div className="space-y-1.5">
           <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <Activity className="size-3" /> Movement Speed (m/s)
@@ -242,11 +173,12 @@ export function CombatPlanner({ characters, zones }: CombatPlannerProps) {
               onChange={(e) => setMovementSpeed(Math.min(50, Math.max(1, parseInt(e.target.value, 10) || 1)))}
               className="w-20 text-sm bg-background border border-border rounded-md px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
             />
-            <span className="text-xs text-muted-foreground/60 font-mono">m/s (affects hunt rate)</span>
+            <span className="text-xs text-muted-foreground/60 font-mono">
+              {eph !== null ? `~${eph.toLocaleString()} enemies/hr` : "m/s"}
+            </span>
           </div>
         </div>
 
-        {/* Scaling */}
         <div className="space-y-1.5">
           <label className="text-xs font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <TrendingUp className="size-3" /> Enemy Scaling
@@ -264,7 +196,7 @@ export function CombatPlanner({ characters, zones }: CombatPlannerProps) {
                 className="accent-primary"
               />
               <span className="text-sm text-muted-foreground">
-                {scalingEnabled ? `Scale to L${scaledLevel}` : "Off"}
+                {scalingEnabled ? `L${scaledLevel}` : "Off"}
               </span>
             </label>
             {scalingEnabled && canScale && (
@@ -281,81 +213,79 @@ export function CombatPlanner({ characters, zones }: CombatPlannerProps) {
         </div>
       </div>
 
-      {/* Character combat stats summary */}
+      {/* Character stats strip */}
       {charStats && !loadingChar && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {STAT_COLS.map(({ key, label, icon: Icon, title }) => (
-            <div key={key} className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/30 border border-border/40">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          {[
+            { label: "Combat Lvl", value: charStats.combatLevel, icon: Sword },
+            ...STAT_COLS.map(({ key, title, icon }) => ({ label: title, value: charStats[key], icon })),
+          ].map(({ label, value, icon: Icon }) => (
+            <div key={label} className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/30 border border-border/40">
               <Icon className="size-3 text-muted-foreground/60 shrink-0" />
               <div>
-                <p className="text-[10px] font-mono uppercase text-muted-foreground/60">{title}</p>
-                <p className="text-sm font-bold tabular-nums">{charStats[key as keyof CharacterStats] as number}</p>
+                <p className="text-[10px] font-mono uppercase text-muted-foreground/60">{label}</p>
+                <p className="text-sm font-bold tabular-nums">{value}</p>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Empty state — no data yet */}
-      {!hasAnyData && (
-        <div className="rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 px-4 py-3">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="size-3.5 text-amber-500/70 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-xs font-mono text-amber-500/80 uppercase tracking-wide">Enemy data pending</p>
-              <p className="text-xs text-muted-foreground/60">
-                Zone and enemy stats are populated from in-game observation. Add data to{" "}
-                <code className="text-xs bg-muted px-1 rounded">data/zones.ts</code> to enable XP and food estimates.
-              </p>
-            </div>
-          </div>
+      {/* Combat stats pending notice */}
+      {!hasCombatStats && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+          <Info className="size-3.5 text-amber-500/70 shrink-0 mt-0.5" />
+          <p className="text-xs text-muted-foreground/70">
+            Enemy combat stats (AP/Prot/Agi/Acc) are not in the API. Provide in-game observations and they&apos;ll be added to{" "}
+            <code className="text-xs bg-muted px-1 rounded">data/enemy-combat-stats.ts</code>.
+            HP, XP, and zone data load live from the API.
+          </p>
         </div>
       )}
 
       {/* Zone sections */}
-      {zones.map((zone) => {
-        const expanded = expandedZones.has(zone.id);
-        const estimates = zoneEstimates(zone);
-        const scaledLvl = effectiveScaling ? scaledLevel : null;
+      {[...zones.entries()].map(([zoneName, zoneEnemies]) => {
+        const expanded = expandedZones.has(zoneName);
+        const minLevel = zoneEnemies[0]?.level ?? 0;
+        const maxLevel = zoneEnemies[zoneEnemies.length - 1]?.level ?? 0;
 
-        // MF bonus for scaling (0-40% based on gap from base enemy avg level)
-        const avgBaseLevel = zone.enemies.reduce((a, e) => a + e.baseLevel, 0) / zone.enemies.length;
-        const mfGap = scaledLvl !== null ? Math.max(0, scaledLvl - avgBaseLevel) : 0;
+        // Zone XP and damage estimates
+        const avgXP = scaling
+          ? zoneEnemies.reduce((s, e) => s + scaleStat(e.experience, e.level, scaledLevel), 0) / zoneEnemies.length
+          : zoneEnemies.reduce((s, e) => s + e.experience, 0) / zoneEnemies.length;
+
+        const xpPerHour = eph !== null ? Math.round(eph * avgXP) : null;
+
+        // MF bonus for this zone when scaling
+        const avgBaseLevel = zoneEnemies.reduce((s, e) => s + e.level, 0) / zoneEnemies.length;
+        const mfGap = scaling ? Math.max(0, scaledLevel - avgBaseLevel) : 0;
         const mfBonus = Math.min(40, Math.round((mfGap / 50) * 40));
 
         return (
-          <div key={zone.id} className="rounded-lg border border-border overflow-hidden">
+          <div key={zoneName} className="rounded-lg border border-border overflow-hidden">
             {/* Zone header */}
             <button
-              onClick={() => toggleZone(zone.id)}
+              onClick={() => toggleZone(zoneName)}
               className="w-full flex items-center gap-3 px-4 py-3 bg-muted/40 border-b border-border hover:bg-muted/60 transition-colors text-left"
             >
               {expanded
-                ? <ChevronDown className="size-3.5 text-muted-foreground/60 shrink-0" />
+                ? <ChevronDown  className="size-3.5 text-muted-foreground/60 shrink-0" />
                 : <ChevronRight className="size-3.5 text-muted-foreground/60 shrink-0" />
               }
               <div className="flex-1 flex items-center gap-3 min-w-0">
-                <span className="text-xs font-mono uppercase tracking-widest font-semibold">{zone.name}</span>
+                <span className="text-xs font-mono uppercase tracking-widest font-semibold">{zoneName}</span>
                 <span className="text-[10px] font-mono text-muted-foreground/50">
-                  Min L{zone.minLevel} · {zone.enemies.length} {zone.enemies.length === 1 ? "enemy" : "enemies"}
+                  L{minLevel}{minLevel !== maxLevel ? `–${maxLevel}` : ""} · {zoneEnemies.length} {zoneEnemies.length === 1 ? "enemy" : "enemies"}
                 </span>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
-                {/* XP/hr estimate */}
-                {estimates.xpPerHour !== null && (
+              <div className="flex items-center gap-4 shrink-0">
+                {xpPerHour !== null && (
                   <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground/60">
                     <TrendingUp className="size-2.5" />
-                    {(estimates.xpPerHour).toLocaleString()} XP/hr
-                    {effectiveScaling && mfBonus > 0 && (
+                    {xpPerHour.toLocaleString()} XP/hr
+                    {scaling && mfBonus > 0 && (
                       <span className="text-emerald-400 ml-1">+{mfBonus}% MF</span>
                     )}
-                  </div>
-                )}
-                {/* Damage/hr estimate */}
-                {estimates.dmgPerHour !== null && (
-                  <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground/60">
-                    <Flame className="size-2.5 text-red-400/60" />
-                    ~{(estimates.dmgPerHour).toLocaleString()} dmg/hr
                   </div>
                 )}
               </div>
@@ -363,119 +293,126 @@ export function CombatPlanner({ characters, zones }: CombatPlannerProps) {
 
             {expanded && (
               <>
-                {/* Enemy table */}
-                <div className="overflow-x-auto">
-                  {/* Table header */}
-                  <div className="grid grid-cols-[1fr_3rem_4rem_4rem_4rem_4rem_4rem_4rem] items-center gap-2 px-4 py-1.5 bg-muted/20 border-b border-border/50">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">Enemy</span>
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 text-center">Lvl</span>
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 text-center">HP</span>
-                    {STAT_COLS.map(({ label }) => (
-                      <span key={label} className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 text-center">{label}</span>
-                    ))}
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50 text-center">XP</span>
-                  </div>
-
-                  {/* Enemy rows */}
-                  {zone.enemies.map((enemy, i) => {
-                    const displayLevel = effectiveScaling ? scaledLevel : enemy.baseLevel;
-                    const scaledHP = effectiveScaling ? scaleStat(enemy.baseHP, enemy.baseLevel, scaledLevel) : enemy.baseHP;
-                    const scaledXP = effectiveScaling ? scaleXP(enemy.baseXP, enemy.baseLevel, scaledLevel) : enemy.baseXP;
-                    const scaledAP  = effectiveScaling ? scaleStat(enemy.stats.attack_power, enemy.baseLevel, scaledLevel) : enemy.stats.attack_power;
-                    const scaledProt = effectiveScaling ? scaleStat(enemy.stats.protection, enemy.baseLevel, scaledLevel) : enemy.stats.protection;
-                    const scaledAgi  = effectiveScaling ? scaleStat(enemy.stats.agility, enemy.baseLevel, scaledLevel) : enemy.stats.agility;
-                    const scaledAcc  = effectiveScaling ? scaleStat(enemy.stats.accuracy, enemy.baseLevel, scaledLevel) : enemy.stats.accuracy;
-
-                    const threat = threatLevel(scaledAP, charStats?.protection ?? 0);
-
-                    return (
-                      <div
-                        key={enemy.id}
-                        className={cn(
-                          "grid grid-cols-[1fr_3rem_4rem_4rem_4rem_4rem_4rem_4rem] items-center gap-2 px-4 py-2.5 border-b border-border/30 last:border-b-0 transition-colors hover:bg-muted/10",
-                          i % 2 === 0 ? "bg-background" : "bg-muted/5"
-                        )}
-                      >
-                        {/* Name + threat dot */}
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={cn("size-1.5 rounded-full shrink-0", THREAT_COLORS[threat])} title={THREAT_LABELS[threat]} />
-                          <span className="text-sm font-medium truncate">{enemy.name}</span>
-                        </div>
-
-                        {/* Level */}
-                        <div className="text-center">
-                          <span className={cn(
-                            "text-xs font-mono tabular-nums",
-                            effectiveScaling && scaledLevel !== enemy.baseLevel ? "text-primary" : "text-muted-foreground"
-                          )}>
-                            {displayLevel}
-                          </span>
-                        </div>
-
-                        {/* HP */}
-                        <div className="text-center">
-                          <StatCell value={scaledHP} />
-                        </div>
-
-                        {/* AP — color vs player Protection */}
-                        <div className="text-center">
-                          <StatCell value={scaledAP} player={charStats?.protection} compare />
-                        </div>
-
-                        {/* Protection — color vs player AP */}
-                        <div className="text-center">
-                          <StatCell value={scaledProt} player={charStats?.attack_power} />
-                        </div>
-
-                        {/* Agility */}
-                        <div className="text-center">
-                          <StatCell value={scaledAgi} />
-                        </div>
-
-                        {/* Accuracy */}
-                        <div className="text-center">
-                          <StatCell value={scaledAcc} />
-                        </div>
-
-                        {/* XP */}
-                        <div className="text-center">
-                          <StatCell value={scaledXP} />
-                        </div>
-                      </div>
-                    );
-                  })}
+                {/* Column headers */}
+                <div className="grid grid-cols-[1.5rem_1fr_3.5rem_4rem_4.5rem_4rem_4rem_4rem_4rem_4rem] items-center gap-2 px-4 py-1.5 bg-muted/20 border-b border-border/50 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                  <span />
+                  <span>Enemy</span>
+                  <span className="text-center">Lvl</span>
+                  <span className="text-center">HP</span>
+                  <span className="text-center">XP/kill</span>
+                  <span className="text-center">AP</span>
+                  <span className="text-center">Prot</span>
+                  <span className="text-center">Agi</span>
+                  <span className="text-center">Acc</span>
+                  <span className="text-center">Loot%</span>
                 </div>
 
-                {/* Zone estimates footer */}
-                {(estimates.xpPerHour !== null || estimates.dmgPerHour !== null) && (
+                {/* Enemy rows */}
+                {zoneEnemies.map((enemy, i) => {
+                  const cs = combatStats[enemy.id] ?? null;
+                  const displayLevel = scaling ? scaledLevel : enemy.level;
+                  const displayHP  = scaling ? scaleStat(enemy.health, enemy.level, scaledLevel) : enemy.health;
+                  const displayXP  = scaling ? scaleStat(enemy.experience, enemy.level, scaledLevel) : enemy.experience;
+                  const displayAP  = cs ? (scaling ? scaleStat(cs.attack_power, enemy.level, scaledLevel) : cs.attack_power) : null;
+                  const displayProt = cs ? (scaling ? scaleStat(cs.protection,   enemy.level, scaledLevel) : cs.protection)   : null;
+                  const displayAgi  = cs ? (scaling ? scaleStat(cs.agility,      enemy.level, scaledLevel) : cs.agility)      : null;
+                  const displayAcc  = cs ? (scaling ? scaleStat(cs.accuracy,     enemy.level, scaledLevel) : cs.accuracy)     : null;
+
+                  const threat = threatColor(displayAP, charStats?.protection ?? 0);
+
+                  return (
+                    <div
+                      key={enemy.id}
+                      className={cn(
+                        "grid grid-cols-[1.5rem_1fr_3.5rem_4rem_4.5rem_4rem_4rem_4rem_4rem_4rem] items-center gap-2 px-4 py-2.5 border-b border-border/30 last:border-b-0 hover:bg-muted/10 transition-colors",
+                        i % 2 === 0 ? "bg-background" : "bg-muted/5"
+                      )}
+                    >
+                      {/* Threat dot */}
+                      <span className={cn("size-1.5 rounded-full shrink-0 justify-self-center", threat)} />
+
+                      {/* Name */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {enemy.image_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={enemy.image_url} alt="" className="size-5 object-contain shrink-0 opacity-80" />
+                        )}
+                        <span className="text-sm font-medium truncate">{enemy.name}</span>
+                      </div>
+
+                      {/* Level */}
+                      <span className={cn(
+                        "text-xs font-mono tabular-nums text-center",
+                        scaling && scaledLevel !== enemy.level ? "text-primary font-semibold" : "text-muted-foreground"
+                      )}>
+                        {displayLevel}
+                      </span>
+
+                      {/* HP */}
+                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/80">
+                        {displayHP.toLocaleString()}
+                      </span>
+
+                      {/* XP/kill */}
+                      <span className="text-xs font-mono tabular-nums text-center text-foreground/70">
+                        {displayXP}
+                      </span>
+
+                      {/* AP — red when above player Protection */}
+                      <span className={cn(
+                        "text-xs font-mono tabular-nums text-center",
+                        displayAP === null ? "text-muted-foreground/25" :
+                        charStats && displayAP > charStats.protection ? "text-red-400" :
+                        charStats && displayAP > charStats.protection * 0.7 ? "text-amber-400" :
+                        "text-muted-foreground/70"
+                      )}>
+                        {displayAP ?? "—"}
+                      </span>
+
+                      {/* Prot */}
+                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
+                        {displayProt ?? "—"}
+                      </span>
+
+                      {/* Agi */}
+                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
+                        {displayAgi ?? "—"}
+                      </span>
+
+                      {/* Acc */}
+                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
+                        {displayAcc ?? "—"}
+                      </span>
+
+                      {/* Loot chance */}
+                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/50">
+                        {enemy.chance_of_loot}%
+                      </span>
+                    </div>
+                  );
+                })}
+
+                {/* Zone footer */}
+                {(xpPerHour !== null || eph !== null) && (
                   <div className="px-4 py-2.5 bg-muted/10 border-t border-border/40 flex items-center gap-6 flex-wrap">
-                    {estimates.eph !== null && (
-                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground/60">
+                    {eph !== null && (
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground/50">
                         <Zap className="size-2.5" />
-                        ~{estimates.eph.toLocaleString()} enemies/hr at L{charStats?.combatLevel} · {movementSpeed}m/s
+                        ~{eph.toLocaleString()} enemies/hr
                       </div>
                     )}
-                    {estimates.xpPerHour !== null && (
+                    {xpPerHour !== null && (
                       <div className="flex items-center gap-1.5 text-[11px] font-mono">
                         <TrendingUp className="size-2.5 text-primary/60" />
-                        <span className="text-primary/80 font-medium">{estimates.xpPerHour.toLocaleString()}</span>
-                        <span className="text-muted-foreground/60">XP/hr</span>
-                        {estimates.avgXP !== null && (
-                          <span className="text-muted-foreground/40">({estimates.avgXP} avg/kill)</span>
-                        )}
+                        <span className="text-primary/80 font-medium">{xpPerHour.toLocaleString()}</span>
+                        <span className="text-muted-foreground/50">XP/hr</span>
+                        <span className="text-muted-foreground/35">({Math.round(avgXP)} avg/kill)</span>
                       </div>
                     )}
-                    {estimates.dmgPerHour !== null && (
-                      <div className="flex items-center gap-1.5 text-[11px] font-mono">
-                        <Coffee className="size-2.5 text-amber-500/60" />
-                        <span className="text-amber-500/80 font-medium">~{estimates.dmgPerHour.toLocaleString()}</span>
-                        <span className="text-muted-foreground/60">dmg/hr (rough — 1 hit/enemy assumed)</span>
-                      </div>
-                    )}
-                    {effectiveScaling && mfBonus > 0 && (
+                    {scaling && mfBonus > 0 && (
                       <div className="flex items-center gap-1.5 text-[11px] font-mono">
                         <span className="text-emerald-400 font-medium">+{mfBonus}% MF</span>
-                        <span className="text-muted-foreground/40">(scaling L{Math.round(avgBaseLevel)}→{scaledLevel})</span>
+                        <span className="text-muted-foreground/35">(L{Math.round(avgBaseLevel)}→{scaledLevel})</span>
                       </div>
                     )}
                   </div>
@@ -487,16 +424,12 @@ export function CombatPlanner({ characters, zones }: CombatPlannerProps) {
       })}
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-muted-foreground font-mono">
-        <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-red-500 inline-block" /> Danger — enemy AP significantly exceeds your Protection</span>
-        <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-amber-500 inline-block" /> Risky — enemy AP slightly exceeds your Protection</span>
-        <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-emerald-500 inline-block" /> Safe — your Protection absorbs most damage</span>
-        <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-muted-foreground/30 inline-block" /> Unknown — no enemy data yet</span>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] text-muted-foreground font-mono">
+        <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-red-500 inline-block" /> Enemy AP well above your Protection</span>
+        <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-amber-500 inline-block" /> Enemy AP slightly above your Protection</span>
+        <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-emerald-500 inline-block" /> Your Protection absorbs most damage</span>
+        <span className="flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-muted-foreground/25 inline-block" /> Combat stats not yet recorded</span>
       </div>
-      <p className="text-[10px] text-muted-foreground/40 font-mono">
-        AP column coloured vs your Protection. XP and damage estimates require enemy data in data/zones.ts.
-        Scaling formula: stat × (scaled_level / base_level) — validate against in-game values.
-      </p>
     </div>
   );
 }
