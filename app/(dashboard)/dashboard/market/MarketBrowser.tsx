@@ -669,16 +669,22 @@ export function MarketBrowser() {
 
     (async () => {
       for (let i = 0; i < tab.types.length; i++) {
-        try {
-          const res  = await idleMmoQueue.fetch(`/api/market?type=${encodeURIComponent(tab.types[i])}&page=1`, tabTag);
-          const data = await res.json();
-          if (Array.isArray(data.items) && data.items.length > 0) {
-            accumulated.push(...data.items);
-            setItems((prev) => [...prev, ...data.items]);
+        let page = 1;
+        while (true) {
+          try {
+            const res  = await idleMmoQueue.fetch(`/api/market?type=${encodeURIComponent(tab.types[i])}&page=${page}`, tabTag);
+            const data = await res.json();
+            if (Array.isArray(data.items) && data.items.length > 0) {
+              accumulated.push(...data.items);
+              setItems((prev) => [...prev, ...data.items]);
+            }
+            // Stop if last page or no pagination info
+            if (!data.pagination || data.pagination.current_page >= data.pagination.last_page) break;
+            page++;
+          } catch (e) {
+            if (isAbortError(e)) return; // tab switched
+            break; // stop paginating this type on error
           }
-        } catch (e) {
-          if (isAbortError(e)) return; // tab switched
-          // individual type failures silently skipped
         }
         setLoadProgress({ current: i + 1, total: tab.types.length });
       }
