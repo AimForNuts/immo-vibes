@@ -234,12 +234,41 @@ export async function searchItemsByType(
   const all: ItemSearchResult[] = [];
   let page = 1;
   const normalizedType = type.toUpperCase();
+  const headers = { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" };
+
+  let rlRemaining: number | null = null;
+  let rlResetAt = 0;
 
   while (true) {
-    const data = await apiFetch<{
+    const url = `${BASE}/v1/item/search?type=${encodeURIComponent(normalizedType)}&page=${page}`;
+
+    // Wait if the API told us we're out of requests
+    if (rlRemaining !== null && rlRemaining <= 0) {
+      const waitMs = Math.max(1000, rlResetAt * 1000 - Date.now() + 500);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+
+    const res = await fetch(url, { headers, cache: "no-store" });
+
+    // Always read what the API reports
+    const rem = res.headers.get("x-ratelimit-remaining");
+    const rst = res.headers.get("x-ratelimit-reset");
+    if (rem !== null) rlRemaining = parseInt(rem, 10);
+    if (rst !== null) rlResetAt   = parseInt(rst, 10);
+
+    if (res.status === 429) {
+      rlRemaining = 0;
+      const waitMs = Math.max(1000, rlResetAt * 1000 - Date.now() + 500);
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue; // retry same page
+    }
+
+    if (!res.ok) throw new Error(`IdleMMO API /v1/item/search?type=${normalizedType} returned ${res.status}`);
+
+    const data = await res.json() as {
       items: ItemSearchResult[];
       pagination: { current_page: number; last_page: number };
-    }>(`/v1/item/search?type=${encodeURIComponent(normalizedType)}&page=${page}`, token);
+    };
 
     all.push(...data.items);
     if (data.pagination.current_page >= data.pagination.last_page) break;
