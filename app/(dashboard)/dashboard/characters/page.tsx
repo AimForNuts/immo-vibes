@@ -6,18 +6,7 @@ import { getCharacterInfo, getAltCharacters, type CharacterDetail, type AltChara
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User } from "lucide-react";
-
-const statusColor: Record<string, string> = {
-  ONLINE: "bg-green-500",
-  IDLING: "bg-yellow-500",
-  OFFLINE: "bg-zinc-500",
-};
-
-const statusLabel: Record<string, string> = {
-  ONLINE: "Online",
-  IDLING: "Idling",
-  OFFLINE: "Offline",
-};
+import { STATUS_DOT_COLOR, STATUS_LABEL_KEY } from "@/lib/game-constants";
 
 export default async function CharactersPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -101,8 +90,8 @@ export default async function CharactersPage() {
                     <span className="text-sm font-medium">Lv {char.total_level}</span>
                     {char.isPrimary && char.current_status && (
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span className={`size-2 rounded-full ${statusColor[char.current_status]}`} />
-                        {statusLabel[char.current_status]}
+                        <span className={`size-2 rounded-full ${STATUS_DOT_COLOR[char.current_status] ?? "bg-zinc-500"}`} />
+                        {STATUS_LABEL_KEY[char.current_status] ?? char.current_status}
                       </span>
                     )}
                   </div>

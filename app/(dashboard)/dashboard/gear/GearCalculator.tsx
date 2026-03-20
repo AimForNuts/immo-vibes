@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { savePreset, updatePreset, deletePreset, type SlotMap, type SavedPreset } from "./actions";
+import { CHAR_STAT_MAP, QUALITY_COLORS, SLOT_LABELS } from "@/lib/game-constants";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,26 +74,9 @@ const EMPTY_SET = (style: WeaponStyle = "SWORD_SHIELD"): GearSet => ({
   slots: {},
 });
 
-const SLOT_LABELS: Record<SlotKey, string> = {
-  main_hand: "Main Hand",
-  off_hand: "Off Hand",
-  helmet: "Helmet",
-  chestplate: "Chestplate",
-  greaves: "Greaves",
-  gauntlets: "Gauntlets",
-  boots: "Boots",
-};
+// SLOT_LABELS, QUALITY_COLORS, CHAR_STAT_MAP imported from lib/game-constants.ts
 
 const QUALITIES = ["STANDARD", "REFINED", "PREMIUM", "EPIC", "LEGENDARY", "MYTHIC"] as const;
-
-const QUALITY_COLORS: Record<string, string> = {
-  STANDARD:  "text-zinc-400",
-  REFINED:   "text-green-400",
-  PREMIUM:   "text-blue-400",
-  EPIC:      "text-purple-400",
-  LEGENDARY: "text-yellow-400",
-  MYTHIC:    "text-red-400",
-};
 
 function getSlots(style: WeaponStyle): SlotKey[] {
   const armor: SlotKey[] = ["helmet", "chestplate", "greaves", "gauntlets", "boots"];
@@ -111,14 +95,6 @@ function getSlotType(style: WeaponStyle, slot: SlotKey): string {
   return "SWORD";
 }
 
-// char.stats keys → combat stat keys.
-// Multiplier empirically derived: strength=100 → attack_power=329 (no weapon equipped).
-const CHAR_STAT_MAP: Record<string, { key: string; label: string; multiplier: number }> = {
-  strength:  { key: "attack_power", label: "Attack Power", multiplier: 2.4 },
-  defence:   { key: "protection",   label: "Protection",   multiplier: 2.4 },
-  speed:     { key: "agility",      label: "Agility",      multiplier: 2.4 },
-  dexterity: { key: "accuracy",     label: "Accuracy",     multiplier: 2.4 },
-};
 
 const STAT_LABELS: Record<string, string> = {
   attack_power: "Attack Power",

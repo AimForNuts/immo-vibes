@@ -6,18 +6,7 @@ import { getCharacterInfo } from "@/lib/idlemmo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, Swords, Users } from "lucide-react";
-
-const statusColor: Record<string, string> = {
-  ONLINE: "bg-green-500",
-  IDLING: "bg-yellow-500",
-  OFFLINE: "bg-zinc-500",
-};
-
-const statusLabel: Record<string, string> = {
-  ONLINE: "Online",
-  IDLING: "Idling",
-  OFFLINE: "Offline",
-};
+import { STATUS_DOT_COLOR, STATUS_LABEL_KEY } from "@/lib/game-constants";
 
 const guildPositionLabel: Record<string, string> = {
   LEADER: "Leader",
@@ -94,8 +83,8 @@ export default async function CharacterDetailPage({
             <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
               <span>Total level {char.total_level}</span>
               <span className="flex items-center gap-1.5">
-                <span className={`size-2 rounded-full ${statusColor[char.current_status]}`} />
-                {statusLabel[char.current_status]}
+                <span className={`size-2 rounded-full ${STATUS_DOT_COLOR[char.current_status] ?? "bg-zinc-500"}`} />
+                {STATUS_LABEL_KEY[char.current_status] ?? char.current_status}
               </span>
               {char.location && <span>{char.location.name}</span>}
             </div>
