@@ -37,7 +37,7 @@ export async function GET(
           Authorization: `Bearer ${token}`,
           "User-Agent": "ImmoWebSuite/1.0",
         },
-        next: { revalidate: 30 },
+        cache: "no-store",
       }
     );
 
