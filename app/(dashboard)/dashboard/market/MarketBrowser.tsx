@@ -623,6 +623,7 @@ export function MarketBrowser() {
   const [activeTab, setActiveTab]     = useState("all");
   const [items, setItems]             = useState<DbItem[]>([]);
   const [loading, setLoading]         = useState(false);
+  const [loadProgress, setLoadProgress] = useState<{ current: number; total: number } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError]             = useState<string | null>(null);
 
@@ -640,20 +641,91 @@ export function MarketBrowser() {
   const [itemDetail, setItemDetail]         = useState<ItemInspect | null | "loading">(null);
   const [materialPrices, setMaterialPrices] = useState<Record<string, MarketPrice | null | undefined>>({});
 
+  const tabAbortRef    = useRef<AbortController | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchAbortRef = useRef<AbortController | null>(null);
 
-  // Subscribe to queue status for the inspect indicator
+  // Per-tab item cache so switching back is instant
+  const tabCacheRef   = useRef<Map<string, DbItem[]>>(new Map());
+  const tabLoadedRef  = useRef<Set<string>>(new Set());
+
+  // Subscribe to queue status for the inspect indicator + cleanup on unmount
   useEffect(() => {
     idleMmoQueue.onStatusChange = setQueueStatus;
     return () => {
       idleMmoQueue.onStatusChange = null;
       clearTimeout(searchTimerRef.current);
+      tabAbortRef.current?.abort();
       searchAbortRef.current?.abort();
     };
   }, []);
 
-  // ── Search (DB — no rate limit) ──────────────────────────────────────────
+  // ── Tab loading (DB — instant, paginate all pages) ───────────────────────
+
+  useEffect(() => {
+    if (activeTab === "all") {
+      setItems([]);
+      setLoading(false);
+      setLoadProgress(null);
+      setError(null);
+      return;
+    }
+
+    // Restore from cache if already fully loaded
+    if (tabLoadedRef.current.has(activeTab)) {
+      setItems(tabCacheRef.current.get(activeTab) ?? []);
+      setLoading(false);
+      setLoadProgress(null);
+      return;
+    }
+
+    const capturedTab = activeTab;
+    const controller  = new AbortController();
+    tabAbortRef.current = controller;
+
+    setItems([]);
+    setLoading(true);
+    setLoadProgress({ current: 0, total: 1 });
+    setError(null);
+
+    (async () => {
+      const accumulated: DbItem[] = [];
+      let page = 1;
+
+      while (true) {
+        try {
+          const res  = await fetch(
+            `/api/market?tab=${encodeURIComponent(capturedTab)}&page=${page}`,
+            { signal: controller.signal }
+          );
+          const data = await res.json();
+          if (!res.ok) { setError(data.error ?? "Failed to load"); break; }
+
+          const batch: DbItem[] = data.items ?? [];
+          accumulated.push(...batch);
+          setItems([...accumulated]);
+
+          const pagination = data.pagination;
+          setLoadProgress({ current: pagination.current_page, total: pagination.last_page });
+
+          if (!pagination || pagination.current_page >= pagination.last_page) break;
+          page++;
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") return;
+          break;
+        }
+      }
+
+      tabCacheRef.current.set(capturedTab, accumulated);
+      tabLoadedRef.current.add(capturedTab);
+      setLoading(false);
+      setLoadProgress(null);
+    })();
+
+    return () => controller.abort();
+  }, [activeTab]);
+
+  // ── "All" tab search (DB — no rate limit) ────────────────────────────────
 
   function handleSearchInput(value: string) {
     setSearchQuery(value);
@@ -672,15 +744,13 @@ export function MarketBrowser() {
       const controller = new AbortController();
       searchAbortRef.current = controller;
       try {
-        const url = `/api/market?query=${encodeURIComponent(value)}&tab=${encodeURIComponent(activeTab)}&page=1`;
-        const res  = await fetch(url, { signal: controller.signal });
+        const res  = await fetch(
+          `/api/market?query=${encodeURIComponent(value)}&page=1`,
+          { signal: controller.signal }
+        );
         const data = await res.json();
-        if (!res.ok) {
-          setError(data.error ?? "Search failed");
-          setItems([]);
-        } else {
-          setItems(data.items ?? []);
-        }
+        if (!res.ok) { setError(data.error ?? "Search failed"); setItems([]); }
+        else          setItems(data.items ?? []);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
         setError("Search failed. Please try again.");
@@ -693,6 +763,7 @@ export function MarketBrowser() {
   // ── Tab switch ──────────────────────────────────────────────────────────
 
   function switchTab(tabId: string) {
+    tabAbortRef.current?.abort();
     clearTimeout(searchTimerRef.current);
     searchAbortRef.current?.abort();
     idleMmoQueue.cancelByTag("inspect");
@@ -702,6 +773,7 @@ export function MarketBrowser() {
     setSelectedItem(null);
     setMaterialPrices({});
     setLoading(false);
+    setLoadProgress(null);
     setError(null);
     setActiveTab(tabId);
   }
@@ -714,14 +786,14 @@ export function MarketBrowser() {
     setItemDetail("loading");
     setMaterialPrices({});
 
-    // Fetch inspect data (stats, recipe, effects — not in DB)
+    // Fetch inspect data (stats, recipe, effects — not stored in DB)
     idleMmoQueue.fetch(`/api/idlemmo/item/${item.hashed_id}`, "inspect")
       .then((r) => r.json())
       .then((data) => {
         const detail: ItemInspect | null = data.item ?? null;
         setItemDetail(detail);
 
-        // Fetch market prices for recipe materials via price route
+        // Fetch market prices for recipe materials
         if (detail?.recipe?.materials?.length) {
           const mats = detail.recipe.materials;
           setMaterialPrices(Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])));
@@ -748,9 +820,14 @@ export function MarketBrowser() {
 
   // ── Client-side filters ─────────────────────────────────────────────────
 
+  const isAllTab = activeTab === "all";
+
   const filteredItems = items.filter((item) => {
     if (filters.rarities.size > 0 && !filters.rarities.has(item.quality)) return false;
     if (filters.types.size > 0    && !filters.types.has(item.type))        return false;
+
+    // Name filter applies on category tabs (search bar = client-side filter there)
+    if (!isAllTab && searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
 
     const vp = item.vendor_price ?? 0;
     if (filters.vendorMin !== "" && vp < Number(filters.vendorMin)) return false;
@@ -784,7 +861,7 @@ export function MarketBrowser() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Market</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Search items by name</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Browse categories or search all items</p>
           </div>
 
           {/* Filters toggle */}
@@ -843,18 +920,14 @@ export function MarketBrowser() {
           />
         )}
 
-        {/* Search bar — always visible */}
+        {/* Search / name filter */}
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500 pointer-events-none" />
           <input
             type="text"
-            placeholder={
-              activeTab === "all"
-                ? "Search items by name…"
-                : `Search ${tab?.label ?? ""} items by name…`
-            }
+            placeholder={isAllTab ? "Search all items by name…" : `Filter ${tab?.label ?? ""} by name…`}
             value={searchQuery}
-            onChange={(e) => handleSearchInput(e.target.value)}
+            onChange={(e) => isAllTab ? handleSearchInput(e.target.value) : setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-10 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/20 transition-colors"
           />
           {(loading || queueStatus.throttled) && (
@@ -867,8 +940,23 @@ export function MarketBrowser() {
           )}
         </div>
 
-        {/* Loading status */}
-        <LoadingStatus loading={loading} status={queueStatus} />
+        {/* Tab load progress */}
+        {loadProgress && loadProgress.total > 1 && loading && (
+          <div className="flex items-center gap-3 max-w-md">
+            <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-amber-400 rounded-full transition-all duration-300"
+                style={{ width: `${(loadProgress.current / loadProgress.total) * 100}%` }}
+              />
+            </div>
+            <span className="text-xs text-zinc-600 shrink-0 font-mono">
+              {loadProgress.current}/{loadProgress.total}
+            </span>
+          </div>
+        )}
+
+        {/* Loading / throttle status (All-tab search only) */}
+        {isAllTab && <LoadingStatus loading={loading} status={queueStatus} />}
 
         {error && (
           <div className="flex items-center gap-2 text-sm text-red-400">
@@ -905,15 +993,15 @@ export function MarketBrowser() {
               </p>
             )}
           </>
-        ) : !loading && !searchQuery ? (
+        ) : !loading && isAllTab && !searchQuery ? (
           <div className="flex flex-col items-center gap-3 py-16 text-zinc-600">
             <Search className="size-10 opacity-30" />
-            <p className="text-sm">Type a name to search{activeTab !== "all" ? ` in ${tab?.label}` : ""}</p>
+            <p className="text-sm">Search all items by name</p>
           </div>
         ) : !loading ? (
           <div className="flex flex-col items-center gap-3 py-16 text-zinc-600">
             <Package className="size-10 opacity-30" />
-            <p className="text-sm">No items found</p>
+            <p className="text-sm">{isAllTab ? "No items found" : "No items synced yet — use Admin → Sync Items"}</p>
           </div>
         ) : null}
       </div>
