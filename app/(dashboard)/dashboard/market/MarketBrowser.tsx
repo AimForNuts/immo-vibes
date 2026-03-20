@@ -772,7 +772,7 @@ export function MarketBrowser() {
     setFilters(DEFAULT_FILTERS);
     setSelectedItem(null);
     setMaterialPrices({});
-    setLoading(false);
+    setLoading(tabId !== "all");
     setLoadProgress(null);
     setError(null);
     setActiveTab(tabId);
