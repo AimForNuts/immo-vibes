@@ -61,16 +61,21 @@ Used by:
 ## Market Browser Tab Assignments
 
 The market browser groups these types into tabs. Defined in `lib/market-config.ts`.
+Tabs marked ✦ display recipe info and recipe material market prices in the detail panel.
 
 | Tab | Types |
 |---|---|
-| **Resources** | `ORE`, `LOG`, `FISH`, `METAL_BAR`, `CRAFTING_MATERIAL`, `CONSTRUCTION_MATERIAL`, `GEMSTONE`, `BAIT` |
-| **Alchemy & Recipes** | `POTION`, `VIAL`, `RECIPE`, `BLANK_SCROLL`, `GUIDANCE_SCROLL`, `EMPTY_CRYSTAL`, `ESSENCE_CRYSTAL`, `FOOD`, `CAKE` |
-| **Gear** | `SWORD`, `DAGGER`, `BOW`, `SHIELD`, `HELMET`, `CHESTPLATE`, `GREAVES`, `GAUNTLETS`, `BOOTS` |
-| **Tools** | `FELLING_AXE`, `FISHING_ROD`, `PICKAXE` |
-| **Collectables** | `COLLECTABLE`, `RELIC`, `SKIN`, `SPECIAL`, `NAMESTONE`, `PET_EGG`, `METAMORPHITE`, `UPGRADE_STONE`, `TELEPORTATION_STONE`, `MEMBERSHIP`, `TOKEN`, `CHEST`, `CAMPAIGN_ITEM` |
+| **Resources** | `CAKE`, `CAMPAIGN_ITEM`, `CHEST`, `CONSTRUCTION_MATERIAL`, `CRAFTING_MATERIAL`, `FISH`, `FOOD`, `GUIDANCE_SCROLL`, `LOG`, `MEMBERSHIP`, `METAL_BAR`, `ORE`, `PET_EGG`, `RELIC`, `TELEPORTATION_STONE`, `TOKEN`, `UPGRADE_STONE` |
+| **Alchemy** ✦ | `POTION` |
+| **Gear** ✦ | `BOOTS`, `BOW`, `CHESTPLATE`, `DAGGER`, `GAUNTLETS`, `GREAVES`, `HELMET`, `SHIELD`, `SWORD` |
+| **Tools** ✦ | `FELLING_AXE`, `FISHING_ROD`, `PICKAXE` |
+| **Collectables** | `COLLECTABLE` |
+| **Merchants** | `BAIT`, `BLANK_SCROLL`, `EMPTY_CRYSTAL`, `ESSENCE_CRYSTAL`, `METAMORPHITE`, `NAMESTONE`, `SKIN`, `VIAL` |
+| **Event** | `SPECIAL` |
+| **Recipes** | `RECIPE` |
+| **Legacy** | `GEMSTONE` |
 
-> **Note:** Tab groupings are provisional. To reorganise, edit the `MARKET_TABS` array in `lib/market-config.ts`.
+> To reorganise tabs, edit the `MARKET_TABS` array in `lib/market-config.ts`.
 
 ---
 

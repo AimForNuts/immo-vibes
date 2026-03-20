@@ -4,8 +4,8 @@
  * Each tab maps to one or more IdleMMO item types.
  * The "all" tab uses name-based search rather than type filtering.
  *
- * To reorganise tabs: edit MARKET_TABS below.
- * Type → tab assignment is fully documented in docs/game-mechanics/item-types.md
+ * Canonical tab → type assignments are documented in docs/game-mechanics/item-types.md
+ * Tabs with `showsRecipes: true` receive recipe data in the detail panel (alchemy/gear/tools).
  */
 
 export interface MarketTab {
@@ -18,6 +18,11 @@ export interface MarketTab {
    * Empty array = "All" tab, which uses name-based search instead.
    */
   types: string[];
+  /**
+   * When true, the detail panel will prominently display the item's recipe
+   * (if it has one) and fetch market prices for each recipe material.
+   */
+  showsRecipes?: boolean;
 }
 
 export const MARKET_TABS: MarketTab[] = [
@@ -29,26 +34,53 @@ export const MARKET_TABS: MarketTab[] = [
   {
     id:    "resources",
     label: "Resources",
-    types: ["ORE", "LOG", "FISH", "METAL_BAR", "CRAFTING_MATERIAL", "CONSTRUCTION_MATERIAL", "GEMSTONE", "BAIT"],
+    types: [
+      "CAKE", "CAMPAIGN_ITEM", "CHEST", "CONSTRUCTION_MATERIAL", "CRAFTING_MATERIAL",
+      "FISH", "FOOD", "GUIDANCE_SCROLL", "LOG", "MEMBERSHIP", "METAL_BAR",
+      "ORE", "PET_EGG", "RELIC", "TELEPORTATION_STONE", "TOKEN", "UPGRADE_STONE",
+    ],
   },
   {
-    id:    "alchemy",
-    label: "Alchemy & Recipes",
-    types: ["POTION", "VIAL", "RECIPE", "BLANK_SCROLL", "GUIDANCE_SCROLL", "EMPTY_CRYSTAL", "ESSENCE_CRYSTAL", "FOOD", "CAKE"],
+    id:          "alchemy",
+    label:       "Alchemy",
+    types:       ["POTION"],
+    showsRecipes: true,
   },
   {
-    id:    "gear",
-    label: "Gear",
-    types: ["SWORD", "DAGGER", "BOW", "SHIELD", "HELMET", "CHESTPLATE", "GREAVES", "GAUNTLETS", "BOOTS"],
+    id:          "gear",
+    label:       "Gear",
+    types:       ["BOOTS", "BOW", "CHESTPLATE", "DAGGER", "GAUNTLETS", "GREAVES", "HELMET", "SHIELD", "SWORD"],
+    showsRecipes: true,
   },
   {
-    id:    "tools",
-    label: "Tools",
-    types: ["FELLING_AXE", "FISHING_ROD", "PICKAXE"],
+    id:          "tools",
+    label:       "Tools",
+    types:       ["FELLING_AXE", "FISHING_ROD", "PICKAXE"],
+    showsRecipes: true,
   },
   {
     id:    "collectables",
     label: "Collectables",
-    types: ["COLLECTABLE", "RELIC", "SKIN", "SPECIAL", "NAMESTONE", "PET_EGG", "METAMORPHITE", "UPGRADE_STONE", "TELEPORTATION_STONE", "MEMBERSHIP", "TOKEN", "CHEST", "CAMPAIGN_ITEM"],
+    types: ["COLLECTABLE"],
+  },
+  {
+    id:    "merchants",
+    label: "Merchants",
+    types: ["BAIT", "BLANK_SCROLL", "EMPTY_CRYSTAL", "ESSENCE_CRYSTAL", "METAMORPHITE", "NAMESTONE", "SKIN", "VIAL"],
+  },
+  {
+    id:    "event",
+    label: "Event",
+    types: ["SPECIAL"],
+  },
+  {
+    id:    "recipes",
+    label: "Recipes",
+    types: ["RECIPE"],
+  },
+  {
+    id:    "legacy",
+    label: "Legacy",
+    types: ["GEMSTONE"],
   },
 ];

@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -108,6 +108,28 @@ export const priceTracker = pgTable("price_tracker", {
   tier: integer("tier").notNull().default(1),
   createdAt: timestamp("created_at").notNull(),
 });
+
+/**
+ * One row per unique (item, soldAt) pair.
+ * The IdleMMO API only exposes the latest_sold entry; we persist them here
+ * so we build a longer price history than the game retains.
+ * Not per-user — market prices are global.
+ */
+export const marketPriceHistory = pgTable(
+  "market_price_history",
+  {
+    id:          text("id").primaryKey(),
+    itemHashedId: text("item_hashed_id").notNull(),
+    /** Price per single item at the time of the sale. */
+    price:       integer("price").notNull(),
+    quantity:    integer("quantity").notNull().default(1),
+    /** When the sale happened (from IdleMMO API). */
+    soldAt:      timestamp("sold_at").notNull(),
+    /** When we recorded this entry. */
+    recordedAt:  timestamp("recorded_at").notNull(),
+  },
+  (t) => [uniqueIndex("market_price_history_uniq").on(t.itemHashedId, t.soldAt)]
+);
 
 export const gearPresets = pgTable("gear_presets", {
   id: text("id").primaryKey(),
