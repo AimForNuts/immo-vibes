@@ -3,7 +3,9 @@ import { sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
-import { searchItemsByType, EQUIPMENT_TYPES } from "@/lib/idlemmo";
+import { searchItemsByType, IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
+
+const ALL_TYPES = IDLEMMO_ITEM_TYPES as readonly string[];
 
 export async function POST(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -20,9 +22,9 @@ export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type")?.toUpperCase();
 
-  if (!type || !(EQUIPMENT_TYPES as readonly string[]).includes(type)) {
+  if (!type || !ALL_TYPES.includes(type)) {
     return NextResponse.json(
-      { error: `Invalid type. Must be one of: ${EQUIPMENT_TYPES.join(", ")}` },
+      { error: `Invalid type. Must be one of: ${IDLEMMO_ITEM_TYPES.join(", ")}` },
       { status: 400 }
     );
   }
