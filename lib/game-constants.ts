@@ -18,6 +18,16 @@ export const QUALITY_COLORS: Record<string, string> = {
   MYTHIC:    "text-red-400",
 };
 
+/** Tailwind left-border colour class for each IdleMMO quality tier. */
+export const QUALITY_BORDER_COLORS: Record<string, string> = {
+  STANDARD:  "border-l-zinc-500",
+  REFINED:   "border-l-green-500",
+  PREMIUM:   "border-l-blue-500",
+  EPIC:      "border-l-purple-500",
+  LEGENDARY: "border-l-yellow-500",
+  MYTHIC:    "border-l-red-500",
+};
+
 // ─── Gear slots ───────────────────────────────────────────────────────────────
 
 /** Human-readable labels for gear slot keys returned by the IdleMMO API. */
