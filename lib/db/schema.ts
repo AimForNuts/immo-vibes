@@ -56,12 +56,17 @@ export const verification = pgTable("verification", {
 });
 
 export const items = pgTable("items", {
-  hashedId: text("hashed_id").primaryKey(),
-  name: text("name").notNull(),
-  type: text("type").notNull(),
-  quality: text("quality").notNull(),
-  imageUrl: text("image_url"),
-  syncedAt: timestamp("synced_at").notNull(),
+  hashedId:             text("hashed_id").primaryKey(),
+  name:                 text("name").notNull(),
+  type:                 text("type").notNull(),
+  quality:              text("quality").notNull(),
+  imageUrl:             text("image_url"),
+  syncedAt:             timestamp("synced_at").notNull(),
+  /**
+   * For RECIPE-type items: the hashed_id of the item this recipe scroll produces.
+   * Populated by POST /api/admin/sync-recipes. Null for non-recipe items.
+   */
+  recipeResultHashedId: text("recipe_result_hashed_id"),
 });
 
 // Card types available in the 3×2 dashboard grid
