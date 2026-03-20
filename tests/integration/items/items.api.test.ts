@@ -15,7 +15,7 @@ describe("item search — all equipment types", () => {
   it("all EQUIPMENT_TYPES return results from IdleMMO API", async () => {
     console.log(`\n=== ITEM SEARCH (${EQUIPMENT_TYPES.length} types) ===`);
     for (const type of EQUIPMENT_TYPES) {
-      await delay(600);
+      await delay(1500); // generous delay — searchItemsByType auto-paginates, so each call may hit 2+ endpoints
       const items = await searchItemsByType(type, TOKEN);
       console.log(`  ${type.padEnd(12)} → ${items.length} items${items.length > 0 ? `  first: ${items[0].name}` : "  EMPTY"}`);
       expect(Array.isArray(items)).toBe(true);
