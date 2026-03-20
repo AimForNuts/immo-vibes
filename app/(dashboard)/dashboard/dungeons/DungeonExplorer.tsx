@@ -92,6 +92,9 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
   // Expanded stat breakdown
   const [expandedStat, setExpandedStat] = useState<string | null>(null);
 
+  // Manual pet combat stats (API bug: strength/defence/speed return 0)
+  const [petStats, setPetStats] = useState({ attack_power: 0, protection: 0, agility: 0, accuracy: 0 });
+
   // Override total combat
   const [overrideEnabled, setOverrideEnabled] = useState(false);
   const [overrideValue, setOverrideValue] = useState(0);
@@ -201,7 +204,8 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
     return () => { cancelled = true; };
   }, [characterId, presetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const computedTotal = combatStats ? totalCombatStats(combatStats) : null;
+  const petStatsTotal = petStats.attack_power + petStats.protection + petStats.agility + petStats.accuracy;
+  const computedTotal = combatStats ? totalCombatStats(combatStats) + petStatsTotal : null;
   const combatTotal = overrideEnabled ? overrideValue : computedTotal;
 
   function effectiveDuration(durationSec: number): number {
@@ -281,6 +285,56 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
           </div>
         </div>
       </div>
+
+      {/* Pet combat stats — manual input (API bug: strength/defence/speed return 0) */}
+      {equippedPet && (
+        <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <PawPrint className="size-3.5 text-muted-foreground/60 shrink-0" />
+            <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
+              Pet Stats — {equippedPet.name}
+            </span>
+            <span className={cn("text-[10px] font-mono ml-1", QUALITY_COLORS[equippedPet.quality] ?? "text-muted-foreground")}>
+              L{equippedPet.level} {equippedPet.quality.charAt(0) + equippedPet.quality.slice(1).toLowerCase()}
+            </span>
+            {petStatsTotal > 0 && (
+              <button
+                onClick={() => setPetStats({ attack_power: 0, protection: 0, agility: 0, accuracy: 0 })}
+                className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+              >
+                reset
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {([
+              { key: "attack_power", label: "Attack Power", icon: Swords },
+              { key: "protection",   label: "Protection",   icon: Shield },
+              { key: "agility",      label: "Agility",      icon: Wind },
+              { key: "accuracy",     label: "Accuracy",     icon: Crosshair },
+            ] as const).map(({ key, label, icon: Icon }) => (
+              <div key={key} className="space-y-1">
+                <label className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground/70 flex items-center gap-1">
+                  <Icon className="size-2.5" /> {label}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={petStats[key] || ""}
+                  placeholder="0"
+                  onChange={(e) => setPetStats((prev) => ({ ...prev, [key]: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                  className="w-full text-sm bg-background border border-border rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
+                />
+              </div>
+            ))}
+          </div>
+          {petStatsTotal > 0 && (
+            <p className="text-[10px] font-mono text-muted-foreground/50">
+              Pet total: +{petStatsTotal.toLocaleString()} combat score
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Gear preview + Combat stats */}
       {showStatsSection && (
@@ -397,9 +451,21 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                             <span className="tabular-nums text-foreground/70 shrink-0 ml-2">+{g.value}</span>
                           </div>
                         ))}
+                        {petStats[key as keyof typeof petStats] > 0 && equippedPet && (
+                          <div className="flex items-center justify-between text-[11px] font-mono">
+                            <span className="text-muted-foreground truncate max-w-[200px]">
+                              Pet — {equippedPet.name} (manual)
+                            </span>
+                            <span className="tabular-nums text-foreground/70 shrink-0 ml-2">
+                              +{petStats[key as keyof typeof petStats]}
+                            </span>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between text-[11px] font-mono border-t border-border/30 pt-0.5 mt-0.5">
                           <span className="text-muted-foreground/60">Total</span>
-                          <span className="tabular-nums font-bold">{value}</span>
+                          <span className="tabular-nums font-bold">
+                            {(value ?? 0) + petStats[key as keyof typeof petStats]}
+                          </span>
                         </div>
                       </div>
                     )}
