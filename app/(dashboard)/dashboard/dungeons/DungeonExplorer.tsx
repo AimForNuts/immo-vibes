@@ -411,7 +411,9 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
             <CardContent className="space-y-2">
               {COMBAT_STAT_KEYS.map((key) => {
                 const { label, icon: Icon } = COMBAT_LABELS[key];
-                const value = combatStats?.[key] ?? null;
+                const baseValue = combatStats?.[key] ?? null;
+                const petManual = petStats[key as keyof typeof petStats];
+                const value = baseValue !== null ? baseValue + petManual : null;
                 const bk = breakdown?.[key];
                 const expanded = expandedStat === key;
 
@@ -463,9 +465,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                         )}
                         <div className="flex items-center justify-between text-[11px] font-mono border-t border-border/30 pt-0.5 mt-0.5">
                           <span className="text-muted-foreground/60">Total</span>
-                          <span className="tabular-nums font-bold">
-                            {(value ?? 0) + petStats[key as keyof typeof petStats]}
-                          </span>
+                          <span className="tabular-nums font-bold">{value}</span>
                         </div>
                       </div>
                     )}
