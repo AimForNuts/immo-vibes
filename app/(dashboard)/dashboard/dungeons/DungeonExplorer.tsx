@@ -8,6 +8,7 @@ import {
   Link2, Sparkles, AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, PawPrint,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHAR_STAT_MAP, QUALITY_COLORS, SLOT_LABELS } from "@/lib/game-constants";
 import {
   assessDungeon,
   totalCombatStats,
@@ -20,34 +21,13 @@ import type { SavedPreset } from "../gear/actions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// char.stats keys → combat stat keys. Multiplier: 2.4 per level (wiki-documented).
-// See docs/game-mechanics/combat-stats.md
-const CHAR_STAT_MAP: Record<string, { key: string; skillLabel: string; multiplier: number }> = {
-  strength:  { key: "attack_power", skillLabel: "Strength",  multiplier: 2.4 },
-  defence:   { key: "protection",   skillLabel: "Defence",   multiplier: 2.4 },
-  speed:     { key: "agility",      skillLabel: "Speed",     multiplier: 2.4 },
-  dexterity: { key: "accuracy",     skillLabel: "Dexterity", multiplier: 2.4 },
-};
+// CHAR_STAT_MAP, QUALITY_COLORS, SLOT_LABELS imported from lib/game-constants.ts
 
 const COMBAT_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
   attack_power: { label: "Attack Power", icon: Swords },
   protection:   { label: "Protection",   icon: Shield },
   agility:      { label: "Agility",      icon: Wind },
   accuracy:     { label: "Accuracy",     icon: Crosshair },
-};
-
-const QUALITY_COLORS: Record<string, string> = {
-  STANDARD:  "text-zinc-400",
-  REFINED:   "text-green-400",
-  PREMIUM:   "text-blue-400",
-  EPIC:      "text-purple-400",
-  LEGENDARY: "text-yellow-400",
-  MYTHIC:    "text-red-400",
-};
-
-const SLOT_LABELS: Record<string, string> = {
-  main_hand: "Main Hand", off_hand: "Off Hand", helmet: "Helmet",
-  chestplate: "Chestplate", greaves: "Greaves", gauntlets: "Gauntlets", boots: "Boots",
 };
 
 const NO_GEAR_ID = "__NO_GEAR__";
