@@ -200,6 +200,39 @@ export async function inspectItem(
   return data.item;
 }
 
+// ─── Enemies ─────────────────────────────────────────────────────────────────
+
+export interface EnemyInfo {
+  id: number;
+  name: string;
+  image_url: string | null;
+  level: number;
+  /** XP awarded per kill at base level */
+  experience: number;
+  /** HP at base level */
+  health: number;
+  /** % chance a loot drop occurs */
+  chance_of_loot: number;
+  location: { id: number; name: string };
+  loot: Array<{
+    hashed_item_id: string;
+    name: string;
+    image_url: string | null;
+    quality: string;
+    quantity: number;
+    /** % chance within a loot roll */
+    chance: number;
+  }>;
+}
+
+export async function getEnemies(token: string): Promise<EnemyInfo[]> {
+  const data = await apiFetch<{ enemies: EnemyInfo[] }>(
+    "/v1/combat/enemies/list",
+    token
+  );
+  return data.enemies;
+}
+
 // ─── Dungeons ─────────────────────────────────────────────────────────────────
 
 export interface DungeonInfo {
