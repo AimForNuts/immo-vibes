@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { items, marketPriceHistory } from "@/lib/db/schema";
 import { IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 
+export const maxDuration = 300;
+
 const BASE = "https://api.idle-mmo.com";
 const ALL_TYPES = IDLEMMO_ITEM_TYPES as readonly string[];
 
