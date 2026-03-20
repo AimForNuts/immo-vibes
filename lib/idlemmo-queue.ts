@@ -1,85 +1,78 @@
 /**
  * Global client-side request queue for all IdleMMO API proxy calls.
  *
- * - Reads the user's API key rate limit once from /api/idlemmo/auth-check
- *   (defaults to 20 req/min until the check resolves).
- * - Enforces the limit with a sliding-window algorithm — dispatches as fast as
- *   possible, then waits until the oldest timestamp falls out of the 60-second
- *   window before firing more.
- * - Supports tag-based cancellation: call cancelByTag(tag) to abort all queued
- *   AND in-flight requests with that tag, so tab switches don't waste quota.
+ * Strategy:
+ *   - Requests are dispatched ONE AT A TIME (sequential). We await each
+ *     response before firing the next, so the X-RateLimit-* headers are
+ *     always up-to-date before the next slot decision.
+ *   - Before each dispatch we check `remaining`. If it is 0 we sleep until
+ *     `resetAt * 1000 + 150 ms` so we never fire into an exhausted window.
+ *   - Tag-based cancellation: cancelByTag(tag) aborts queued and in-flight
+ *     requests matching that tag.
  *
- * Usage:
- *   idleMmoQueue.init();                          // call once on mount
- *   const res = await idleMmoQueue.fetch(url, tag);
- *   idleMmoQueue.cancelByTag("prices:resources"); // on tab switch
+ * Proxy routes must forward the IdleMMO X-RateLimit-Remaining and
+ * X-RateLimit-Reset response headers so the queue can read them.
  */
+
+export interface QueueStatus {
+  /** Requests left in the current IdleMMO rate-limit window (from headers). */
+  remaining: number;
+  /** Unix timestamp (seconds) when the window resets. 0 if unknown. */
+  resetAt: number;
+  /** Number of requests still waiting to be dispatched. */
+  queueSize: number;
+  /** True while sleeping until the rate-limit window resets. */
+  throttled: boolean;
+}
 
 interface QueueEntry {
   url:        string;
   tag:        string;
   controller: AbortController;
   resolve:    (r: Response) => void;
-  reject:     (e: Error) => void;
+  reject:     (e: unknown) => void;
   cancelled:  boolean;
 }
 
 class IdleMmoQueue {
-  /** Requests allowed per windowMs. Overridden by init(). */
-  private rateLimit   = 20;
-  private windowMs    = 60_000;
+  /** Optimistic default — overridden by the first response headers. */
+  private remaining  = 20;
+  private resetAt    = 0;  // unix seconds
+  private throttled  = false;
 
-  /** Dispatch timestamps within the current window (sliding). */
-  private timestamps: number[] = [];
-
-  /** Pending entries not yet dispatched. */
-  private queue: QueueEntry[] = [];
-
-  /** Entries already dispatched (in-flight). Tracked for tag-based abort. */
+  private queue:    QueueEntry[] = [];
   private inFlight: QueueEntry[] = [];
+  private processing = false;
 
-  private processing  = false;
-  private initPromise: Promise<void> | null = null;
+  /** Subscribe to queue state changes for UI indicators. */
+  onStatusChange: ((s: QueueStatus) => void) | null = null;
 
-  /**
-   * Fetch the user's rate limit from /api/idlemmo/auth-check.
-   * Safe to call multiple times — returns the same promise on subsequent calls.
-   * Silently falls back to 20 req/min on failure.
-   */
-  init(): Promise<void> {
-    if (this.initPromise) return this.initPromise;
-    this.initPromise = fetch("/api/idlemmo/auth-check")
-      .then((r) => r.json())
-      .then((d: { rate_limit?: number }) => {
-        if (typeof d.rate_limit === "number" && d.rate_limit > 0) {
-          this.rateLimit = d.rate_limit;
-        }
-      })
-      .catch(() => { /* keep default 20 req/min */ });
-    return this.initPromise;
+  getStatus(): QueueStatus {
+    return {
+      remaining: this.remaining,
+      resetAt:   this.resetAt,
+      queueSize: this.queue.length,
+      throttled: this.throttled,
+    };
   }
 
   /**
    * Enqueue a GET request to one of our /api/* proxy routes.
-   * Returns a Response promise. The request is dispatched when the rate-limit
-   * window has an available slot.
-   *
-   * @param url  The URL to fetch.
-   * @param tag  Logical group — cancelByTag(tag) aborts all entries with this tag.
+   * Returns a Response promise dispatched when a rate-limit slot is available.
    */
   fetch(url: string, tag: string): Promise<Response> {
     return new Promise<Response>((resolve, reject) => {
       const controller = new AbortController();
-      const entry: QueueEntry = { url, tag, controller, resolve, reject, cancelled: false };
-      this.queue.push(entry);
+      this.queue.push({ url, tag, controller, resolve, reject, cancelled: false });
+      this.notifyStatus();
       if (!this.processing) this.process();
     });
   }
 
   /**
-   * Abort all entries with the given tag — both queued (not yet dispatched)
-   * and in-flight (already sent). Queued entries are rejected with AbortError;
-   * in-flight ones have their AbortController signalled.
+   * Abort all entries (queued or in-flight) with the given tag.
+   * Queued entries are rejected with AbortError; in-flight ones are aborted
+   * via their AbortController (the fetch rejects and the queue moves on).
    */
   cancelByTag(tag: string) {
     for (const entry of this.queue) {
@@ -89,58 +82,75 @@ class IdleMmoQueue {
       }
     }
     for (const entry of this.inFlight) {
-      if (entry.tag === tag) {
-        entry.controller.abort();
-      }
+      if (entry.tag === tag) entry.controller.abort();
     }
+    this.notifyStatus();
   }
 
-  // ── Internal ──────────────────────────────────────────────────────────────
+  // ── Internal ───────────────────────────────────────────────────────────────
 
-  private msUntilSlot(): number {
-    const now = Date.now();
-    this.timestamps = this.timestamps.filter((t) => now - t < this.windowMs);
-    if (this.timestamps.length < this.rateLimit) return 0;
-    return Math.max(0, this.timestamps[0] + this.windowMs - now + 50);
+  private notifyStatus() {
+    this.onStatusChange?.(this.getStatus());
+  }
+
+  private drainCancelled() {
+    while (this.queue.length > 0 && this.queue[0].cancelled) {
+      this.queue.shift()!.reject(new DOMException("Request cancelled", "AbortError"));
+    }
   }
 
   private async process() {
     this.processing = true;
 
     while (this.queue.length > 0) {
-      // Skip cancelled entries at the head of the queue
-      while (this.queue.length > 0 && this.queue[0].cancelled) {
-        this.queue.shift()!.reject(new DOMException("Request cancelled", "AbortError"));
-      }
+      this.drainCancelled();
       if (this.queue.length === 0) break;
 
-      const wait = this.msUntilSlot();
-      if (wait > 0) {
-        await new Promise<void>((r) => setTimeout(r, wait));
-        continue;
+      // Wait if the rate-limit window is exhausted
+      if (this.remaining <= 0) {
+        this.throttled = true;
+        this.notifyStatus();
+        const waitMs = Math.max(150, this.resetAt * 1000 - Date.now() + 150);
+        await new Promise<void>((r) => setTimeout(r, waitMs));
+        this.remaining = 20; // optimistic reset — overwritten by next response
+        this.throttled = false;
       }
+
+      this.drainCancelled();
+      if (this.queue.length === 0) break;
 
       const entry = this.queue.shift()!;
-      if (entry.cancelled) {
-        entry.reject(new DOMException("Request cancelled", "AbortError"));
-        continue;
-      }
-
       this.inFlight.push(entry);
-      this.timestamps.push(Date.now());
+      this.remaining = Math.max(0, this.remaining - 1);
+      this.notifyStatus();
 
-      // Dispatch without awaiting — rate limit tracks dispatch time, not completion
-      fetch(entry.url, { signal: entry.controller.signal })
-        .then(entry.resolve)
-        .catch((e: unknown) => entry.reject(e instanceof Error ? e : new Error(String(e))))
-        .finally(() => {
-          this.inFlight = this.inFlight.filter((e) => e !== entry);
-        });
+      // Sequential: await the response before processing the next entry
+      try {
+        const res = await fetch(entry.url, { signal: entry.controller.signal });
+
+        // Update rate-limit state from headers forwarded by our proxy
+        const rem = res.headers.get("X-RateLimit-Remaining");
+        const rst = res.headers.get("X-RateLimit-Reset");
+        if (rem !== null) this.remaining = parseInt(rem, 10);
+        if (rst !== null) this.resetAt   = parseInt(rst, 10);
+
+        // If we still hit a 429, mark exhausted so next dispatch waits
+        if (res.status === 429) this.remaining = 0;
+
+        entry.resolve(res);
+      } catch (e) {
+        entry.reject(e);
+      } finally {
+        this.inFlight = this.inFlight.filter((e) => e !== entry);
+        this.notifyStatus();
+      }
     }
 
     this.processing = false;
+    this.notifyStatus();
   }
 }
 
 /** One queue instance per browser session. */
 export const idleMmoQueue = new IdleMmoQueue();
+export type { QueueStatus as IdleMmoQueueStatus };

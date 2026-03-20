@@ -5,12 +5,13 @@ import {
   Search, Mountain, FlaskConical, Sword, Hammer, Gem,
   Package, Coins, Loader2, X, SlidersHorizontal, ChevronRight,
   Skull, Swords, Globe, ShoppingBag, Sparkles, BookOpen, Archive,
+  AlertCircle, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MARKET_TABS } from "@/lib/market-config";
 import { QUALITY_COLORS } from "@/lib/game-constants";
 import type { ItemSearchResult, ItemInspect } from "@/lib/idlemmo";
-import { idleMmoQueue } from "@/lib/idlemmo-queue";
+import { idleMmoQueue, type IdleMmoQueueStatus } from "@/lib/idlemmo-queue";
 
 function isAbortError(e: unknown): boolean {
   return e instanceof DOMException && e.name === "AbortError";
@@ -66,7 +67,6 @@ interface MarketPrice {
 interface Filters {
   rarities:  Set<string>;
   types:     Set<string>;
-  name:      string;
   vendorMin: string;
   vendorMax: string;
   marketMin: string;
@@ -76,12 +76,49 @@ interface Filters {
 const DEFAULT_FILTERS: Filters = {
   rarities:  new Set(),
   types:     new Set(),
-  name:      "",
   vendorMin: "",
   vendorMax: "",
   marketMin: "",
   marketMax: "",
 };
+
+// ─── Loading status bar ───────────────────────────────────────────────────────
+
+function LoadingStatus({ loading, status }: { loading: boolean; status: IdleMmoQueueStatus }) {
+  const secsLeft = status.resetAt > 0
+    ? Math.max(0, Math.ceil((status.resetAt * 1000 - Date.now()) / 1000))
+    : 0;
+
+  if (status.throttled) {
+    return (
+      <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-amber-400/8 border border-amber-400/25 text-amber-400/90 text-sm">
+        <Clock className="size-4 shrink-0" />
+        <span>
+          Rate limit reached — resuming{secsLeft > 0 ? ` in ${secsLeft}s` : " soon"}
+        </span>
+        <span className="ml-auto text-[11px] font-mono text-amber-400/50">
+          {status.queueSize} queued
+        </span>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-sm">
+        <Loader2 className="size-4 shrink-0 animate-spin text-amber-400" />
+        <span>Searching…</span>
+        {status.remaining < 5 && (
+          <span className="ml-auto text-[11px] font-mono text-zinc-600">
+            {status.remaining} req left
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
 
 // ─── Item card ────────────────────────────────────────────────────────────────
 
@@ -196,12 +233,11 @@ interface FilterBarProps {
   filters:          Filters;
   setFilters:       React.Dispatch<React.SetStateAction<Filters>>;
   availableTypes:   string[];
-  isAllTab:         boolean;
   hasActiveFilters: boolean;
   onReset:          () => void;
 }
 
-function FilterBar({ filters, setFilters, availableTypes, isAllTab, hasActiveFilters, onReset }: FilterBarProps) {
+function FilterBar({ filters, setFilters, availableTypes, hasActiveFilters, onReset }: FilterBarProps) {
   function toggleRarity(q: string) {
     setFilters((prev) => {
       const next = new Set(prev.rarities);
@@ -287,25 +323,8 @@ function FilterBar({ filters, setFilters, availableTypes, isAllTab, hasActiveFil
         </div>
       </div>
 
-      {/* Name search (category tabs only) */}
-      {!isAllTab && (
-        <div className="space-y-2">
-          <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Name</p>
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-zinc-600 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Filter by name…"
-              value={filters.name}
-              onChange={(e) => setFilters((p) => ({ ...p, name: e.target.value }))}
-              className="w-full pl-7 pr-3 py-1.5 text-xs bg-zinc-900 border border-zinc-700 rounded focus:outline-none focus:border-amber-400/50 text-zinc-200 placeholder:text-zinc-700"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Item type (category tabs with multiple types) */}
-      {!isAllTab && availableTypes.length > 1 && (
+      {/* Item type filter (category tabs with multiple types) */}
+      {availableTypes.length > 1 && (
         <div className="space-y-2">
           <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Type</p>
           <div className="flex flex-wrap gap-1.5">
@@ -343,10 +362,9 @@ function FilterBar({ filters, setFilters, availableTypes, isAllTab, hasActiveFil
 // ─── Item detail panel ────────────────────────────────────────────────────────
 
 interface DetailPanelProps {
-  item:                 ItemSearchResult;
-  detail:               ItemInspect | null | "loading";
-  marketPrice:          MarketPrice | null | "loading";
-  /** Market prices for recipe materials; keyed by hashed_item_id. undefined = loading */
+  item:           ItemSearchResult;
+  detail:         ItemInspect | null | "loading";
+  marketPrice:    MarketPrice | null | "loading";
   materialPrices: Record<string, MarketPrice | null | undefined>;
   onClose:        () => void;
 }
@@ -597,109 +615,43 @@ function DetailPanel({ item, detail, marketPrice, materialPrices, onClose }: Det
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function MarketBrowser() {
-  const [activeTab, setActiveTab]       = useState("all");
-  const [items, setItems]               = useState<ItemSearchResult[]>([]);
-  const [loading, setLoading]           = useState(false);
-  const [searchQuery, setSearchQuery]   = useState("");
-  const [loadProgress, setLoadProgress] = useState<{ current: number; total: number } | null>(null);
-  const [error, setError]               = useState<string | null>(null);
+  const [activeTab, setActiveTab]     = useState("all");
+  const [items, setItems]             = useState<ItemSearchResult[]>([]);
+  const [loading, setLoading]         = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [error, setError]             = useState<string | null>(null);
+
+  // Queue status for the loading indicator
+  const [queueStatus, setQueueStatus] = useState<IdleMmoQueueStatus>({
+    remaining: 20, resetAt: 0, queueSize: 0, throttled: false,
+  });
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters]         = useState<Filters>(DEFAULT_FILTERS);
 
   // Market prices: undefined = not fetched yet, null = fetched but no data
-  // Persists across tab switches — no need to re-fetch prices we already have.
   const [marketPrices, setMarketPrices] = useState<Record<string, MarketPrice | null | undefined>>({});
 
   // Selected item detail panel
   const [selectedItem, setSelectedItem]       = useState<ItemSearchResult | null>(null);
   const [itemDetail, setItemDetail]           = useState<ItemInspect | null | "loading">(null);
   const [itemMarketPrice, setItemMarketPrice] = useState<MarketPrice | null | "loading">(null);
-  // Market prices for recipe materials in the detail panel
   const [materialPrices, setMaterialPrices]   = useState<Record<string, MarketPrice | null | undefined>>({});
 
   const searchTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const priceFetchingRef = useRef<Set<string>>(new Set());
 
-  /**
-   * Tab item cache — persists loaded items per tab so switching back is instant.
-   * Tabs that were cancelled mid-load are NOT in tabLoadedRef, so they refetch.
-   */
-  const tabItemsCache = useRef<Map<string, ItemSearchResult[]>>(new Map());
-  const tabLoadedRef  = useRef<Set<string>>(new Set());
-
-  // Init queue rate limit + cleanup search timer on unmount
+  // Subscribe to queue status changes + cleanup on unmount
   useEffect(() => {
-    idleMmoQueue.init();
-    return () => { clearTimeout(searchTimerRef.current); };
+    idleMmoQueue.onStatusChange = setQueueStatus;
+    return () => {
+      idleMmoQueue.onStatusChange = null;
+      clearTimeout(searchTimerRef.current);
+    };
   }, []);
 
-  // ── Tab loading ─────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (activeTab === "all") {
-      setItems([]);
-      setLoading(false);
-      setLoadProgress(null);
-      setError(null);
-      return;
-    }
-
-    // Restore from cache if fully loaded before
-    if (tabLoadedRef.current.has(activeTab)) {
-      const cached = tabItemsCache.current.get(activeTab) ?? [];
-      setItems(cached);
-      setLoading(false);
-      setLoadProgress(null);
-      return;
-    }
-
-    const tab = MARKET_TABS.find((t) => t.id === activeTab);
-    if (!tab || tab.types.length === 0) return;
-
-    setItems([]);
-    setLoading(true);
-    setLoadProgress({ current: 0, total: tab.types.length });
-    setError(null);
-
-    const tabTag      = `tab:${activeTab}`;
-    const capturedTab = activeTab;
-    const accumulated: ItemSearchResult[] = [];
-
-    (async () => {
-      for (let i = 0; i < tab.types.length; i++) {
-        let page = 1;
-        while (true) {
-          try {
-            const res  = await idleMmoQueue.fetch(`/api/market?type=${encodeURIComponent(tab.types[i])}&page=${page}`, tabTag);
-            const data = await res.json();
-            if (Array.isArray(data.items) && data.items.length > 0) {
-              accumulated.push(...data.items);
-              setItems((prev) => [...prev, ...data.items]);
-            }
-            // Stop if last page or no pagination info
-            if (!data.pagination || data.pagination.current_page >= data.pagination.last_page) break;
-            page++;
-          } catch (e) {
-            if (isAbortError(e)) return; // tab switched
-            break; // stop paginating this type on error
-          }
-        }
-        setLoadProgress({ current: i + 1, total: tab.types.length });
-      }
-
-      // Full load complete — save to cache
-      tabItemsCache.current.set(capturedTab, accumulated);
-      tabLoadedRef.current.add(capturedTab);
-      setLoading(false);
-      // If aborted mid-loop via AbortError we return early above, so capturedTab is NOT added to tabLoadedRef
-    })();
-
-    return () => { idleMmoQueue.cancelByTag(tabTag); };
-  }, [activeTab]);
-
-  // ── Batch-fetch market prices when items load ───────────────────────────────
+  // ── Batch-fetch market prices when search results load ───────────────────
 
   useEffect(() => {
     if (items.length === 0) return;
@@ -727,11 +679,12 @@ export function MarketBrowser() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 
-  // ── All-tab search ──────────────────────────────────────────────────────────
+  // ── Search ───────────────────────────────────────────────────────────────
 
   function handleSearchInput(value: string) {
     setSearchQuery(value);
     clearTimeout(searchTimerRef.current);
+    idleMmoQueue.cancelByTag("search");
     setError(null);
 
     if (!value.trim()) {
@@ -745,50 +698,62 @@ export function MarketBrowser() {
       try {
         const res  = await idleMmoQueue.fetch(`/api/market?query=${encodeURIComponent(value)}&page=1`, "search");
         const data = await res.json();
-        setItems(data.items ?? []);
+
+        if (!res.ok) {
+          setError(data.error ?? "Search failed");
+          setItems([]);
+        } else {
+          // Filter results to the active tab's types (client-side)
+          const results: ItemSearchResult[] = data.items ?? [];
+          const tab = MARKET_TABS.find((t) => t.id === activeTab);
+          const tabFiltered = tab && tab.types.length > 0
+            ? results.filter((i) => tab.types.includes(i.type))
+            : results;
+          setItems(tabFiltered);
+        }
       } catch (e) {
         if (isAbortError(e)) return;
-        setError("Failed to search. Please try again.");
+        setError("Search failed. Please try again.");
       } finally {
         setLoading(false);
       }
     }, 400);
   }
 
-  // ── Tab switch ──────────────────────────────────────────────────────────────
+  // ── Tab switch ──────────────────────────────────────────────────────────
 
   function switchTab(tabId: string) {
-    idleMmoQueue.cancelByTag(`tab:${activeTab}`);
+    idleMmoQueue.cancelByTag("search");
     idleMmoQueue.cancelByTag(`prices:${activeTab}`);
     clearTimeout(searchTimerRef.current);
-    idleMmoQueue.cancelByTag("search");
+    setItems([]);
     setSearchQuery("");
     setFilters(DEFAULT_FILTERS);
-    // Do NOT clear marketPrices — keep accumulated prices across all tabs
     priceFetchingRef.current.clear();
     setSelectedItem(null);
     setMaterialPrices({});
+    setLoading(false);
+    setError(null);
     setActiveTab(tabId);
   }
 
-  // ── Item click → detail panel ───────────────────────────────────────────────
+  // ── Item click → detail panel ───────────────────────────────────────────
 
   const handleItemClick = useCallback((item: ItemSearchResult) => {
-    // Cancel any in-flight inspect/material requests from a previous selection
     idleMmoQueue.cancelByTag("inspect");
 
     setSelectedItem(item);
     setItemDetail("loading");
     setMaterialPrices({});
 
-    // Fetch inspect data (includes recipe, stats, effects, where_to_find)
+    // Fetch inspect data
     idleMmoQueue.fetch(`/api/idlemmo/item/${item.hashed_id}`, "inspect")
       .then((r) => r.json())
       .then((data) => {
         const detail: ItemInspect | null = data.item ?? null;
         setItemDetail(detail);
 
-        // If item has a recipe, fetch market prices for each material
+        // Fetch market prices for recipe materials
         if (detail?.recipe?.materials?.length) {
           const mats = detail.recipe.materials;
           setMaterialPrices(Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])));
@@ -812,7 +777,7 @@ export function MarketBrowser() {
         setItemDetail(null);
       });
 
-    // Use already-loaded market price if available (skip loading state), else fetch fresh
+    // Use cached market price if available; otherwise fetch
     const cached = marketPrices[item.hashed_id];
     if (cached !== undefined) {
       setItemMarketPrice(cached);
@@ -832,12 +797,11 @@ export function MarketBrowser() {
     }
   }, [marketPrices]);
 
-  // ── Apply client-side filters ───────────────────────────────────────────────
+  // ── Client-side filters ─────────────────────────────────────────────────
 
   const filteredItems = items.filter((item) => {
     if (filters.rarities.size > 0 && !filters.rarities.has(item.quality)) return false;
     if (filters.types.size > 0    && !filters.types.has(item.type))        return false;
-    if (filters.name && !item.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
 
     const vp = item.vendor_price ?? 0;
     if (filters.vendorMin !== "" && vp < Number(filters.vendorMin)) return false;
@@ -853,14 +817,13 @@ export function MarketBrowser() {
   const activeFilterCount = [
     filters.rarities.size > 0,
     filters.types.size > 0,
-    filters.name !== "",
     filters.vendorMin !== "" || filters.vendorMax !== "",
     filters.marketMin !== "" || filters.marketMax !== "",
   ].filter(Boolean).length;
 
   const tab = MARKET_TABS.find((t) => t.id === activeTab);
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────────────────
 
   return (
     <div className="flex gap-0 h-full min-h-0" style={{ minHeight: "calc(100vh - 7rem)" }}>
@@ -872,7 +835,7 @@ export function MarketBrowser() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Market</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Browse items across all categories</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Search items by name</p>
           </div>
 
           {/* Filters toggle */}
@@ -926,45 +889,44 @@ export function MarketBrowser() {
             filters={filters}
             setFilters={setFilters}
             availableTypes={tab?.types ?? []}
-            isAllTab={activeTab === "all"}
             hasActiveFilters={activeFilterCount > 0}
             onReset={() => setFilters(DEFAULT_FILTERS)}
           />
         )}
 
-        {/* All tab: search input */}
-        {activeTab === "all" && (
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search items by name…"
-              value={searchQuery}
-              onChange={(e) => handleSearchInput(e.target.value)}
-              className="w-full pl-9 pr-10 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/20 transition-colors"
-            />
-            {loading && (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-amber-400 animate-spin" />
-            )}
-          </div>
-        )}
-
-        {/* Progress bar */}
-        {loadProgress && loading && loadProgress.total > 1 && (
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-amber-400 rounded-full transition-all duration-300"
-                style={{ width: `${(loadProgress.current / loadProgress.total) * 100}%` }}
-              />
+        {/* Search bar — always visible */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500 pointer-events-none" />
+          <input
+            type="text"
+            placeholder={
+              activeTab === "all"
+                ? "Search items by name…"
+                : `Search ${tab?.label ?? ""} items by name…`
+            }
+            value={searchQuery}
+            onChange={(e) => handleSearchInput(e.target.value)}
+            className="w-full pl-9 pr-10 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/20 transition-colors"
+          />
+          {(loading || queueStatus.throttled) && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              {queueStatus.throttled
+                ? <AlertCircle className="size-4 text-amber-400" />
+                : <Loader2 className="size-4 text-amber-400 animate-spin" />
+              }
             </div>
-            <span className="text-xs text-zinc-600 shrink-0">
-              {loadProgress.current}/{loadProgress.total} types
-            </span>
+          )}
+        </div>
+
+        {/* Loading / throttle status */}
+        <LoadingStatus loading={loading} status={queueStatus} />
+
+        {error && (
+          <div className="flex items-center gap-2 text-sm text-red-400">
+            <AlertCircle className="size-4 shrink-0" />
+            {error}
           </div>
         )}
-
-        {error && <p className="text-sm text-red-400">{error}</p>}
 
         {/* Grid */}
         {loading && items.length === 0 ? (
@@ -988,7 +950,6 @@ export function MarketBrowser() {
                   onClick={() => handleItemClick(item)}
                 />
               ))}
-              {loading && Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={`sk-${i}`} />)}
             </div>
             {!loading && (
               <p className="text-xs text-zinc-700 pb-2">
@@ -996,10 +957,10 @@ export function MarketBrowser() {
               </p>
             )}
           </>
-        ) : activeTab === "all" && !searchQuery ? (
+        ) : !loading && !searchQuery ? (
           <div className="flex flex-col items-center gap-3 py-16 text-zinc-600">
             <Search className="size-10 opacity-30" />
-            <p className="text-sm">Type a name to search all items</p>
+            <p className="text-sm">Type a name to search{activeTab !== "all" ? ` in ${tab?.label}` : ""}</p>
           </div>
         ) : !loading ? (
           <div className="flex flex-col items-center gap-3 py-16 text-zinc-600">
