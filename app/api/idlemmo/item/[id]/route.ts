@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { inspectItem } from "@/lib/idlemmo";
+
+const BASE = "https://api.idle-mmo.com";
+
+function forwardRateLimitHeaders(from: Response, to: NextResponse) {
+  const remaining = from.headers.get("x-ratelimit-remaining");
+  const reset     = from.headers.get("x-ratelimit-reset");
+  if (remaining !== null) to.headers.set("X-RateLimit-Remaining", remaining);
+  if (reset     !== null) to.headers.set("X-RateLimit-Reset",     reset);
+}
 
 export async function GET(
   request: NextRequest,
@@ -14,12 +22,32 @@ export async function GET(
 
   const { id } = await params;
 
-  try {
-    const item = await inspectItem(id, token);
-    return NextResponse.json({ item });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    const status = msg.includes("404") ? 404 : 500;
-    return NextResponse.json({ error: msg }, { status });
+  const idlemmoRes = await fetch(`${BASE}/v1/item/${id}/inspect`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "User-Agent": "ImmoWebSuite/1.0",
+    },
+    cache: "no-store",
+  });
+
+  if (idlemmoRes.status === 429) {
+    const response = NextResponse.json({ error: "Rate limited" }, { status: 429 });
+    forwardRateLimitHeaders(idlemmoRes, response);
+    return response;
   }
+
+  if (!idlemmoRes.ok) {
+    const status = idlemmoRes.status === 404 ? 404 : 500;
+    const response = NextResponse.json(
+      { error: `IdleMMO API returned ${idlemmoRes.status}` },
+      { status }
+    );
+    forwardRateLimitHeaders(idlemmoRes, response);
+    return response;
+  }
+
+  const data = await idlemmoRes.json();
+  const response = NextResponse.json({ item: data.item ?? null });
+  forwardRateLimitHeaders(idlemmoRes, response);
+  return response;
 }
