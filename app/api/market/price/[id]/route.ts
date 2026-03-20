@@ -7,6 +7,13 @@ import { marketPriceHistory } from "@/lib/db/schema";
 
 const BASE = "https://api.idle-mmo.com";
 
+function forwardRateLimitHeaders(from: Response, to: NextResponse) {
+  const remaining = from.headers.get("x-ratelimit-remaining");
+  const reset     = from.headers.get("x-ratelimit-reset");
+  if (remaining !== null) to.headers.set("X-RateLimit-Remaining", remaining);
+  if (reset     !== null) to.headers.set("X-RateLimit-Reset",     reset);
+}
+
 /**
  * GET /api/market/price/[id]?tier=0
  *
@@ -66,11 +73,13 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       price:    latest?.price_per_item ?? null,
       sold_at:  latest?.sold_at       ?? null,
       quantity: latest?.quantity      ?? null,
     });
+    forwardRateLimitHeaders(res, response);
+    return response;
   } catch {
     return NextResponse.json({ price: null, sold_at: null, quantity: null });
   }

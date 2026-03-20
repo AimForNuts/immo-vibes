@@ -4,6 +4,13 @@ import { auth } from "@/lib/auth";
 
 const BASE = "https://api.idle-mmo.com";
 
+function forwardRateLimitHeaders(from: Response, to: NextResponse) {
+  const remaining = from.headers.get("x-ratelimit-remaining");
+  const reset     = from.headers.get("x-ratelimit-reset");
+  if (remaining !== null) to.headers.set("X-RateLimit-Remaining", remaining);
+  if (reset     !== null) to.headers.set("X-RateLimit-Reset",     reset);
+}
+
 /**
  * GET /api/market
  *
@@ -63,10 +70,12 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await res.json();
-    return NextResponse.json({
+    const response = NextResponse.json({
       items: data.items ?? [],
       pagination: data.pagination ?? null,
     });
+    forwardRateLimitHeaders(res, response);
+    return response;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });
