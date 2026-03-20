@@ -19,7 +19,7 @@ const CARD_META: Record<
   characters: { icon: Users,      href: "/dashboard/characters", color: "text-blue-400"   },
   gear:        { icon: Swords,     href: "/dashboard/gear",       color: "text-orange-400" },
   skills:      { icon: TrendingUp, href: "/wip",                  color: "text-green-400"  },
-  economy:     { icon: Coins,      href: "/wip",                  color: "text-yellow-400" },
+  economy:     { icon: Coins,      href: "/dashboard/investments", color: "text-yellow-400" },
   dungeons:    { icon: Skull,      href: "/dashboard/dungeons",   color: "text-red-400"    },
   guild:       { icon: Shield,     href: "/wip",                  color: "text-purple-400" },
   empty:       { icon: Plus,       href: "#",                     color: "text-muted-foreground" },
