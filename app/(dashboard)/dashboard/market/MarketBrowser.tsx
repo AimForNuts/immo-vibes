@@ -342,12 +342,11 @@ interface DetailPanelProps {
   detail:               ItemInspect | null | "loading";
   marketPrice:          MarketPrice | null | "loading";
   /** Market prices for recipe materials; keyed by hashed_item_id. undefined = loading */
-  materialPrices:       Record<string, MarketPrice | null | undefined>;
-  showsRecipes:         boolean;
-  onClose:              () => void;
+  materialPrices: Record<string, MarketPrice | null | undefined>;
+  onClose:        () => void;
 }
 
-function DetailPanel({ item, detail, marketPrice, materialPrices, showsRecipes, onClose }: DetailPanelProps) {
+function DetailPanel({ item, detail, marketPrice, materialPrices, onClose }: DetailPanelProps) {
   const qualityText = QUALITY_COLORS[item.quality] ?? "text-zinc-400";
   const borderColor = QUALITY_BORDER_COLOR[item.quality] ?? "rgba(113,113,122,0.4)";
 
@@ -486,8 +485,8 @@ function DetailPanel({ item, detail, marketPrice, materialPrices, showsRecipes, 
               </div>
             )}
 
-            {/* Recipe — shown for alchemy/gear/tools tabs */}
-            {showsRecipes && d?.recipe && (
+            {/* Recipe */}
+            {d?.recipe && (
               <div>
                 <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Recipe</p>
                 <div className="bg-zinc-900 border border-zinc-800 rounded-md p-3 space-y-2">
@@ -1025,7 +1024,6 @@ export function MarketBrowser() {
             detail={itemDetail}
             marketPrice={itemMarketPrice}
             materialPrices={materialPrices}
-            showsRecipes={tab?.showsRecipes ?? false}
             onClose={() => setSelectedItem(null)}
           />
         </div>
