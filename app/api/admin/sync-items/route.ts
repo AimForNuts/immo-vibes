@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
 import { searchItemsByType, IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 
+export const maxDuration = 300;
+
 const ALL_TYPES = IDLEMMO_ITEM_TYPES as readonly string[];
 
 export async function POST(request: NextRequest) {
@@ -29,7 +31,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const fetched = await searchItemsByType(type, token);
+  let fetched;
+  try {
+    fetched = await searchItemsByType(type, token);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: msg }, { status: 502 });
+  }
+
   const now = new Date();
 
   if (fetched.length > 0) {
