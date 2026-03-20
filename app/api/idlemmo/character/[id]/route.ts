@@ -25,6 +25,7 @@ export async function GET(
     return NextResponse.json({
       hashed_id: char.hashed_id,
       name: char.name,
+      class: char.class,
       skills: char.skills,
       stats: char.stats,
       equipped_pet: equippedPet

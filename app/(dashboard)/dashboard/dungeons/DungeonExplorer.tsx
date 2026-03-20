@@ -131,6 +131,22 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
           }
         }
 
+        // Class talent bonuses at combat L70 — see docs/game-mechanics/classes.md
+        // Warrior Shield Wall: +40 Protection  |  Shadowblade Shadow's Veil: +40 Agility
+        const charClass: string = data.class ?? "";
+        const combatLevel: number = (data.stats as Record<string, { level: number }>).combat?.level ?? 0;
+        if (combatLevel >= 70) {
+          if (charClass === "Warrior") {
+            stats.protection = (stats.protection ?? 0) + 40;
+            if (!bk.protection) bk.protection = { skillLabel: "Defence", skillLevel: 0, charBase: 0, gear: [] };
+            bk.protection.gear.push({ slotLabel: "Warrior — Shield Wall (L70 talent)", value: 40 });
+          } else if (charClass === "Shadowblade") {
+            stats.agility = (stats.agility ?? 0) + 40;
+            if (!bk.agility) bk.agility = { skillLabel: "Speed", skillLevel: 0, charBase: 0, gear: [] };
+            bk.agility.gear.push({ slotLabel: "Shadowblade — Shadow's Veil (L70 talent)", value: 40 });
+          }
+        }
+
         // Equipped pet → adds strength/defence/speed × 2.4 to combat stats
         // See docs/game-mechanics/pets.md
         if (data.equipped_pet) {

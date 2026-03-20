@@ -79,7 +79,8 @@ Non-combat and challenge classes have no combat talents.
 
 ## Notes for Dungeon Planner
 
-- **Warrior L70 Shield Wall** adds a flat +40 to Protection — add this manually when computing dungeon readiness.
-- **Shadowblade L70 Shadow's Veil** adds a flat +40 to Agility — same.
-- Ranger talents only affect critical chance/damage, not the base combat stats used for difficulty checks.
-- Class talent levels refer to **combat level**, not total level.
+- **Warrior L70 Shield Wall** adds a flat +40 to Protection — **implemented** in the dungeon planner (applied automatically when `data.stats.combat.level >= 70`).
+- **Shadowblade L70 Shadow's Veil** adds a flat +40 to Agility — **implemented** in the dungeon planner.
+- Ranger talents only affect critical chance/damage, not the base combat stats used for difficulty checks — **not applied**.
+- L10 and L35 talents (base damage, critical) do not affect the 4 combat stat keys (attack_power / protection / agility / accuracy) — **not applied**.
+- Class talent levels refer to **combat level** (`data.stats.combat.level`), not total level.
