@@ -14,10 +14,11 @@ const PAGE_SIZE = 50;
  * Queries the local items table — no IdleMMO API call, no rate-limit risk.
  * Items must have been synced via POST /api/admin/sync-items first.
  *
- * Params:
- *   query  – name substring search (case-insensitive)
- *   tab    – market tab id (e.g. "gear") — filters to that tab's types
- *   page   – 1-based page number (default 1, page size 50)
+ * Modes:
+ *   tab browse  — ?tab=gear&page=1          → all items for that tab's types
+ *   name search — ?query=iron&page=1        → name ILIKE, optional ?tab= filter
+ *
+ * At least one of `tab` (non-"all") or `query` must be provided.
  *
  * Response: { items: MarketDbItem[], pagination: { current_page, last_page, total } }
  */
@@ -26,23 +27,23 @@ export async function GET(request: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
-  const query  = searchParams.get("query")?.trim() ?? "";
-  const tabId  = searchParams.get("tab") ?? "";
-  const page   = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+  const query = searchParams.get("query")?.trim() ?? "";
+  const tabId = searchParams.get("tab") ?? "";
+  const page  = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
 
-  if (!query) {
-    return NextResponse.json({ error: "query is required" }, { status: 400 });
+  const tab      = MARKET_TABS.find((t) => t.id === tabId);
+  const typeList = tab && tab.types.length > 0 ? tab.types : null;
+
+  // Must have a name query OR be on a category tab (not "all")
+  if (!query && !typeList) {
+    return NextResponse.json({ error: "query or a category tab is required" }, { status: 400 });
   }
 
-  // Build type filter from tab
-  const tab       = MARKET_TABS.find((t) => t.id === tabId);
-  const typeList  = tab && tab.types.length > 0 ? tab.types : null;
-
-  const conditions = [ilike(items.name, `%${query}%`)];
+  const conditions = [];
+  if (query)    conditions.push(ilike(items.name, `%${query}%`));
   if (typeList) conditions.push(inArray(items.type, typeList));
-  const where = and(...conditions);
+  const where = conditions.length > 1 ? and(...conditions) : conditions[0];
 
-  // Count total for pagination
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(items)
