@@ -1,26 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
 
+export const maxDuration = 300;
+
 const BASE = "https://api.idle-mmo.com";
+const PAGE_SIZE_DEFAULT = 80;
+const PAGE_SIZE_MAX     = 200;
 
 /**
- * POST /api/admin/sync-recipes
+ * POST /api/admin/sync-recipes?page=1&pageSize=80
  *
- * Fetches all RECIPE-type items from the IdleMMO API, inspects each one to
- * get the recipe's result item, and persists:
- *   - The RECIPE item itself into the items table (upsert)
- *   - The recipe_result_hashed_id column: what item this scroll produces
+ * For each RECIPE item in the DB that is missing recipe_result_hashed_id,
+ * calls /v1/item/{hashedId}/inspect and persists the result.
  *
- * This is the only way to know "what does this recipe scroll craft?" without
- * calling inspect at browse time.
+ * Only processes items with recipe_result_hashed_id IS NULL — already-populated
+ * items are skipped entirely (no API call), so this is safe to re-run.
  *
- * Rate-limit aware: reads the user's rate limit from /v1/auth/check and
- * adds an inter-request delay to stay within quota.
+ * Pagination keeps each call within Vercel's 300s maxDuration:
+ * at 20 req/min, 80 items ≈ 4 rate-limit windows ≈ 4 min.
  *
- * Response: { synced: number, total: number }
+ * Response: { populated, skipped, total, page, totalPages }
+ *   total     — RECIPE items still missing recipe_result_hashed_id at call time
+ *   totalPages — based on that total; re-running after completion returns 0/1/1
  */
 export async function POST(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -31,92 +35,89 @@ export async function POST(request: NextRequest) {
   const token = session.user.idlemmoToken;
   if (!token) return NextResponse.json({ error: "No IdleMMO API token configured" }, { status: 400 });
 
-  // Read the user's rate limit so we can pace our inspect calls
-  let rateLimit = 20;
-  try {
-    const authRes = await fetch(`${BASE}/v1/auth/check`, {
-      headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
-      cache: "no-store",
-    });
-    if (authRes.ok) {
-      const authData = await authRes.json();
-      rateLimit = authData.api_key?.rate_limit ?? 20;
-    }
-  } catch { /* use default */ }
+  const { searchParams } = new URL(request.url);
+  const page     = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+  const pageSize = Math.min(
+    PAGE_SIZE_MAX,
+    Math.max(1, parseInt(searchParams.get("pageSize") ?? String(PAGE_SIZE_DEFAULT), 10))
+  );
 
-  // ms to wait between each API call to stay safely under the rate limit
-  const delayMs = Math.ceil(60_000 / rateLimit) + 200;
+  const nullCondition = and(eq(items.type, "RECIPE"), isNull(items.recipeResultHashedId));
 
-  // ── Step 1: Fetch all RECIPE items (auto-paginate) ────────────────────────
-  const recipeItems: Array<{ hashed_id: string; name: string; quality: string; image_url: string | null }> = [];
-  let page = 1;
+  const [{ value: total }] = await db
+    .select({ value: count() })
+    .from(items)
+    .where(nullCondition);
 
-  while (true) {
-    const res = await fetch(`${BASE}/v1/item/search?type=RECIPE&page=${page}`, {
-      headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
-      cache: "no-store",
-    });
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-    if (!res.ok) break;
-
-    const data = await res.json();
-    if (!Array.isArray(data.items) || data.items.length === 0) break;
-
-    recipeItems.push(...data.items);
-    if (data.pagination?.current_page >= data.pagination?.last_page) break;
-
-    page++;
-    await new Promise((r) => setTimeout(r, delayMs));
+  if (total === 0) {
+    return NextResponse.json({ populated: 0, skipped: 0, total: 0, page: 1, totalPages: 1 });
   }
 
-  // ── Step 2: Inspect each RECIPE item to get recipe.result ─────────────────
-  let synced = 0;
-  const now = new Date();
+  const rows = await db
+    .select({ hashedId: items.hashedId })
+    .from(items)
+    .where(nullCondition)
+    .orderBy(items.hashedId)
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
 
-  for (const item of recipeItems) {
-    await new Promise((r) => setTimeout(r, delayMs));
+  const reqHeaders = { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" };
+  let populated = 0;
+  let skipped   = 0;
 
-    let recipeResultHashedId: string | null = null;
+  // Header-driven rate limit state — no hardcoded assumptions
+  const rl = { remaining: null as number | null, resetAt: 0 };
+  const MAX_RETRIES = 10;
 
-    try {
-      const inspectRes = await fetch(`${BASE}/v1/item/${item.hashed_id}/inspect`, {
-        headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
-        cache: "no-store",
-      });
-
-      if (inspectRes.ok) {
-        const inspectData = await inspectRes.json();
-        recipeResultHashedId = inspectData.item?.recipe?.result?.hashed_item_id ?? null;
+  async function rateLimitedFetch(url: string): Promise<Response> {
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (rl.remaining !== null && rl.remaining <= 0) {
+        const waitMs = Math.max(1000, rl.resetAt * 1000 - Date.now() + 500);
+        await new Promise((r) => setTimeout(r, waitMs));
       }
-    } catch { /* skip this item on error */ }
 
-    // Upsert the RECIPE item + its recipe result
-    try {
-      await db
-        .insert(items)
-        .values({
-          hashedId:             item.hashed_id,
-          name:                 item.name,
-          type:                 "RECIPE",
-          quality:              item.quality.toUpperCase(),
-          imageUrl:             item.image_url ?? null,
-          syncedAt:             now,
-          recipeResultHashedId,
-        })
-        .onConflictDoUpdate({
-          target: items.hashedId,
-          set: {
-            name:                 sql`excluded.name`,
-            quality:              sql`excluded.quality`,
-            imageUrl:             sql`excluded.image_url`,
-            syncedAt:             now,
-            recipeResultHashedId: sql`excluded.recipe_result_hashed_id`,
-          },
-        });
+      const res = await fetch(url, { headers: reqHeaders, cache: "no-store" });
+      const rem = res.headers.get("x-ratelimit-remaining");
+      const rst = res.headers.get("x-ratelimit-reset");
+      if (rem !== null) rl.remaining = parseInt(rem, 10);
+      if (rst !== null) rl.resetAt   = parseInt(rst, 10);
 
-      synced++;
-    } catch { /* skip DB errors */ }
+      if (res.status !== 429) return res;
+
+      rl.remaining = 0;
+      const waitMs = Math.max(1000, rl.resetAt * 1000 - Date.now() + 500);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+
+    throw new Error(`Max retries (${MAX_RETRIES}) exceeded — API returning persistent 429`);
   }
 
-  return NextResponse.json({ synced, total: recipeItems.length });
+  for (const { hashedId } of rows) {
+    try {
+      const res = await rateLimitedFetch(`${BASE}/v1/item/${hashedId}/inspect`);
+
+      if (res.ok) {
+        const data                = await res.json();
+        const recipeResultHashedId = data.item?.recipe?.result?.hashed_item_id ?? null;
+
+        if (recipeResultHashedId) {
+          await db
+            .update(items)
+            .set({ recipeResultHashedId })
+            .where(eq(items.hashedId, hashedId));
+          populated++;
+        } else {
+          skipped++;
+        }
+      } else {
+        skipped++;
+      }
+    } catch {
+      skipped++;
+    }
+  }
+
+  return NextResponse.json({ populated, skipped, total, page, totalPages });
 }
