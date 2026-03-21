@@ -371,13 +371,15 @@ function FilterBar({ filters, setFilters, availableTypes, hasActiveFilters, onRe
 // ─── Item detail panel ────────────────────────────────────────────────────────
 
 interface DetailPanelProps {
-  item:           DbItem;
-  detail:         ItemInspect | null | "loading";
-  materialPrices: Record<string, MarketPrice | null | undefined>;
-  onClose:        () => void;
+  item:             DbItem;
+  detail:           ItemInspect | null | "loading";
+  materialPrices:   Record<string, MarketPrice | null | undefined>;
+  craftedByDetail:  ItemInspect | null | "loading" | undefined;
+  resultItemData:   DbItem | null | undefined;
+  onClose:          () => void;
 }
 
-function DetailPanel({ item, detail, materialPrices, onClose }: DetailPanelProps) {
+function DetailPanel({ item, detail, materialPrices, craftedByDetail, resultItemData, onClose }: DetailPanelProps) {
   const qualityText = QUALITY_COLORS[item.quality] ?? "text-zinc-400";
   const borderColor = QUALITY_BORDER_COLOR[item.quality] ?? "rgba(113,113,122,0.4)";
 
@@ -465,6 +467,54 @@ function DetailPanel({ item, detail, materialPrices, onClose }: DetailPanelProps
               </div>
             </div>
 
+            {/* Crafted By — shown for non-recipe items that have a recipe producing them */}
+            {item.type !== "RECIPE" && craftedByDetail !== undefined && (
+              <div>
+                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Crafted By</p>
+                {craftedByDetail === "loading" ? (
+                  <div className="space-y-2">
+                    <div className="h-3 w-2/3 bg-zinc-800 rounded animate-pulse" />
+                    <div className="h-3 w-1/2 bg-zinc-800 rounded animate-pulse" />
+                  </div>
+                ) : craftedByDetail === null ? null : (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-md p-3 space-y-2 border-l-2" style={{ borderLeftColor: "rgba(251,146,60,0.4)" }}>
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <BookOpen className="size-3 shrink-0 text-amber-400/60" />
+                        <span className="text-zinc-200 truncate">{craftedByDetail.name}</span>
+                      </div>
+                      <span className="text-zinc-500 shrink-0 ml-2">
+                        {craftedByDetail.recipe?.skill} Lv.{craftedByDetail.recipe?.level_required}
+                      </span>
+                    </div>
+                    {craftedByDetail.recipe?.materials && craftedByDetail.recipe.materials.length > 0 && (
+                      <div className="border-t border-zinc-800 pt-2 space-y-1.5">
+                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Materials</p>
+                        {craftedByDetail.recipe.materials.map((mat) => {
+                          const mp = materialPrices[mat.hashed_item_id];
+                          return (
+                            <div key={mat.hashed_item_id} className="flex items-center justify-between text-xs gap-2">
+                              <span className="text-zinc-300 truncate">{mat.item_name}</span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="font-mono text-zinc-500">×{mat.quantity}</span>
+                                {mp === undefined ? (
+                                  <div className="h-3 w-10 bg-zinc-800 rounded animate-pulse" />
+                                ) : mp?.price != null ? (
+                                  <span className="font-mono text-amber-400/70 text-[10px]">
+                                    {(mp.price * mat.quantity).toLocaleString()}g
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Stats */}
             {d?.stats && Object.keys(d.stats).length > 0 && (
               <div>
@@ -544,9 +594,31 @@ function DetailPanel({ item, detail, materialPrices, onClose }: DetailPanelProps
                     })}
                   </div>
                   {d.recipe.result && (
-                    <div className="border-t border-zinc-800 pt-2 flex items-center justify-between text-xs">
-                      <span className="text-zinc-500">Produces</span>
-                      <span className="text-amber-400/80">{d.recipe.result.item_name}</span>
+                    <div className="border-t border-zinc-800 pt-2 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-zinc-500">Produces</span>
+                        <span className="text-amber-400/80">{d.recipe.result.item_name}</span>
+                      </div>
+                      {resultItemData === undefined ? (
+                        <div className="h-3 w-3/4 bg-zinc-800 rounded animate-pulse ml-auto" />
+                      ) : resultItemData ? (
+                        <div className="flex items-center justify-end gap-3 text-[10px] font-mono">
+                          {resultItemData.vendor_price ? (
+                            <span className="text-zinc-500 flex items-center gap-1">
+                              <Coins className="size-2.5" />
+                              {resultItemData.vendor_price.toLocaleString()}g
+                            </span>
+                          ) : null}
+                          {resultItemData.last_sold_price != null ? (
+                            <span className="text-amber-400/70 flex items-center gap-1">
+                              <span>⚖</span>
+                              {resultItemData.last_sold_price.toLocaleString()}g
+                            </span>
+                          ) : (
+                            <span className="text-zinc-700">no market data</span>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -640,6 +712,10 @@ export function MarketBrowser() {
   const [selectedItem, setSelectedItem]     = useState<DbItem | null>(null);
   const [itemDetail, setItemDetail]         = useState<ItemInspect | null | "loading">(null);
   const [materialPrices, setMaterialPrices] = useState<Record<string, MarketPrice | null | undefined>>({});
+  // For non-recipe items: the recipe that crafts this item (if any)
+  const [craftedByDetail, setCraftedByDetail] = useState<ItemInspect | null | "loading" | undefined>(undefined);
+  // For recipe items: the produced item's DB data (prices, name)
+  const [resultItemData, setResultItemData]   = useState<DbItem | null | undefined>(undefined);
 
   const tabAbortRef    = useRef<AbortController | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -772,6 +848,8 @@ export function MarketBrowser() {
     setFilters(DEFAULT_FILTERS);
     setSelectedItem(null);
     setMaterialPrices({});
+    setCraftedByDetail(undefined);
+    setResultItemData(undefined);
     setLoading(tabId !== "all");
     setLoadProgress(null);
     setError(null);
@@ -785,6 +863,8 @@ export function MarketBrowser() {
     setSelectedItem(item);
     setItemDetail("loading");
     setMaterialPrices({});
+    setCraftedByDetail(undefined);
+    setResultItemData(undefined);
 
     // Fetch inspect data (stats, recipe, effects — not stored in DB)
     idleMmoQueue.fetch(`/api/idlemmo/item/${item.hashed_id}`, "inspect")
@@ -793,17 +873,74 @@ export function MarketBrowser() {
         const detail: ItemInspect | null = data.item ?? null;
         setItemDetail(detail);
 
-        // Fetch market prices for recipe materials
+        if (item.type === "RECIPE") {
+          // For RECIPE items: fetch produced item's DB prices
+          const resultId = detail?.recipe?.result?.hashed_item_id;
+          if (resultId) {
+            fetch(`/api/market/item/${resultId}`)
+              .then((r) => r.json())
+              .then((d) => setResultItemData(d.item ?? null))
+              .catch(() => setResultItemData(null));
+          } else {
+            setResultItemData(null);
+          }
+        } else {
+          // For non-recipe items: find which recipe (if any) produces this item
+          setCraftedByDetail("loading");
+          fetch(`/api/market/crafted-by/${item.hashed_id}`)
+            .then((r) => r.json())
+            .then((d) => {
+              const recipeRef = d.recipe as { hashed_id: string; name: string } | null;
+              if (!recipeRef) { setCraftedByDetail(null); return; }
+
+              // Inspect the recipe item to get its materials
+              return idleMmoQueue.fetch(`/api/idlemmo/item/${recipeRef.hashed_id}`, "inspect")
+                .then((r) => r.json())
+                .then((inspectData) => {
+                  const recipeDetail: ItemInspect | null = inspectData.item ?? null;
+                  setCraftedByDetail(recipeDetail);
+
+                  // Fetch material prices (merged into shared materialPrices state)
+                  if (recipeDetail?.recipe?.materials?.length) {
+                    const mats = recipeDetail.recipe.materials;
+                    setMaterialPrices((prev) => ({
+                      ...prev,
+                      ...Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])),
+                    }));
+                    for (const mat of mats) {
+                      idleMmoQueue.fetch(`/api/market/price/${mat.hashed_item_id}?tier=0`, "inspect")
+                        .then((r) => r.json())
+                        .then((pd) => setMaterialPrices((prev) => ({
+                          ...prev,
+                          [mat.hashed_item_id]: { price: pd.price ?? null, sold_at: pd.sold_at ?? null, quantity: pd.quantity ?? null },
+                        })))
+                        .catch((e: unknown) => {
+                          if (isAbortError(e)) return;
+                          setMaterialPrices((prev) => ({ ...prev, [mat.hashed_item_id]: null }));
+                        });
+                    }
+                  }
+                });
+            })
+            .catch((e: unknown) => {
+              if (isAbortError(e)) return;
+              setCraftedByDetail(null);
+            });
+        }
+
+        // Fetch market prices for recipe materials (when item is a RECIPE scroll)
         if (detail?.recipe?.materials?.length) {
           const mats = detail.recipe.materials;
-          setMaterialPrices(Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])));
-
+          setMaterialPrices((prev) => ({
+            ...prev,
+            ...Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])),
+          }));
           for (const mat of mats) {
             idleMmoQueue.fetch(`/api/market/price/${mat.hashed_item_id}?tier=0`, "inspect")
               .then((r) => r.json())
-              .then((d) => setMaterialPrices((prev) => ({
+              .then((pd) => setMaterialPrices((prev) => ({
                 ...prev,
-                [mat.hashed_item_id]: { price: d.price ?? null, sold_at: d.sold_at ?? null, quantity: d.quantity ?? null },
+                [mat.hashed_item_id]: { price: pd.price ?? null, sold_at: pd.sold_at ?? null, quantity: pd.quantity ?? null },
               })))
               .catch((e: unknown) => {
                 if (isAbortError(e)) return;
@@ -1013,6 +1150,8 @@ export function MarketBrowser() {
             item={selectedItem}
             detail={itemDetail}
             materialPrices={materialPrices}
+            craftedByDetail={craftedByDetail}
+            resultItemData={resultItemData}
             onClose={() => setSelectedItem(null)}
           />
         </div>
