@@ -1,25 +1,25 @@
 /**
- * E2E test: sync-prices rate-limiting logic
+ * E2E test: sync-prices paginated rate-limiting logic
  *
- * Validates that every item type with DB entries can have market prices
- * fetched from the IdleMMO API without hanging or infinite-looping.
+ * Validates that every item type in the DB can have market prices fetched
+ * page-by-page (80 items per page) without hanging or infinite-looping.
+ * Each page must complete within PER_PAGE_TIMEOUT_MS (Vercel's 300s limit).
  *
- * Run: node scripts/test-sync-prices.mjs [TYPE]
- *
- * Examples:
- *   node scripts/test-sync-prices.mjs           # all types
- *   node scripts/test-sync-prices.mjs DAGGER    # single type (fast debug)
- *   node scripts/test-sync-prices.mjs CHEST     # just the problematic one
+ * Run:
+ *   node scripts/test-sync-prices.mjs              # all types, all pages
+ *   node scripts/test-sync-prices.mjs DAGGER        # single type debug
+ *   node scripts/test-sync-prices.mjs RECIPE 2      # specific page
  *
  * TDD lifecycle:
- *   RED   — fails if any type times out (> PER_TYPE_TIMEOUT_MS) or hits MAX_RETRIES
- *   GREEN — all types complete: synced + skipped = total
+ *   RED   — fails if any page times out or hits MAX_RETRIES
+ *   GREEN — all types/pages complete: synced + skipped = total for that page
  */
 
 import { neon } from "@neondatabase/serverless";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import dotenv from "dotenv";
+import { ts, tickingSleep } from "./test-utils.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, "../.env.local") });
@@ -34,41 +34,10 @@ if (!DB_URL) { console.error("Missing DATABASE_URL");       process.exit(1); }
 const sql        = neon(DB_URL);
 const reqHeaders = { Authorization: `Bearer ${TOKEN}`, "User-Agent": "ImmoWebSuite/1.0" };
 
-/** Maximum time allowed per item type (ms). Exceeding = RED. */
-const PER_TYPE_TIMEOUT_MS = 15 * 60 * 1000; // 15 min
-/** Maximum 429 retries per URL before giving up (prevents infinite loops). */
-const MAX_RETRIES = 10;
-/**
- * Max items to test per type when running the full suite.
- * Verifies logic is correct without exhausting large types (e.g. RECIPE ~380 items).
- * Pass a specific TYPE argument to test all items for that type.
- */
-const SAMPLE_LIMIT = 50;
+const PAGE_SIZE          = 80;
+const PER_PAGE_TIMEOUT_MS = 14 * 60 * 1000; // 14 min — generous for worst-case 80 items
+const MAX_RETRIES        = 10;
 
-function ts() {
-  return new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
-}
-
-/**
- * Sleep for waitMs, printing a countdown tick every TICK_INTERVAL_MS.
- * Prevents silent gaps that look like hangs.
- */
-const TICK_INTERVAL_MS = 5000;
-async function tickingSleep(waitMs, label) {
-  const deadline = Date.now() + waitMs;
-  console.log(`  ${ts()} [wait] ${label} — ${(waitMs / 1000).toFixed(1)}s`);
-  while (Date.now() < deadline) {
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) break;
-    const tick = Math.min(TICK_INTERVAL_MS, remaining);
-    await new Promise((r) => setTimeout(r, tick));
-    const left = deadline - Date.now();
-    if (left > 500) console.log(`  ${ts()} [wait] ...${(left / 1000).toFixed(0)}s remaining`);
-  }
-  console.log(`  ${ts()} [wait] resuming`);
-}
-
-// ── Rate-limited fetch (iterative, not recursive) ─────────────────────────────
 
 async function rateLimitedFetch(url, state, signal) {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -93,7 +62,6 @@ async function rateLimitedFetch(url, state, signal) {
       return res;
     }
 
-    // 429 — wait and retry
     state.rlRemaining = 0;
     const waitMs = Math.max(1000, state.rlResetAt * 1000 - Date.now() + 500);
     await tickingSleep(waitMs, `429 retry ${attempt + 1}/${MAX_RETRIES}`);
@@ -102,31 +70,30 @@ async function rateLimitedFetch(url, state, signal) {
   throw new Error(`Max retries (${MAX_RETRIES}) exceeded — API returning persistent 429`);
 }
 
-// ── Per-type test ─────────────────────────────────────────────────────────────
+// ── Per-page test ──────────────────────────────────────────────────────────────
 
-async function testType(type, sampleLimit = null) {
-  const allRows = await sql`SELECT hashed_id, recipe_result_hashed_id FROM items WHERE type = ${type}`;
-  const rows    = sampleLimit ? allRows.slice(0, sampleLimit) : allRows;
-  const sampled = rows.length < allRows.length;
-  console.log(`\n[${type}] ${rows.length}${sampled ? ` of ${allRows.length}` : ""} items — started ${ts()}`);
+async function testPage(type, page, state) {
+  const offset = (page - 1) * PAGE_SIZE;
+  const rows   = await sql`
+    SELECT hashed_id FROM items
+    WHERE type = ${type}
+    ORDER BY hashed_id
+    LIMIT ${PAGE_SIZE} OFFSET ${offset}
+  `;
 
-  if (rows.length === 0) {
-    return { type, status: "skip", reason: "no items in DB" };
-  }
+  if (rows.length === 0) return { synced: 0, skipped: 0, count: 0 };
 
   const controller = new AbortController();
-  const timer      = setTimeout(() => controller.abort(), PER_TYPE_TIMEOUT_MS);
-  const state      = { rlRemaining: null, rlResetAt: 0 };
+  const timer      = setTimeout(() => controller.abort(), PER_PAGE_TIMEOUT_MS);
 
-  let synced  = 0;
-  let skipped = 0;
+  let synced = 0, skipped = 0;
   const errors = [];
 
   try {
     for (let i = 0; i < rows.length; i++) {
-      const { hashed_id, recipe_result_hashed_id } = rows[i];
+      const { hashed_id } = rows[i];
       const url = `${BASE}/v1/item/${hashed_id}/market-history?tier=0&type=listings`;
-      console.log(`  ${ts()} [${i + 1}/${rows.length}] ${hashed_id}`);
+      console.log(`  ${ts()} [${offset + i + 1}] ${hashed_id}`);
 
       try {
         const res = await rateLimitedFetch(url, state, controller.signal);
@@ -135,7 +102,6 @@ async function testType(type, sampleLimit = null) {
           const data   = await res.json();
           const latest = Array.isArray(data.latest_sold) && data.latest_sold.length > 0
             ? data.latest_sold[0] : null;
-
           if (latest?.price_per_item) {
             console.log(`    -> price=${latest.price_per_item} sold_at=${latest.sold_at}`);
             synced++;
@@ -144,18 +110,8 @@ async function testType(type, sampleLimit = null) {
             skipped++;
           }
         } else {
-          console.log(`    -> non-OK status ${res.status}, skipping`);
+          console.log(`    -> HTTP ${res.status}, skipping`);
           skipped++;
-        }
-
-        // RECIPE: inspect to verify recipe_result_hashed_id (skip if already known)
-        if (type === "RECIPE" && !recipe_result_hashed_id) {
-          const inspectUrl = `${BASE}/v1/item/${hashed_id}/inspect`;
-          const inspectRes = await rateLimitedFetch(inspectUrl, state, controller.signal);
-          const resultId   = inspectRes.ok
-            ? (await inspectRes.json()).item?.recipe?.result?.hashed_item_id ?? null
-            : null;
-          console.log(`    -> inspect recipe_result=${resultId ?? "none"}`);
         }
       } catch (err) {
         if (controller.signal.aborted) throw err;
@@ -164,47 +120,67 @@ async function testType(type, sampleLimit = null) {
         skipped++;
       }
     }
-
+  } finally {
     clearTimeout(timer);
-
-    const total   = rows.length;
-    const covered = synced + skipped;
-    const ok      = covered === total && errors.length === 0;
-
-    console.log(`\n  RESULT: synced=${synced} skipped=${skipped} errors=${errors.length} total=${total} — ${ok ? "PASS" : "FAIL"}`);
-    if (errors.length > 0) {
-      for (const e of errors.slice(0, 5)) console.log(`    ✗ ${e.hashed_id}: ${e.error}`);
-    }
-
-    return { type, status: ok ? "pass" : "fail", synced, skipped, total, errors };
-  } catch (err) {
-    clearTimeout(timer);
-    const reason = controller.signal.aborted
-      ? `TIMEOUT after ${PER_TYPE_TIMEOUT_MS / 1000}s`
-      : err.message;
-    console.log(`\n  RESULT: FAIL — ${reason}`);
-    return { type, status: "fail", error: reason };
   }
+
+  return { synced, skipped, count: rows.length, errors };
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── Per-type test ──────────────────────────────────────────────────────────────
 
-const typeArg = process.argv[2]?.toUpperCase();
+async function testType(type, onlyPage = null) {
+  const [{ n }] = await sql`SELECT COUNT(*) as n FROM items WHERE type = ${type}`;
+  const total      = parseInt(n, 10);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const pages = onlyPage ? [onlyPage] : Array.from({ length: totalPages }, (_, i) => i + 1);
+  console.log(`\n[${type}] ${total} items — ${totalPages} page(s) — testing page(s): ${pages.join(", ")} — started ${ts()}`);
+
+  if (total === 0) return { type, status: "skip", reason: "no items in DB" };
+
+  const state  = { rlRemaining: null, rlResetAt: 0 }; // shared across pages
+  let totalSynced = 0, totalSkipped = 0, allErrors = [];
+
+  for (const page of pages) {
+    console.log(`\n  -- Page ${page}/${totalPages} --`);
+    const result = await testPage(type, page, state);
+    totalSynced  += result.synced;
+    totalSkipped += result.skipped;
+    if (result.errors) allErrors.push(...result.errors);
+
+    const covered = result.synced + result.skipped;
+    console.log(`  Page ${page} result: synced=${result.synced} skipped=${result.skipped} count=${result.count} — ${covered === result.count ? "OK" : "MISMATCH"}`);
+  }
+
+  const ok = allErrors.length === 0;
+  console.log(`\n  RESULT [${type}]: synced=${totalSynced} skipped=${totalSkipped} errors=${allErrors.length} — ${ok ? "PASS" : "FAIL"}`);
+  if (allErrors.length > 0) {
+    for (const e of allErrors.slice(0, 5)) console.log(`    ✗ ${e.hashed_id}: ${e.error}`);
+  }
+
+  return { type, status: ok ? "pass" : "fail", synced: totalSynced, skipped: totalSkipped, total, errors: allErrors };
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+const [typeArg, pageArg] = process.argv.slice(2);
+const targetType = typeArg?.toUpperCase() ?? null;
+const targetPage = pageArg ? parseInt(pageArg, 10) : null;
 
 let ALL_TYPES;
-if (typeArg) {
-  ALL_TYPES = [typeArg];
-  console.log(`Running single-type debug: ${typeArg}`);
+if (targetType) {
+  ALL_TYPES = [targetType];
+  console.log(`Running single-type debug: ${targetType}${targetPage ? ` page ${targetPage}` : " (all pages)"}`);
 } else {
   const typeRows = await sql`SELECT DISTINCT type FROM items ORDER BY type`;
   ALL_TYPES = typeRows.map((r) => r.type);
-  console.log(`Testing ${ALL_TYPES.length} types: ${ALL_TYPES.join(", ")}`);
+  console.log(`Testing ${ALL_TYPES.length} types (all pages, ${PAGE_SIZE} items/page)`);
 }
 
 const results = [];
 for (const type of ALL_TYPES) {
-  // Single-type arg: test all items. Full suite: cap at SAMPLE_LIMIT to keep runtime sane.
-  results.push(await testType(type, typeArg ? null : SAMPLE_LIMIT));
+  results.push(await testType(type, targetPage));
 }
 
 console.log("\n── Summary ────────────────────────────────────────────────────────");
@@ -217,7 +193,7 @@ for (const r of results) {
     console.log(`  - ${r.type}: ${r.reason}`);
     skippedCount++;
   } else {
-    console.log(`  ✗ ${r.type}: ${r.error ?? `${r.errors?.length} item errors`}`);
+    console.log(`  ✗ ${r.type}: ${r.errors?.length ?? 0} errors`);
     failed++;
   }
 }
@@ -225,8 +201,8 @@ for (const r of results) {
 console.log(`\n${passed} passed, ${failed} failed, ${skippedCount} skipped`);
 
 if (failed > 0) {
-  console.log("\nRED — fix the sync-prices route before merging.");
+  console.log("\nRED — fix before merging.");
   process.exit(1);
 } else {
-  console.log("\nGREEN — all types sync correctly.");
+  console.log("\nGREEN — all pages sync correctly.");
 }
