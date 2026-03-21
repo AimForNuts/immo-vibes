@@ -9,6 +9,9 @@ export const maxDuration = 300;
 const BASE = "https://api.idle-mmo.com";
 const PAGE_SIZE_DEFAULT = 80;
 const PAGE_SIZE_MAX     = 200;
+// Sentinel stored when the API confirms an item has no recipe result.
+// Excluded from future syncs via the isNull(recipeResultHashedId) filter.
+const NO_RECIPE_SENTINEL = "NONE";
 
 /**
  * POST /api/admin/sync-recipes?page=1&pageSize=80
@@ -22,7 +25,7 @@ const PAGE_SIZE_MAX     = 200;
  * Pagination keeps each call within Vercel's 300s maxDuration:
  * at 20 req/min, 80 items ≈ 4 rate-limit windows ≈ 4 min.
  *
- * Response: { populated, skipped, total, page, totalPages }
+ * Response: { populated, noData, errors, total, page, totalPages }
  *   total     — RECIPE items still missing recipe_result_hashed_id at call time
  *   totalPages — based on that total; re-running after completion returns 0/1/1
  */
@@ -52,7 +55,7 @@ export async function POST(request: NextRequest) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   if (total === 0) {
-    return NextResponse.json({ populated: 0, skipped: 0, total: 0, page: 1, totalPages: 1 });
+    return NextResponse.json({ populated: 0, noData: 0, errors: 0, total: 0, page: 1, totalPages: 1 });
   }
 
   const rows = await db
@@ -65,7 +68,8 @@ export async function POST(request: NextRequest) {
 
   const reqHeaders = { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" };
   let populated = 0;
-  let skipped   = 0;
+  let noData    = 0;
+  let errors    = 0;
 
   // Header-driven rate limit state — no hardcoded assumptions
   const rl = { remaining: null as number | null, resetAt: 0 };
@@ -99,7 +103,7 @@ export async function POST(request: NextRequest) {
       const res = await rateLimitedFetch(`${BASE}/v1/item/${hashedId}/inspect`);
 
       if (res.ok) {
-        const data                = await res.json();
+        const data                 = await res.json();
         const recipeResultHashedId = data.item?.recipe?.result?.hashed_item_id ?? null;
 
         if (recipeResultHashedId) {
@@ -109,15 +113,23 @@ export async function POST(request: NextRequest) {
             .where(eq(items.hashedId, hashedId));
           populated++;
         } else {
-          skipped++;
+          // API returned no recipe result — mark with sentinel so this item is
+          // excluded from future syncs (isNull filter won't select it)
+          await db
+            .update(items)
+            .set({ recipeResultHashedId: NO_RECIPE_SENTINEL })
+            .where(eq(items.hashedId, hashedId));
+          noData++;
         }
       } else {
-        skipped++;
+        console.error(`[sync-recipes] ${hashedId}: HTTP ${res.status}`);
+        errors++;
       }
-    } catch {
-      skipped++;
+    } catch (err) {
+      console.error(`[sync-recipes] ${hashedId}: unexpected error`, err);
+      errors++;
     }
   }
 
-  return NextResponse.json({ populated, skipped, total, page, totalPages });
+  return NextResponse.json({ populated, noData, errors, total, page, totalPages });
 }

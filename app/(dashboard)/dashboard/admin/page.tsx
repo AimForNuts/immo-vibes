@@ -36,6 +36,8 @@ interface PriceStatus {
 interface RecipeStatus {
   state:       SyncState;
   populated?:  number;
+  noData?:     number;
+  errors?:     number;
   total?:      number;
   page?:       number;
   totalPages?: number;
@@ -112,9 +114,11 @@ export default function AdminPage() {
 
   async function syncRecipes() {
     setRecipeStatus({ state: "syncing", page: 1 });
-    let page       = 1;
-    let totalPages = 1;
+    let page         = 1;
+    let totalPages   = 1;
     let accPopulated = 0;
+    let accNoData    = 0;
+    let accErrors    = 0;
 
     while (page <= totalPages) {
       try {
@@ -128,11 +132,15 @@ export default function AdminPage() {
 
         totalPages    = data.totalPages;
         accPopulated += data.populated;
+        accNoData    += data.noData ?? 0;
+        accErrors    += data.errors ?? 0;
 
         setRecipeStatus({
-          state:      page < totalPages ? "syncing" : "done",
-          populated:  accPopulated,
-          total:      data.total,
+          state:     page < totalPages ? "syncing" : "done",
+          populated: accPopulated,
+          noData:    accNoData,
+          errors:    accErrors,
+          total:     data.total,
           page,
           totalPages,
         });
@@ -280,7 +288,11 @@ export default function AdminPage() {
                   <span className="text-muted-foreground">All recipe IDs already populated</span>
                 )}
                 {recipeStatus.state === "done" && (recipeStatus.total ?? 0) > 0 && (
-                  <span>{recipeStatus.populated} recipe IDs populated</span>
+                  <span>
+                    {recipeStatus.populated} populated
+                    {(recipeStatus.noData ?? 0) > 0 && <span className="text-muted-foreground"> · {recipeStatus.noData} no data</span>}
+                    {(recipeStatus.errors ?? 0) > 0 && <span className="text-destructive"> · {recipeStatus.errors} errors</span>}
+                  </span>
                 )}
                 {recipeStatus.state === "error" && (
                   <span className="text-destructive">{recipeStatus.error}</span>
