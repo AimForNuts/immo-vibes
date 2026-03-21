@@ -3,13 +3,41 @@
 > Never commit directly to `master`. Every feature or fix must go through a PR.
 
 1. `git pull origin master` — sync before starting
-2. `git checkout -b feat/<name>` (or `fix/`, `chore/`)
-3. Do all work on the branch
+2. Create a **worktree** for the branch (see Worktrees below)
+3. Do all work inside the worktree directory
 4. Commit and push when work is complete
 5. `gh pr create` — open a PR, **do not merge**
 6. Ask the user before merging — wait for explicit approval
 
 Skipping this workflow is never acceptable, even for "small" changes.
+
+# Worktrees — MANDATORY
+
+Every agent must work in its own isolated git worktree. Never work directly in the main `immo_web_suite` directory.
+
+**Create a worktree:**
+```bash
+git worktree add ../immo_web_suite-<branch-name> -b feat/<branch-name>
+# e.g.
+git worktree add ../immo_web_suite-recipe-detail -b feat/recipe-detail
+```
+
+**Work inside it:**
+```bash
+cd ../immo_web_suite-<branch-name>
+# make changes, commit, push as normal
+```
+
+**Remove after merge:**
+```bash
+git worktree remove ../immo_web_suite-<branch-name>
+```
+
+**Rules:**
+- One worktree per task/agent — never share a worktree between agents
+- Worktree directory lives alongside the main repo (e.g. `../immo_web_suite-feat-name`)
+- The main `immo_web_suite` directory stays on `master` and is never used for feature work
+- List active worktrees with `git worktree list`
 
 # Documentation Policy — MANDATORY
 
