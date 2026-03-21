@@ -371,15 +371,16 @@ function FilterBar({ filters, setFilters, availableTypes, hasActiveFilters, onRe
 // ─── Item detail panel ────────────────────────────────────────────────────────
 
 interface DetailPanelProps {
-  item:             DbItem;
-  detail:           ItemInspect | null | "loading";
-  materialPrices:   Record<string, MarketPrice | null | undefined>;
-  craftedByDetail:  ItemInspect | null | "loading" | undefined;
-  resultItemData:   DbItem | null | undefined;
-  onClose:          () => void;
+  item:              DbItem;
+  detail:            ItemInspect | null | "loading";
+  materialPrices:    Record<string, MarketPrice | null | undefined>;
+  craftedByDetail:   ItemInspect | null | "loading" | undefined;
+  craftedByItemData: DbItem | null | undefined;
+  resultItemData:    DbItem | null | undefined;
+  onClose:           () => void;
 }
 
-function DetailPanel({ item, detail, materialPrices, craftedByDetail, resultItemData, onClose }: DetailPanelProps) {
+function DetailPanel({ item, detail, materialPrices, craftedByDetail, craftedByItemData, resultItemData, onClose }: DetailPanelProps) {
   const qualityText = QUALITY_COLORS[item.quality] ?? "text-zinc-400";
   const borderColor = QUALITY_BORDER_COLOR[item.quality] ?? "rgba(113,113,122,0.4)";
 
@@ -487,6 +488,27 @@ function DetailPanel({ item, detail, materialPrices, craftedByDetail, resultItem
                         {craftedByDetail.recipe?.skill} Lv.{craftedByDetail.recipe?.level_required}
                       </span>
                     </div>
+                    {/* Recipe scroll vendor + market price */}
+                    {craftedByItemData !== undefined && (
+                      <div className="flex items-center gap-3 text-[10px] font-mono">
+                        {craftedByItemData === null ? null : (
+                          <>
+                            {craftedByItemData.vendor_price ? (
+                              <span className="text-zinc-500 flex items-center gap-1">
+                                <Coins className="size-2.5" />
+                                {craftedByItemData.vendor_price.toLocaleString()}g
+                              </span>
+                            ) : null}
+                            {craftedByItemData.last_sold_price != null ? (
+                              <span className="text-amber-400/70 flex items-center gap-1">
+                                <span>⚖</span>
+                                {craftedByItemData.last_sold_price.toLocaleString()}g
+                              </span>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+                    )}
                     {craftedByDetail.recipe?.materials && craftedByDetail.recipe.materials.length > 0 && (
                       <div className="border-t border-zinc-800 pt-2 space-y-1.5">
                         <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Materials</p>
@@ -713,9 +735,11 @@ export function MarketBrowser() {
   const [itemDetail, setItemDetail]         = useState<ItemInspect | null | "loading">(null);
   const [materialPrices, setMaterialPrices] = useState<Record<string, MarketPrice | null | undefined>>({});
   // For non-recipe items: the recipe that crafts this item (if any)
-  const [craftedByDetail, setCraftedByDetail] = useState<ItemInspect | null | "loading" | undefined>(undefined);
+  const [craftedByDetail, setCraftedByDetail]     = useState<ItemInspect | null | "loading" | undefined>(undefined);
+  // For non-recipe items: the recipe scroll's own DB prices (vendor/market)
+  const [craftedByItemData, setCraftedByItemData] = useState<DbItem | null | undefined>(undefined);
   // For recipe items: the produced item's DB data (prices, name)
-  const [resultItemData, setResultItemData]   = useState<DbItem | null | undefined>(undefined);
+  const [resultItemData, setResultItemData]       = useState<DbItem | null | undefined>(undefined);
 
   const tabAbortRef    = useRef<AbortController | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -849,6 +873,7 @@ export function MarketBrowser() {
     setSelectedItem(null);
     setMaterialPrices({});
     setCraftedByDetail(undefined);
+    setCraftedByItemData(undefined);
     setResultItemData(undefined);
     setLoading(tabId !== "all");
     setLoadProgress(null);
@@ -864,6 +889,7 @@ export function MarketBrowser() {
     setItemDetail("loading");
     setMaterialPrices({});
     setCraftedByDetail(undefined);
+    setCraftedByItemData(undefined);
     setResultItemData(undefined);
 
     // Fetch inspect data (stats, recipe, effects — not stored in DB)
@@ -892,6 +918,12 @@ export function MarketBrowser() {
             .then((d) => {
               const recipeRef = d.recipe as { hashed_id: string; name: string } | null;
               if (!recipeRef) { setCraftedByDetail(null); return; }
+
+              // Fetch recipe scroll's own DB prices (vendor/market)
+              fetch(`/api/market/item/${recipeRef.hashed_id}`)
+                .then((r) => r.json())
+                .then((d) => setCraftedByItemData(d.item ?? null))
+                .catch(() => setCraftedByItemData(null));
 
               // Inspect the recipe item to get its materials
               return idleMmoQueue.fetch(`/api/idlemmo/item/${recipeRef.hashed_id}`, "inspect")
@@ -1151,6 +1183,7 @@ export function MarketBrowser() {
             detail={itemDetail}
             materialPrices={materialPrices}
             craftedByDetail={craftedByDetail}
+            craftedByItemData={craftedByItemData}
             resultItemData={resultItemData}
             onClose={() => setSelectedItem(null)}
           />
