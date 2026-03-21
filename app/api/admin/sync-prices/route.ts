@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -47,8 +47,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Load all items of this type from DB
+  // For RECIPE: also load recipe_result_hashed_id so we can skip inspect when already known
   const rows = await db
-    .select({ hashedId: items.hashedId })
+    .select({ hashedId: items.hashedId, recipeResultHashedId: items.recipeResultHashedId })
     .from(items)
     .where(eq(items.type, type));
 
@@ -61,32 +62,34 @@ export async function POST(request: NextRequest) {
   let skipped = 0;
 
   // Header-driven rate limit state — no hardcoded assumptions
-  let rlRemaining: number | null = null;
-  let rlResetAt = 0;
+  const rl = { remaining: null as number | null, resetAt: 0 };
+  const MAX_RETRIES = 10;
 
   async function rateLimitedFetch(url: string): Promise<Response> {
-    if (rlRemaining !== null && rlRemaining <= 0) {
-      const waitMs = Math.max(1000, rlResetAt * 1000 - Date.now() + 500);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (rl.remaining !== null && rl.remaining <= 0) {
+        const waitMs = Math.max(1000, rl.resetAt * 1000 - Date.now() + 500);
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
+
+      const res = await fetch(url, { headers: reqHeaders, cache: "no-store" });
+      const rem = res.headers.get("x-ratelimit-remaining");
+      const rst = res.headers.get("x-ratelimit-reset");
+      if (rem !== null) rl.remaining = parseInt(rem, 10);
+      if (rst !== null) rl.resetAt   = parseInt(rst, 10);
+
+      if (res.status !== 429) return res;
+
+      // 429 — wait exactly as long as the API instructs, then retry
+      rl.remaining = 0;
+      const waitMs = Math.max(1000, rl.resetAt * 1000 - Date.now() + 500);
       await new Promise((r) => setTimeout(r, waitMs));
     }
 
-    const res = await fetch(url, { headers: reqHeaders, cache: "no-store" });
-    const rem = res.headers.get("x-ratelimit-remaining");
-    const rst = res.headers.get("x-ratelimit-reset");
-    if (rem !== null) rlRemaining = parseInt(rem, 10);
-    if (rst !== null) rlResetAt   = parseInt(rst, 10);
-
-    if (res.status === 429) {
-      rlRemaining = 0;
-      const waitMs = Math.max(1000, rlResetAt * 1000 - Date.now() + 500);
-      await new Promise((r) => setTimeout(r, waitMs));
-      return rateLimitedFetch(url); // retry after waiting
-    }
-
-    return res;
+    throw new Error(`Max retries (${MAX_RETRIES}) exceeded — API returning persistent 429`);
   }
 
-  for (const { hashedId } of rows) {
+  for (const { hashedId, recipeResultHashedId } of rows) {
     try {
       // ── Market price ──────────────────────────────────────────────────────
       const priceRes = await rateLimitedFetch(
@@ -127,7 +130,8 @@ export async function POST(request: NextRequest) {
       }
 
       // ── RECIPE items: inspect to populate recipe_result_hashed_id ─────────
-      if (type === "RECIPE") {
+      // Skip if already known — avoids doubling API calls on repeat syncs
+      if (type === "RECIPE" && !recipeResultHashedId) {
         const inspectRes = await rateLimitedFetch(`${BASE}/v1/item/${hashedId}/inspect`);
         if (inspectRes.ok) {
           const inspectData = await inspectRes.json();
