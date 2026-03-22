@@ -8,12 +8,10 @@ import { items } from "@/lib/db/schema";
 /**
  * GET /api/market/item/[id]
  *
- * Returns DB-backed item data (prices, name, quality, image) for a single item.
- * Used to show vendor/market values of a produced item when viewing a RECIPE,
- * and to enrich "crafted by" display for non-recipe items.
+ * Returns full DB-backed item data including inspect fields (stats, recipe,
+ * effects, requirements) so the detail panel can be served entirely from the DB.
  *
- * Response: { item: { hashed_id, name, type, quality, image_url, vendor_price,
- *                     last_sold_price, last_sold_at } | null }
+ * Response: { item: FullItem | null }
  */
 export async function GET(
   request: NextRequest,
@@ -34,6 +32,14 @@ export async function GET(
       vendorPrice:   items.vendorPrice,
       lastSoldPrice: items.lastSoldPrice,
       lastSoldAt:    items.lastSoldAt,
+      description:   items.description,
+      isTradeable:   items.isTradeable,
+      maxTier:       items.maxTier,
+      requirements:  items.requirements,
+      baseStats:     items.baseStats,
+      tierModifiers: items.tierModifiers,
+      effects:       items.effects,
+      recipe:        items.recipe,
     })
     .from(items)
     .where(eq(items.hashedId, id))
@@ -41,17 +47,25 @@ export async function GET(
 
   if (rows.length === 0) return NextResponse.json({ item: null });
 
-  const row = rows[0];
+  const r = rows[0];
   return NextResponse.json({
     item: {
-      hashed_id:       row.hashedId,
-      name:            row.name,
-      type:            row.type,
-      quality:         row.quality,
-      image_url:       row.imageUrl,
-      vendor_price:    row.vendorPrice,
-      last_sold_price: row.lastSoldPrice,
-      last_sold_at:    row.lastSoldAt?.toISOString() ?? null,
+      hashed_id:       r.hashedId,
+      name:            r.name,
+      type:            r.type,
+      quality:         r.quality,
+      image_url:       r.imageUrl,
+      vendor_price:    r.vendorPrice,
+      last_sold_price: r.lastSoldPrice,
+      last_sold_at:    r.lastSoldAt?.toISOString() ?? null,
+      description:     r.description,
+      is_tradeable:    r.isTradeable,
+      max_tier:        r.maxTier,
+      requirements:    r.requirements,
+      base_stats:      r.baseStats,
+      tier_modifiers:  r.tierModifiers,
+      effects:         r.effects,
+      recipe:          r.recipe,
     },
   });
 }
