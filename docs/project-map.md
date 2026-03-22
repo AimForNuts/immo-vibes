@@ -21,13 +21,19 @@ The item browse/search page with detail panel and recipe cost calculator.
 | Layer | Files |
 |---|---|
 | Page | `app/(dashboard)/dashboard/market/page.tsx` |
-| Component | `app/(dashboard)/dashboard/market/MarketBrowser.tsx` |
+| Root component | `app/(dashboard)/dashboard/market/MarketBrowser.tsx` (orchestrator ~250 lines) |
+| Types | `app/(dashboard)/dashboard/market/types.ts` (`DbItem`, `FullItem`, `MarketPrice`, `Filters`) |
+| Component — item tile | `app/(dashboard)/dashboard/market/components/ItemCard.tsx` |
+| Component — filters | `app/(dashboard)/dashboard/market/components/FilterBar.tsx` |
+| Component — detail panel | `app/(dashboard)/dashboard/market/components/DetailPanel.tsx` |
+| Hook — tab/search | `app/(dashboard)/dashboard/market/hooks/useMarketItems.ts` |
+| Hook — item detail | `app/(dashboard)/dashboard/market/hooks/useItemDetail.ts` |
 | API — list | `app/api/market/route.ts` |
 | API — item detail | `app/api/market/item/[id]/route.ts` |
 | API — price | `app/api/market/price/[id]/route.ts` |
 | API — crafted-by | `app/api/market/crafted-by/[id]/route.ts` |
 | Config | `lib/market-config.ts` (tab → item type mapping) |
-| Client queue | `lib/idlemmo-queue.ts` (rate-limit-aware fetch for client components) |
+| Folder docs | `app/(dashboard)/dashboard/market/README.md` |
 
 **DB tables**: `items` (read), `market_price_history` (read via price route)
 **External API**: none — fully served from DB
@@ -120,8 +126,17 @@ Gear set builder with combat stat preview and preset save/load.
 | Layer | Files |
 |---|---|
 | Page | `app/(dashboard)/dashboard/gear/page.tsx` |
-| Component | `app/(dashboard)/dashboard/gear/GearCalculator.tsx` |
-| Server actions | `app/(dashboard)/dashboard/gear/actions.ts` |
+| Root component | `app/(dashboard)/dashboard/gear/GearCalculator.tsx` (orchestrator ~280 lines) |
+| Server actions | `app/(dashboard)/dashboard/gear/actions.ts` (`savePreset`, `updatePreset`, `deletePreset`) |
+| Types | `app/(dashboard)/dashboard/gear/types.ts` (`WeaponStyle`, `SlotKey`, `GearSet`, `CatalogItem`, `InspectEntry`, `ComputedStats`, `SlotStatsMap`) |
+| Pure stat lib | `app/(dashboard)/dashboard/gear/lib/gear-stats.ts` (`applyTier`, `buildSlotStats`, `computeGearStats`) |
+| Component — gear set | `app/(dashboard)/dashboard/gear/components/GearSetPanel.tsx` |
+| Component — item picker | `app/(dashboard)/dashboard/gear/components/ItemPickerModal.tsx` |
+| Component — stats table | `app/(dashboard)/dashboard/gear/components/StatsPanel.tsx` |
+| Component — presets | `app/(dashboard)/dashboard/gear/components/PresetManager.tsx` |
+| Hook — character stats | `app/(dashboard)/dashboard/gear/hooks/useCharacterStats.ts` |
+| Hook — item search | `app/(dashboard)/dashboard/gear/hooks/useItemSearch.ts` |
+| Folder docs | `app/(dashboard)/dashboard/gear/README.md` |
 
 **DB tables**: `gearPresets` (read/write), `items` (read for item lookup by hashedId)
 **External API**: `getCharacterInfo()`, `getAltCharacters()` (populate character selector)
