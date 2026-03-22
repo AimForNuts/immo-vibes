@@ -130,6 +130,13 @@ export const items = pgTable("items", {
   lastSoldPrice:        integer("last_sold_price"),
   /** When the latest known tier-1 sale happened. */
   lastSoldAt:           timestamp("last_sold_at"),
+  /**
+   * When the cron last fetched a price for this item from the IdleMMO API.
+   * The daily sync-prices cron orders by this ASC NULLS FIRST so items never
+   * checked (or checked longest ago) are always processed next — cycling
+   * through all items over time with a single daily run.
+   */
+  priceCheckedAt:       timestamp("price_checked_at"),
 });
 
 // Card types available in the 3×2 dashboard grid
@@ -205,21 +212,22 @@ export const marketPriceHistory = pgTable(
 );
 
 /**
- * Tracks the progress and completion status of each automated cron sync job.
- * Used by downstream crons to gate on upstream completion (e.g. recipes waits
- * for items, prices waits for recipes).
+ * Tracks the last run status of each automated cron sync job.
+ * Used by downstream crons to gate on upstream completion
+ * (e.g. sync-recipes waits for sync-items to finish today).
  *
- * For the prices job, currentTypeIndex + currentPage track pagination state
- * so each 10-min invocation can resume where the last one left off.
+ * currentTypeIndex / currentPage are unused legacy columns kept for
+ * backward compatibility — prices pagination is now handled via
+ * items.price_checked_at ordering instead.
  */
 export const syncState = pgTable("sync_state", {
   /** 'items' | 'recipes' | 'prices' */
   job:              text("job").primaryKey(),
   /** 'idle' | 'running' | 'done' | 'failed' */
   status:           text("status").notNull().default("idle"),
-  /** Index into IDLEMMO_ITEM_TYPES — prices only. */
+  /** @deprecated Unused — prices pagination is handled by priceCheckedAt ordering. */
   currentTypeIndex: integer("current_type_index").notNull().default(0),
-  /** Current pagination page within the active type — prices only. */
+  /** @deprecated Unused — prices pagination is handled by priceCheckedAt ordering. */
   currentPage:      integer("current_page").notNull().default(1),
   /** When the current run started (UTC). */
   startedAt:        timestamp("started_at"),

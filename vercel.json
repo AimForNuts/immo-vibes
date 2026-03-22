@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/sync-prices",
-      "schedule": "*/10 4-23 * * 1"
+      "schedule": "0 4 * * *"
     }
   ]
 }
