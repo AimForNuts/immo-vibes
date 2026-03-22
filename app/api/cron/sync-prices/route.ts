@@ -1,40 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
 import { items, marketPriceHistory, syncState } from "@/lib/db/schema";
-import { IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 
 export const maxDuration = 300;
 
 const BASE      = "https://api.idle-mmo.com";
 const PAGE_SIZE = 80;
 
-/** Returns true if the given date is today (UTC). */
-function isToday(date: Date | null | undefined): boolean {
-  if (!date) return false;
-  const now = new Date();
-  return (
-    date.getUTCFullYear() === now.getUTCFullYear() &&
-    date.getUTCMonth()    === now.getUTCMonth()    &&
-    date.getUTCDate()     === now.getUTCDate()
-  );
-}
-
 /**
  * POST /api/cron/sync-prices
  *
- * Paginated price sync that resumes across invocations using sync_state.
+ * Fetches market prices for the next PAGE_SIZE items ordered by
+ * price_checked_at ASC NULLS FIRST — items never checked come first,
+ * then the ones checked longest ago. This cycles through all items over
+ * time with a single daily run, with no external pagination state needed.
  *
- * Each call processes one page (PAGE_SIZE items) of the current type, then
- * persists progress. The next invocation picks up where this one left off.
- * When all types and pages are exhausted, status is set to 'done' and
- * subsequent calls become no-ops until the following week.
+ * After fetching each item's price, price_checked_at is updated to now so
+ * it moves to the back of the queue on future runs.
  *
- * Gates on recipes sync having completed today before starting a fresh run.
- * In-progress runs continue regardless (no need to re-check the gate).
- *
- * Runs every 10 minutes all day Monday (every-10-min on Mon). Protected by CRON_SECRET.
+ * Runs daily at 04:00 UTC. Protected by CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -42,63 +28,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Read current prices sync state
-  const stateRows = await db
-    .select()
-    .from(syncState)
-    .where(eq(syncState.job, "prices"))
-    .limit(1);
-  const state = stateRows[0];
-
-  // Already completed this week (today) — nothing to do
-  if (state?.status === "done" && isToday(state.completedAt)) {
-    return NextResponse.json({ skipped: true, reason: "already completed today" });
-  }
-
-  // Not yet running — need to start a fresh run; gate on recipes being done today
-  if (!state || state.status !== "running") {
-    const recipesRows = await db
-      .select({ status: syncState.status, completedAt: syncState.completedAt })
-      .from(syncState)
-      .where(eq(syncState.job, "recipes"))
-      .limit(1);
-    const recipesState = recipesRows[0];
-
-    if (!recipesState || recipesState.status !== "done" || !isToday(recipesState.completedAt)) {
-      return NextResponse.json({ skipped: true, reason: "recipes sync not completed today" });
-    }
-
-    // Start fresh
-    await db
-      .insert(syncState)
-      .values({
-        job: "prices", status: "running",
-        currentTypeIndex: 0, currentPage: 1,
-        startedAt: new Date(), completedAt: null,
-      })
-      .onConflictDoUpdate({
-        target: syncState.job,
-        set: {
-          status: "running",
-          currentTypeIndex: 0, currentPage: 1,
-          startedAt: new Date(), completedAt: null,
-        },
-      });
-
-    // Re-read to get the fresh state
-    const freshRows = await db.select().from(syncState).where(eq(syncState.job, "prices")).limit(1);
-    Object.assign(state ?? {}, freshRows[0]);
-    // Use freshRows[0] for the rest of the function
-    return await processPage(request, freshRows[0]);
-  }
-
-  return await processPage(request, state);
-}
-
-async function processPage(
-  _request: NextRequest,
-  state: { currentTypeIndex: number; currentPage: number }
-) {
   const adminRow = await db.execute(
     sql`SELECT idlemmo_token FROM "user" WHERE role = 'admin' AND idlemmo_token IS NOT NULL LIMIT 1`
   );
@@ -107,79 +36,17 @@ async function processPage(
     return NextResponse.json({ error: "No admin IdleMMO token configured" }, { status: 500 });
   }
 
-  let { currentTypeIndex, currentPage } = state;
+  // Pick the next PAGE_SIZE items that haven't been checked (or were checked longest ago)
+  const rows = await db
+    .select({ hashedId: items.hashedId })
+    .from(items)
+    .orderBy(asc(items.priceCheckedAt))
+    .limit(PAGE_SIZE);
 
-  // Skip exhausted types
-  while (currentTypeIndex < IDLEMMO_ITEM_TYPES.length) {
-    const type = IDLEMMO_ITEM_TYPES[currentTypeIndex];
-
-    const rows = await db
-      .select({ hashedId: items.hashedId })
-      .from(items)
-      .where(eq(items.type, type))
-      .orderBy(items.hashedId)
-      .limit(PAGE_SIZE)
-      .offset((currentPage - 1) * PAGE_SIZE);
-
-    if (rows.length > 0) {
-      // Found a page to process — proceed
-      const result = await syncPricePage(rows.map((r) => r.hashedId), token);
-
-      // Advance: check if there are more pages in this type
-      const nextPageRows = await db
-        .select({ hashedId: items.hashedId })
-        .from(items)
-        .where(eq(items.type, type))
-        .orderBy(items.hashedId)
-        .limit(1)
-        .offset(currentPage * PAGE_SIZE);
-
-      if (nextPageRows.length > 0) {
-        // More pages for this type
-        await db
-          .insert(syncState)
-          .values({ job: "prices", status: "running", currentTypeIndex, currentPage: currentPage + 1 })
-          .onConflictDoUpdate({
-            target: syncState.job,
-            set: { currentTypeIndex, currentPage: currentPage + 1 },
-          });
-      } else {
-        // Move to next type
-        await db
-          .insert(syncState)
-          .values({ job: "prices", status: "running", currentTypeIndex: currentTypeIndex + 1, currentPage: 1 })
-          .onConflictDoUpdate({
-            target: syncState.job,
-            set: { currentTypeIndex: currentTypeIndex + 1, currentPage: 1 },
-          });
-      }
-
-      return NextResponse.json({
-        type,
-        page: currentPage,
-        ...result,
-        nextTypeIndex: nextPageRows.length > 0 ? currentTypeIndex : currentTypeIndex + 1,
-      });
-    }
-
-    // This type has no items at this page offset — advance to next type
-    currentTypeIndex++;
-    currentPage = 1;
+  if (rows.length === 0) {
+    return NextResponse.json({ synced: 0, skipped: 0, total: 0 });
   }
 
-  // All types exhausted — mark done
-  await db
-    .insert(syncState)
-    .values({ job: "prices", status: "done", completedAt: new Date() })
-    .onConflictDoUpdate({
-      target: syncState.job,
-      set: { status: "done", completedAt: new Date() },
-    });
-
-  return NextResponse.json({ done: true });
-}
-
-async function syncPricePage(hashedIds: string[], token: string) {
   const reqHeaders = { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" };
   const rl = { remaining: null as number | null, resetAt: 0 };
   const MAX_RETRIES = 10;
@@ -196,17 +63,19 @@ async function syncPricePage(hashedIds: string[], token: string) {
       if (rem !== null) rl.remaining = parseInt(rem, 10);
       if (rst !== null) rl.resetAt   = parseInt(rst, 10);
       if (res.status !== 429) return res;
+      // 429 — wait exactly as long as the API instructs, then retry
       rl.remaining = 0;
       const waitMs = Math.max(1000, rl.resetAt * 1000 - Date.now() + 500);
       await new Promise((r) => setTimeout(r, waitMs));
     }
-    throw new Error(`Max retries (${MAX_RETRIES}) exceeded`);
+    throw new Error(`Max retries (${MAX_RETRIES}) exceeded — API returning persistent 429`);
   }
 
   let synced  = 0;
   let skipped = 0;
+  const now   = new Date();
 
-  for (const hashedId of hashedIds) {
+  for (const { hashedId } of rows) {
     try {
       const res = await rateLimitedFetch(
         `${BASE}/v1/item/${hashedId}/market-history?tier=0&type=listings`
@@ -223,19 +92,24 @@ async function syncPricePage(hashedIds: string[], token: string) {
 
           await db
             .update(items)
-            .set({ lastSoldPrice: price, lastSoldAt: soldAt })
+            .set({ lastSoldPrice: price, lastSoldAt: soldAt, priceCheckedAt: now })
             .where(eq(items.hashedId, hashedId));
 
           try {
             await db.insert(marketPriceHistory).values({
               id: randomUUID(), itemHashedId: hashedId,
               price, quantity: latest.quantity ?? 1,
-              soldAt, recordedAt: new Date(),
+              soldAt, recordedAt: now,
             }).onConflictDoNothing();
           } catch { /* non-blocking */ }
 
           synced++;
         } else {
+          // No active listing — still mark as checked so it moves to back of queue
+          await db
+            .update(items)
+            .set({ priceCheckedAt: now })
+            .where(eq(items.hashedId, hashedId));
           skipped++;
         }
       } else {
@@ -246,5 +120,14 @@ async function syncPricePage(hashedIds: string[], token: string) {
     }
   }
 
-  return { synced, skipped };
+  // Record completion in sync_state for observability
+  await db
+    .insert(syncState)
+    .values({ job: "prices", status: "done", startedAt: now, completedAt: new Date() })
+    .onConflictDoUpdate({
+      target: syncState.job,
+      set: { status: "done", startedAt: now, completedAt: new Date() },
+    });
+
+  return NextResponse.json({ synced, skipped, total: rows.length });
 }
