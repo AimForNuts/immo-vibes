@@ -17,5 +17,6 @@ ALTER TABLE "items" ADD COLUMN "tier_modifiers" jsonb;--> statement-breakpoint
 ALTER TABLE "items" ADD COLUMN "effects" jsonb;--> statement-breakpoint
 ALTER TABLE "items" ADD COLUMN "recipe" jsonb;--> statement-breakpoint
 ALTER TABLE "items" ADD COLUMN "inspected_at" timestamp;--> statement-breakpoint
+ALTER TABLE "items" ADD COLUMN "price_checked_at" timestamp;--> statement-breakpoint
 ALTER TABLE "market_price_history" ADD COLUMN "tier" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "market_price_history_uniq" ON "market_price_history" USING btree ("item_hashed_id","tier","sold_at");
