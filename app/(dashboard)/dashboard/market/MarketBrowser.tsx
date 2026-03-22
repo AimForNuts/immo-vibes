@@ -4,14 +4,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search, Mountain, FlaskConical, Sword, Hammer, Gem,
   Package, Coins, Loader2, X, SlidersHorizontal, ChevronRight,
-  Skull, Swords, Globe, ShoppingBag, Sparkles, BookOpen, Archive,
-  AlertCircle, Clock,
+  ShoppingBag, Sparkles, BookOpen, Archive,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MARKET_TABS } from "@/lib/market-config";
 import { QUALITY_COLORS, QUALITY_ORDER, QUALITY_HEX, QUALITY_BORDER_CSS, QUALITY_GLOW_CSS } from "@/lib/game-constants";
-import type { ItemInspect } from "@/lib/idlemmo";
-import { idleMmoQueue, type IdleMmoQueueStatus } from "@/lib/idlemmo-queue";
+import type { ItemEffect, ItemRecipe } from "@/lib/db/schema";
 
 /** Item shape returned by the DB-backed GET /api/market route. */
 interface DbItem {
@@ -25,8 +24,16 @@ interface DbItem {
   last_sold_at:    string | null;
 }
 
-function isAbortError(e: unknown): boolean {
-  return e instanceof DOMException && e.name === "AbortError";
+/** Full item from GET /api/market/item/[id] — includes inspect fields. */
+interface FullItem extends DbItem {
+  description:    string | null;
+  is_tradeable:   boolean | null;
+  max_tier:       number | null;
+  requirements:   Record<string, number> | null;
+  base_stats:     Record<string, number> | null;
+  tier_modifiers: Record<string, number> | null;
+  effects:        ItemEffect[] | null;
+  recipe:         ItemRecipe | null;
 }
 
 
@@ -75,35 +82,12 @@ const DEFAULT_FILTERS: Filters = {
 
 // ─── Loading status bar ───────────────────────────────────────────────────────
 
-function LoadingStatus({ loading, status }: { loading: boolean; status: IdleMmoQueueStatus }) {
-  const secsLeft = status.resetAt > 0
-    ? Math.max(0, Math.ceil((status.resetAt * 1000 - Date.now()) / 1000))
-    : 0;
-
-  if (status.throttled) {
-    return (
-      <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-amber-400/8 border border-amber-400/25 text-amber-400/90 text-sm">
-        <Clock className="size-4 shrink-0" />
-        <span>
-          Rate limit reached — resuming{secsLeft > 0 ? ` in ${secsLeft}s` : " soon"}
-        </span>
-        <span className="ml-auto text-[11px] font-mono text-amber-400/50">
-          {status.queueSize} queued
-        </span>
-      </div>
-    );
-  }
-
+function LoadingStatus({ loading }: { loading: boolean }) {
   if (loading) {
     return (
       <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-sm">
         <Loader2 className="size-4 shrink-0 animate-spin text-amber-400" />
         <span>Searching…</span>
-        {status.remaining < 5 && (
-          <span className="ml-auto text-[11px] font-mono text-zinc-600">
-            {status.remaining} req left
-          </span>
-        )}
       </div>
     );
   }
@@ -351,9 +335,9 @@ function FilterBar({ filters, setFilters, availableTypes, hasActiveFilters, onRe
 
 interface DetailPanelProps {
   item:              DbItem;
-  detail:            ItemInspect | null | "loading";
+  detail:            FullItem | null | "loading";
   materialPrices:    Record<string, MarketPrice | null | undefined>;
-  craftedByDetail:   ItemInspect | null | "loading" | undefined;
+  craftedByDetail:   FullItem | null | "loading" | undefined;
   craftedByItemData: DbItem | null | undefined;
   resultItemData:    DbItem | null | undefined;
   onClose:           () => void;
@@ -517,11 +501,11 @@ function DetailPanel({ item, detail, materialPrices, craftedByDetail, craftedByI
             )}
 
             {/* Stats */}
-            {d?.stats && Object.keys(d.stats).length > 0 && (
+            {d?.base_stats && Object.keys(d.base_stats).length > 0 && (
               <div>
                 <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Stats</p>
                 <div className="space-y-1">
-                  {Object.entries(d.stats).map(([key, val]) => (
+                  {Object.entries(d.base_stats).map(([key, val]) => (
                     <div key={key} className="flex items-center justify-between text-xs">
                       <span className="text-zinc-400">{statLabel(key)}</span>
                       <span className="font-mono text-zinc-200">+{val}</span>
@@ -626,57 +610,8 @@ function DetailPanel({ item, detail, materialPrices, craftedByDetail, craftedByI
               </div>
             )}
 
-            {/* Where to find */}
-            {d?.where_to_find && (
-              (() => {
-                const wtf = d.where_to_find;
-                const hasData = (wtf.enemies?.length ?? 0) + (wtf.dungeons?.length ?? 0) + (wtf.world_bosses?.length ?? 0) > 0;
-                if (!hasData) return null;
-                return (
-                  <div>
-                    <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Where to Find</p>
-                    <div className="space-y-2">
-                      {wtf.enemies?.length > 0 && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-[10px] text-zinc-600 uppercase tracking-wider">
-                            <Skull className="size-3" /> Enemies
-                          </div>
-                          {wtf.enemies.slice(0, 5).map((e) => (
-                            <div key={e.id} className="text-xs text-zinc-400 pl-4 flex justify-between">
-                              <span>{e.name}</span>
-                              <span className="text-zinc-600 font-mono">Lv.{e.level}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {wtf.dungeons?.length > 0 && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-[10px] text-zinc-600 uppercase tracking-wider">
-                            <Swords className="size-3" /> Dungeons
-                          </div>
-                          {wtf.dungeons.map((d) => (
-                            <div key={d.id} className="text-xs text-zinc-400 pl-4">{d.name}</div>
-                          ))}
-                        </div>
-                      )}
-                      {wtf.world_bosses?.length > 0 && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-[10px] text-zinc-600 uppercase tracking-wider">
-                            <Globe className="size-3" /> World Bosses
-                          </div>
-                          {wtf.world_bosses.map((wb) => (
-                            <div key={wb.id} className="text-xs text-zinc-400 pl-4">{wb.name}</div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()
-            )}
-
             {/* Tier info */}
-            {d && d.max_tier > 1 && (
+            {d && (d.max_tier ?? 0) > 1 && (
               <div className="border-t border-zinc-800 pt-3">
                 <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
                   Upgradeable · Max Tier {d.max_tier}
@@ -700,21 +635,16 @@ export function MarketBrowser() {
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError]             = useState<string | null>(null);
 
-  // Queue status for the inspect rate-limit indicator
-  const [queueStatus, setQueueStatus] = useState<IdleMmoQueueStatus>({
-    remaining: 20, resetAt: 0, queueSize: 0, throttled: false,
-  });
-
   // Filters
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters]         = useState<Filters>(DEFAULT_FILTERS);
 
   // Selected item detail panel
   const [selectedItem, setSelectedItem]     = useState<DbItem | null>(null);
-  const [itemDetail, setItemDetail]         = useState<ItemInspect | null | "loading">(null);
+  const [itemDetail, setItemDetail]         = useState<FullItem | null | "loading">(null);
   const [materialPrices, setMaterialPrices] = useState<Record<string, MarketPrice | null | undefined>>({});
   // For non-recipe items: the recipe that crafts this item (if any)
-  const [craftedByDetail, setCraftedByDetail]     = useState<ItemInspect | null | "loading" | undefined>(undefined);
+  const [craftedByDetail, setCraftedByDetail]     = useState<FullItem | null | "loading" | undefined>(undefined);
   // For non-recipe items: the recipe scroll's own DB prices (vendor/market)
   const [craftedByItemData, setCraftedByItemData] = useState<DbItem | null | undefined>(undefined);
   // For recipe items: the produced item's DB data (prices, name)
@@ -728,11 +658,9 @@ export function MarketBrowser() {
   const tabCacheRef   = useRef<Map<string, DbItem[]>>(new Map());
   const tabLoadedRef  = useRef<Set<string>>(new Set());
 
-  // Subscribe to queue status for the inspect indicator + cleanup on unmount
+  // Cleanup on unmount
   useEffect(() => {
-    idleMmoQueue.onStatusChange = setQueueStatus;
     return () => {
-      idleMmoQueue.onStatusChange = null;
       clearTimeout(searchTimerRef.current);
       tabAbortRef.current?.abort();
       searchAbortRef.current?.abort();
@@ -845,7 +773,6 @@ export function MarketBrowser() {
     tabAbortRef.current?.abort();
     clearTimeout(searchTimerRef.current);
     searchAbortRef.current?.abort();
-    idleMmoQueue.cancelByTag("inspect");
     setItems([]);
     setSearchQuery("");
     setFilters(DEFAULT_FILTERS);
@@ -863,7 +790,6 @@ export function MarketBrowser() {
   // ── Item click → detail panel ───────────────────────────────────────────
 
   const handleItemClick = useCallback((item: DbItem) => {
-    idleMmoQueue.cancelByTag("inspect");
     setSelectedItem(item);
     setItemDetail("loading");
     setMaterialPrices({});
@@ -871,15 +797,15 @@ export function MarketBrowser() {
     setCraftedByItemData(undefined);
     setResultItemData(undefined);
 
-    // Fetch inspect data (stats, recipe, effects — not stored in DB)
-    idleMmoQueue.fetch(`/api/idlemmo/item/${item.hashed_id}`, "inspect")
+    // Fetch full item data from DB (stats, recipe, effects — all stored)
+    fetch(`/api/market/item/${item.hashed_id}`)
       .then((r) => r.json())
       .then((data) => {
-        const detail: ItemInspect | null = data.item ?? null;
+        const detail: FullItem | null = data.item ?? null;
         setItemDetail(detail);
 
         if (item.type === "RECIPE") {
-          // For RECIPE items: fetch produced item's DB prices
+          // For RECIPE items: fetch produced item's DB data
           const resultId = detail?.recipe?.result?.hashed_item_id;
           if (resultId) {
             fetch(`/api/market/item/${resultId}`)
@@ -888,6 +814,21 @@ export function MarketBrowser() {
               .catch(() => setResultItemData(null));
           } else {
             setResultItemData(null);
+          }
+
+          // Fetch material prices
+          if (detail?.recipe?.materials?.length) {
+            const mats = detail.recipe.materials;
+            setMaterialPrices(Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])));
+            for (const mat of mats) {
+              fetch(`/api/market/price/${mat.hashed_item_id}?tier=0`)
+                .then((r) => r.json())
+                .then((pd) => setMaterialPrices((prev: Record<string, MarketPrice | null | undefined>) => ({
+                  ...prev,
+                  [mat.hashed_item_id]: { price: pd.price ?? null, sold_at: pd.sold_at ?? null, quantity: pd.quantity ?? null },
+                })))
+                .catch(() => setMaterialPrices((prev: Record<string, MarketPrice | null | undefined>) => ({ ...prev, [mat.hashed_item_id]: null })));
+            }
           }
         } else {
           // For non-recipe items: find which recipe (if any) produces this item
@@ -898,72 +839,42 @@ export function MarketBrowser() {
               const recipeRef = d.recipe as { hashed_id: string; name: string } | null;
               if (!recipeRef) { setCraftedByDetail(null); return; }
 
-              // Fetch recipe scroll's own DB prices (vendor/market)
+              // Fetch recipe scroll's DB prices (vendor/market)
               fetch(`/api/market/item/${recipeRef.hashed_id}`)
                 .then((r) => r.json())
                 .then((d) => setCraftedByItemData(d.item ?? null))
                 .catch(() => setCraftedByItemData(null));
 
-              // Inspect the recipe item to get its materials
-              return idleMmoQueue.fetch(`/api/idlemmo/item/${recipeRef.hashed_id}`, "inspect")
+              // Fetch recipe scroll's full data (materials, skill level)
+              fetch(`/api/market/item/${recipeRef.hashed_id}`)
                 .then((r) => r.json())
-                .then((inspectData) => {
-                  const recipeDetail: ItemInspect | null = inspectData.item ?? null;
+                .then((d) => {
+                  const recipeDetail: FullItem | null = d.item ?? null;
                   setCraftedByDetail(recipeDetail);
 
-                  // Fetch material prices (merged into shared materialPrices state)
                   if (recipeDetail?.recipe?.materials?.length) {
                     const mats = recipeDetail.recipe.materials;
-                    setMaterialPrices((prev) => ({
+                    setMaterialPrices((prev: Record<string, MarketPrice | null | undefined>) => ({
                       ...prev,
                       ...Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])),
                     }));
                     for (const mat of mats) {
-                      idleMmoQueue.fetch(`/api/market/price/${mat.hashed_item_id}?tier=0`, "inspect")
+                      fetch(`/api/market/price/${mat.hashed_item_id}?tier=0`)
                         .then((r) => r.json())
-                        .then((pd) => setMaterialPrices((prev) => ({
+                        .then((pd) => setMaterialPrices((prev: Record<string, MarketPrice | null | undefined>) => ({
                           ...prev,
                           [mat.hashed_item_id]: { price: pd.price ?? null, sold_at: pd.sold_at ?? null, quantity: pd.quantity ?? null },
                         })))
-                        .catch((e: unknown) => {
-                          if (isAbortError(e)) return;
-                          setMaterialPrices((prev) => ({ ...prev, [mat.hashed_item_id]: null }));
-                        });
+                        .catch(() => setMaterialPrices((prev: Record<string, MarketPrice | null | undefined>) => ({ ...prev, [mat.hashed_item_id]: null })));
                     }
                   }
-                });
+                })
+                .catch(() => setCraftedByDetail(null));
             })
-            .catch((e: unknown) => {
-              if (isAbortError(e)) return;
-              setCraftedByDetail(null);
-            });
-        }
-
-        // Fetch market prices for recipe materials (when item is a RECIPE scroll)
-        if (detail?.recipe?.materials?.length) {
-          const mats = detail.recipe.materials;
-          setMaterialPrices((prev) => ({
-            ...prev,
-            ...Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])),
-          }));
-          for (const mat of mats) {
-            idleMmoQueue.fetch(`/api/market/price/${mat.hashed_item_id}?tier=0`, "inspect")
-              .then((r) => r.json())
-              .then((pd) => setMaterialPrices((prev) => ({
-                ...prev,
-                [mat.hashed_item_id]: { price: pd.price ?? null, sold_at: pd.sold_at ?? null, quantity: pd.quantity ?? null },
-              })))
-              .catch((e: unknown) => {
-                if (isAbortError(e)) return;
-                setMaterialPrices((prev) => ({ ...prev, [mat.hashed_item_id]: null }));
-              });
-          }
+            .catch(() => setCraftedByDetail(null));
         }
       })
-      .catch((e: unknown) => {
-        if (isAbortError(e)) return;
-        setItemDetail(null);
-      });
+      .catch(() => setItemDetail(null));
   }, []);
 
   // ── Client-side filters ─────────────────────────────────────────────────
@@ -1078,12 +989,9 @@ export function MarketBrowser() {
             onChange={(e) => isAllTab ? handleSearchInput(e.target.value) : setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-10 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/20 transition-colors"
           />
-          {(loading || queueStatus.throttled) && (
+          {loading && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              {queueStatus.throttled
-                ? <AlertCircle className="size-4 text-amber-400" />
-                : <Loader2 className="size-4 text-amber-400 animate-spin" />
-              }
+              <Loader2 className="size-4 text-amber-400 animate-spin" />
             </div>
           )}
         </div>
@@ -1103,8 +1011,8 @@ export function MarketBrowser() {
           </div>
         )}
 
-        {/* Loading / throttle status (All-tab search only) */}
-        {isAllTab && <LoadingStatus loading={loading} status={queueStatus} />}
+        {/* Loading status (All-tab search only) */}
+        {isAllTab && <LoadingStatus loading={loading} />}
 
         {error && (
           <div className="flex items-center gap-2 text-sm text-red-400">
