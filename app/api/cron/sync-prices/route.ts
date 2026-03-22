@@ -34,7 +34,7 @@ function isToday(date: Date | null | undefined): boolean {
  * Gates on recipes sync having completed today before starting a fresh run.
  * In-progress runs continue regardless (no need to re-check the gate).
  *
- * Runs every 10 minutes all day Monday (*/10 * * * 1). Protected by CRON_SECRET.
+ * Runs every 10 minutes all day Monday (every-10-min on Mon). Protected by CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
