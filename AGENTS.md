@@ -34,6 +34,14 @@ After every task that adds, moves, or renames a route, component, DB column, cro
 
 Skipping this workflow is never acceptable, even for "small" changes.
 
+# Sub-Agent Spawning — MANDATORY
+
+Every prompt passed to a sub-agent via the Agent tool **must** include this line at the top:
+
+> Read `AGENTS.md` before starting. Follow all MANDATORY sections, including the pre-coding checklist under "Separation of Concerns".
+
+AGENTS.md is not automatically injected into sub-agent context — omitting this line means the sub-agent will not follow project conventions.
+
 # Worktrees — MANDATORY
 
 Every agent must work in its own isolated git worktree. Never work directly in the main `immo_web_suite` directory.
@@ -68,6 +76,33 @@ Keep these files current after every session that changes behaviour:
 - **AGENTS.md** — update when conventions, tools, or workflows change
 - **CLAUDE.md** — mirrors AGENTS.md via `@AGENTS.md`; add anything that only Claude needs to know
 - **README.md** — update on any breaking change or significant feature addition; keep the "Recent changes" section current
+
+# Separation of Concerns — MANDATORY
+
+This project enforces strict separation of concerns to keep files focused, readable, and maintainable.
+
+## Rules
+
+- **UI components render and handle interaction only.** No business logic, no DB calls, no external API calls inside components or pages.
+- **Business rules live in dedicated service/domain/use-case modules** under `lib/` (e.g. `lib/services/`, `lib/domain/`). Pages and route handlers call these modules — they do not contain the logic themselves.
+- **Server concerns stay on the server.** Only use `"use client"` when interactivity genuinely requires it. Fetch, DB, and external API logic must not be scattered across the app.
+- **No duplicate sources of truth.** State ownership must be clear and explicit.
+- **Validate at boundaries.** Parse and validate all external input (API responses, form data, query params) at the point of entry — not deep inside components.
+- **Refactor nearby code when necessary** to keep the surrounding structure clean. Do not leave inconsistencies in adjacent files.
+- **Prefer simple, explicit code over premature abstractions.** A helper should only exist when it is used in at least two places and the abstraction is genuinely clearer.
+- **Follow existing project conventions** for naming, file structure, and patterns. Match what is already there unless changing it is part of the task.
+
+## Pre-coding checklist — required before every implementation
+
+Before writing any code, briefly state:
+
+1. **Which files will change** — list them explicitly
+2. **Why each file is the right place** — one sentence per file
+3. **Where the business logic will live** — name the module/service
+4. **What will remain unchanged** — confirm nothing unnecessary is touched
+5. **Server vs. client** — classify each changed file as server or client and justify any `"use client"` usage
+
+Skip this checklist only for trivial one-liner fixes. For everything else it is mandatory.
 
 # Database & Migrations
 
