@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
       vendor_price:    r.vendorPrice   ?? null,
       last_sold_price: r.lastSoldPrice ?? null,
       last_sold_at:    r.lastSoldAt    ? r.lastSoldAt.toISOString() : null,
+      is_tradeable:    r.isTradeable   ?? null,
     })),
     pagination: { current_page: page, last_page: lastPage, total: count },
   });
