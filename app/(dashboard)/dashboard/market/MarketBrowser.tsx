@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MARKET_TABS } from "@/lib/market-config";
-import { QUALITY_COLORS, QUALITY_ORDER } from "@/lib/game-constants";
+import { QUALITY_COLORS, QUALITY_ORDER, QUALITY_HEX, QUALITY_BORDER_CSS, QUALITY_GLOW_CSS } from "@/lib/game-constants";
 import type { ItemInspect } from "@/lib/idlemmo";
 import { idleMmoQueue, type IdleMmoQueueStatus } from "@/lib/idlemmo-queue";
 
@@ -29,27 +29,6 @@ function isAbortError(e: unknown): boolean {
   return e instanceof DOMException && e.name === "AbortError";
 }
 
-// ─── Quality decoration (inline styles — Tailwind can't build dynamic rgba) ──
-
-const QUALITY_BORDER_COLOR: Record<string, string> = {
-  STANDARD:  "rgba(244,244,245,0.4)",
-  REFINED:   "rgba(96,165,250,0.55)",
-  PREMIUM:   "rgba(74,222,128,0.55)",
-  EPIC:      "rgba(192,132,252,0.6)",
-  LEGENDARY: "rgba(251,146,60,0.6)",
-  MYTHIC:    "rgba(232,121,249,0.65)",
-  UNIQUE:    "rgba(167,139,250,0.55)",
-};
-
-const QUALITY_GLOW_COLOR: Record<string, string> = {
-  STANDARD:  "rgba(244,244,245,0.08)",
-  REFINED:   "rgba(96,165,250,0.14)",
-  PREMIUM:   "rgba(74,222,128,0.14)",
-  EPIC:      "rgba(192,132,252,0.16)",
-  LEGENDARY: "rgba(251,146,60,0.16)",
-  MYTHIC:    "rgba(232,121,249,0.18)",
-  UNIQUE:    "rgba(167,139,250,0.14)",
-};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -141,9 +120,9 @@ interface ItemCardProps {
 }
 
 function ItemCard({ item, selected, onClick }: ItemCardProps) {
-  const qualityText = QUALITY_COLORS[item.quality]       ?? "text-zinc-400";
-  const borderHover = QUALITY_BORDER_COLOR[item.quality] ?? "rgba(113,113,122,0.5)";
-  const glowHover   = QUALITY_GLOW_COLOR[item.quality]   ?? "transparent";
+  const qualityColor = QUALITY_HEX[item.quality]        ?? "#a1a1aa";
+  const borderHover  = QUALITY_BORDER_CSS[item.quality] ?? "rgba(113,113,122,0.5)";
+  const glowHover    = QUALITY_GLOW_CSS[item.quality]   ?? "transparent";
 
   function onEnter(e: React.MouseEvent<HTMLDivElement>) {
     if (selected) return;
@@ -192,7 +171,7 @@ function ItemCard({ item, selected, onClick }: ItemCardProps) {
       </div>
 
       {/* Name */}
-      <p className={cn("text-xs font-medium text-center leading-tight line-clamp-2 w-full", qualityText)}>
+      <p className="text-xs font-medium text-center leading-tight line-clamp-2 w-full" style={{ color: qualityColor }}>
         {item.name}
       </p>
 
@@ -381,8 +360,8 @@ interface DetailPanelProps {
 }
 
 function DetailPanel({ item, detail, materialPrices, craftedByDetail, craftedByItemData, resultItemData, onClose }: DetailPanelProps) {
-  const qualityText = QUALITY_COLORS[item.quality] ?? "text-zinc-400";
-  const borderColor = QUALITY_BORDER_COLOR[item.quality] ?? "rgba(113,113,122,0.4)";
+  const qualityColor = QUALITY_HEX[item.quality]        ?? "#a1a1aa";
+  const borderColor  = QUALITY_BORDER_CSS[item.quality] ?? "rgba(113,113,122,0.4)";
 
   const isLoading = detail === "loading";
   const d = detail !== "loading" ? detail : null;
@@ -406,9 +385,9 @@ function DetailPanel({ item, detail, materialPrices, craftedByDetail, craftedByI
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className={cn("text-sm font-semibold leading-tight", qualityText)}>{item.name}</p>
+          <p className="text-sm font-semibold leading-tight" style={{ color: qualityColor }}>{item.name}</p>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-            <span className={cn("text-[10px] font-mono border px-1.5 py-0.5 rounded", qualityText)} style={{ borderColor }}>
+            <span className="text-[10px] font-mono border px-1.5 py-0.5 rounded" style={{ color: qualityColor, borderColor }}>
               {item.quality}
             </span>
             <span className="text-[10px] text-zinc-500 font-mono uppercase">
@@ -1173,7 +1152,7 @@ export function MarketBrowser() {
                         </span>
                         <div
                           className="flex-1 h-px opacity-25"
-                          style={{ backgroundColor: QUALITY_BORDER_COLOR[quality] ?? "rgba(113,113,122,0.4)" }}
+                          style={{ backgroundColor: QUALITY_BORDER_CSS[quality] ?? "rgba(113,113,122,0.4)" }}
                         />
                         <span className="text-[10px] text-zinc-700 font-mono">{qItems.length}</span>
                       </div>
