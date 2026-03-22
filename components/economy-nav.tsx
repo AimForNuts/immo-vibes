@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Coins, ChevronDown, ChevronRight, ShoppingBag, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const SUB_ITEMS = [
   { href: "/dashboard/market",      labelKey: "market",      icon: ShoppingBag },
@@ -17,6 +17,10 @@ export function EconomyNav() {
   const pathname = usePathname();
   const isEconomyPath = SUB_ITEMS.some((s) => pathname.startsWith(s.href));
   const [open, setOpen] = useState(isEconomyPath);
+
+  useEffect(() => {
+    if (isEconomyPath) setOpen(true);
+  }, [isEconomyPath]);
 
   return (
     <div>
