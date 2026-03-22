@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MARKET_TABS } from "@/lib/market-config";
-import { QUALITY_COLORS } from "@/lib/game-constants";
+import { QUALITY_COLORS, QUALITY_ORDER } from "@/lib/game-constants";
 import type { ItemInspect } from "@/lib/idlemmo";
 import { idleMmoQueue, type IdleMmoQueueStatus } from "@/lib/idlemmo-queue";
 
@@ -1141,21 +1141,62 @@ export function MarketBrowser() {
           </div>
         ) : filteredItems.length > 0 ? (
           <>
-            <div className={cn(
-              "grid gap-3",
-              selectedItem
-                ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
-                : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
-            )}>
-              {filteredItems.map((item) => (
-                <ItemCard
-                  key={item.hashed_id}
-                  item={item}
-                  selected={selectedItem?.hashed_id === item.hashed_id}
-                  onClick={() => handleItemClick(item)}
-                />
-              ))}
-            </div>
+            {isAllTab ? (
+              // All-tab search: flat grid
+              <div className={cn(
+                "grid gap-3",
+                selectedItem
+                  ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
+                  : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
+              )}>
+                {filteredItems.map((item) => (
+                  <ItemCard
+                    key={item.hashed_id}
+                    item={item}
+                    selected={selectedItem?.hashed_id === item.hashed_id}
+                    onClick={() => handleItemClick(item)}
+                  />
+                ))}
+              </div>
+            ) : (
+              // Category tabs: group by quality tier
+              <div className="space-y-8">
+                {QUALITY_ORDER
+                  .map((q) => ({ quality: q, qItems: filteredItems.filter((i) => i.quality === q) }))
+                  .filter(({ qItems }) => qItems.length > 0)
+                  .map(({ quality, qItems }) => (
+                    <div key={quality}>
+                      {/* Quality section header */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className={cn("text-xs font-bold uppercase tracking-widest", QUALITY_COLORS[quality])}>
+                          {quality.charAt(0) + quality.slice(1).toLowerCase()}
+                        </span>
+                        <div
+                          className="flex-1 h-px opacity-25"
+                          style={{ backgroundColor: QUALITY_BORDER_COLOR[quality] ?? "rgba(113,113,122,0.4)" }}
+                        />
+                        <span className="text-[10px] text-zinc-700 font-mono">{qItems.length}</span>
+                      </div>
+                      <div className={cn(
+                        "grid gap-3",
+                        selectedItem
+                          ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
+                          : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
+                      )}>
+                        {qItems.map((item) => (
+                          <ItemCard
+                            key={item.hashed_id}
+                            item={item}
+                            selected={selectedItem?.hashed_id === item.hashed_id}
+                            onClick={() => handleItemClick(item)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
             {!loading && (
               <p className="text-xs text-zinc-700 pb-2">
                 {filteredItems.length}{items.length !== filteredItems.length ? ` of ${items.length}` : ""} items
