@@ -1,5 +1,26 @@
 import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex } from "drizzle-orm/pg-core";
 
+// ─── Shared types for JSONB columns ───────────────────────────────────────────
+
+export interface ItemEffect {
+  attribute:  string;
+  target:     string;
+  value:      number;
+  value_type: string;
+}
+
+export interface ItemRecipe {
+  skill:           string;
+  level_required:  number;
+  max_uses:        number;
+  materials: Array<{
+    hashed_item_id: string;
+    item_name:      string;
+    quantity:       number;
+  }>;
+  result: { hashed_item_id: string; item_name: string } | null;
+}
+
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -56,23 +77,66 @@ export const verification = pgTable("verification", {
 });
 
 export const items = pgTable("items", {
+  // ── Catalog fields (populated by sync-items) ────────────────────────────
   hashedId:             text("hashed_id").primaryKey(),
   name:                 text("name").notNull(),
   type:                 text("type").notNull(),
   quality:              text("quality").notNull(),
   imageUrl:             text("image_url"),
   syncedAt:             timestamp("synced_at").notNull(),
-  /**
-   * For RECIPE-type items: the hashed_id of the item this recipe scroll produces.
-   * Populated by POST /api/admin/sync-recipes. Null for non-recipe items.
-   */
-  recipeResultHashedId: text("recipe_result_hashed_id"),
   /** NPC buy price — stable, set by the game. Populated during catalog sync. */
   vendorPrice:          integer("vendor_price"),
-  /** Latest known market sale price. Updated by POST /api/admin/sync-prices. */
+
+  // ── Inspect fields (populated by sync-inspect) ──────────────────────────
+  description:          text("description"),
+  isTradeable:          boolean("is_tradeable"),
+  /**
+   * Maximum tier this item can be upgraded to (1 = no tiers).
+   * Stats scale with tier: effectiveStat = baseStat + (tier − 1) × tierModifier
+   */
+  maxTier:              integer("max_tier"),
+  /** Skill/level gates, e.g. { "strength": 100 }. Null for untiered items. */
+  requirements:         jsonb("requirements").$type<Record<string, number>>(),
+  /**
+   * Combat stat values at tier 1, e.g. { "attack_power": 120 }.
+   * Apply tierModifiers to compute stats at higher tiers.
+   */
+  baseStats:            jsonb("base_stats").$type<Record<string, number>>(),
+  /**
+   * Flat stat bonus added per tier above 1, e.g. { "attack_power": 10 }.
+   * effectiveStat = baseStats[stat] + (tier − 1) × tierModifiers[stat]
+   */
+  tierModifiers:        jsonb("tier_modifiers").$type<Record<string, number>>(),
+  /** Passive bonuses (percentage or flat) applied when equipped. */
+  effects:              jsonb("effects").$type<ItemEffect[]>(),
+  /**
+   * Full recipe data for RECIPE-type items.
+   * Supersedes recipeResultHashedId — kept for backward compatibility.
+   */
+  recipe:               jsonb("recipe").$type<ItemRecipe>(),
+  /** When inspect data was last synced from the IdleMMO API. */
+  inspectedAt:          timestamp("inspected_at"),
+
+  // ── Price fields (populated by sync-prices) ─────────────────────────────
+  /**
+   * For RECIPE-type items: the hashed_id of the item this recipe produces.
+   * @deprecated Use recipe.result.hashed_item_id instead.
+   */
+  recipeResultHashedId: text("recipe_result_hashed_id"),
+  /**
+   * Latest known market sale price at tier 1.
+   * Per-tier prices are tracked in market_price_history.
+   */
   lastSoldPrice:        integer("last_sold_price"),
-  /** When the latest known sale happened. */
+  /** When the latest known tier-1 sale happened. */
   lastSoldAt:           timestamp("last_sold_at"),
+  /**
+   * When the cron last fetched a price for this item from the IdleMMO API.
+   * The daily sync-prices cron orders by this ASC NULLS FIRST so items never
+   * checked (or checked longest ago) are always processed next — cycling
+   * through all items over time with a single daily run.
+   */
+  priceCheckedAt:       timestamp("price_checked_at"),
 });
 
 // Card types available in the 3×2 dashboard grid
@@ -129,35 +193,41 @@ export const priceTracker = pgTable("price_tracker", {
 export const marketPriceHistory = pgTable(
   "market_price_history",
   {
-    id:          text("id").primaryKey(),
+    id:           text("id").primaryKey(),
     itemHashedId: text("item_hashed_id").notNull(),
+    /**
+     * Item tier this sale was for (1-based, matching the in-game display).
+     * The IdleMMO API uses tier=0 to mean "base/tier 1" — normalise to 1 on write.
+     */
+    tier:         integer("tier").notNull().default(1),
     /** Price per single item at the time of the sale. */
-    price:       integer("price").notNull(),
-    quantity:    integer("quantity").notNull().default(1),
+    price:        integer("price").notNull(),
+    quantity:     integer("quantity").notNull().default(1),
     /** When the sale happened (from IdleMMO API). */
-    soldAt:      timestamp("sold_at").notNull(),
+    soldAt:       timestamp("sold_at").notNull(),
     /** When we recorded this entry. */
-    recordedAt:  timestamp("recorded_at").notNull(),
+    recordedAt:   timestamp("recorded_at").notNull(),
   },
-  (t) => [uniqueIndex("market_price_history_uniq").on(t.itemHashedId, t.soldAt)]
+  (t) => [uniqueIndex("market_price_history_uniq").on(t.itemHashedId, t.tier, t.soldAt)]
 );
 
 /**
- * Tracks the progress and completion status of each automated cron sync job.
- * Used by downstream crons to gate on upstream completion (e.g. recipes waits
- * for items, prices waits for recipes).
+ * Tracks the last run status of each automated cron sync job.
+ * Used by downstream crons to gate on upstream completion
+ * (e.g. sync-recipes waits for sync-items to finish today).
  *
- * For the prices job, currentTypeIndex + currentPage track pagination state
- * so each 10-min invocation can resume where the last one left off.
+ * currentTypeIndex / currentPage are unused legacy columns kept for
+ * backward compatibility — prices pagination is now handled via
+ * items.price_checked_at ordering instead.
  */
 export const syncState = pgTable("sync_state", {
   /** 'items' | 'recipes' | 'prices' */
   job:              text("job").primaryKey(),
   /** 'idle' | 'running' | 'done' | 'failed' */
   status:           text("status").notNull().default("idle"),
-  /** Index into IDLEMMO_ITEM_TYPES — prices only. */
+  /** @deprecated Unused — prices pagination is handled by priceCheckedAt ordering. */
   currentTypeIndex: integer("current_type_index").notNull().default(0),
-  /** Current pagination page within the active type — prices only. */
+  /** @deprecated Unused — prices pagination is handled by priceCheckedAt ordering. */
   currentPage:      integer("current_page").notNull().default(1),
   /** When the current run started (UTC). */
   startedAt:        timestamp("started_at"),
