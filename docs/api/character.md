@@ -2,7 +2,7 @@
 
 > [Back to Index](../IdleMMOAPI.md)
 
-> **Note:** To obtain the `hashed_character_id` for any endpoint in this section, enable **Show Hashed IDs** in your account settings. The hashed character ID will then be visible on any character's profile page.
+> **Tip:** To get the `hashed_character_id` needed by all `/v1/character/*` endpoints, call `/v1/auth/check` — the response includes `character.hashed_id`. No need to enable "Show Hashed IDs" in account settings.
 
 ---
 
@@ -26,28 +26,35 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
         "id": 67890,
         "hashed_id": "c1234567890",
         "name": "ExampleCharacter",
-        "class": "WARRIOR",
+        "class": "LUMBERJACK",
         "image_url": "https://cdn.idle-mmo.com/images/character.png",
         "background_url": "https://cdn.idle-mmo.com/images/background.png",
         "skills": {
-            "woodcutting": {
-                "experience": 15000,
-                "level": 10
-            },
-            "mining": {
-                "experience": 25000,
-                "level": 15
-            },
-            "fishing": {
-                "experience": 5000,
-                "level": 5
-            }
+            "woodcutting": { "experience": 15000, "level": 10 },
+            "mining": { "experience": 25000, "level": 15 },
+            "fishing": { "experience": 5000, "level": 5 },
+            "cooking": { "experience": 8000, "level": 7 },
+            "alchemy": { "experience": 3000, "level": 4 },
+            "farming": { "experience": 12000, "level": 9 },
+            "foraging": { "experience": 6000, "level": 6 },
+            "hunting": { "experience": 4000, "level": 5 },
+            "crafting": { "experience": 9000, "level": 8 },
+            "smithing": { "experience": 18000, "level": 12 },
+            "tailoring": { "experience": 2000, "level": 3 },
+            "enchanting": { "experience": 1000, "level": 2 },
+            "fletching": { "experience": 500, "level": 1 },
+            "construction": { "experience": 7000, "level": 7 },
+            "brewing": { "experience": 4500, "level": 5 },
+            "smelting": { "experience": 11000, "level": 9 },
+            "weaving": { "experience": 3500, "level": 4 },
+            "skinning": { "experience": 2500, "level": 3 },
+            "jewelling": { "experience": 1500, "level": 2 }
         },
         "stats": {
-            "strength": {
-                "experience": 12000,
-                "level": 15
-            }
+            "strength": { "experience": 12000, "level": 15 },
+            "defence": { "experience": 8000, "level": 11 },
+            "speed": { "experience": 5000, "level": 8 },
+            "dexterity": { "experience": 3000, "level": 6 }
         },
         "gold": 50000,
         "tokens": 150,
@@ -70,11 +77,11 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
             "level": 15,
             "position": "SOLDIER"
         },
-        "last_activity": "2025-01-01T00:00:00.000000Z",
+        "last_activity": "2025-01-01T00:00:00.000000+00:00",
         "current_status": "ONLINE",
-        "created_at": "2024-06-15T08:00:00.000000Z"
+        "created_at": "2024-06-15T08:00:00.000000+00:00"
     },
-    "endpoint_updates_at": "2025-12-21T13:00:00.000000Z"
+    "endpoint_updates_at": "2025-12-21T13:00:00.000000+00:00"
 }
 ```
 
@@ -89,10 +96,10 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 | `character.class` | string | Character class |
 | `character.image_url` | string\|null | Character image URL |
 | `character.background_url` | string\|null | Character background image URL |
-| `character.skills` | object | Map of skill name to experience and level |
+| `character.skills` | object | Map of skill name → `{experience, level}`. Contains 19 skills: `woodcutting`, `mining`, `fishing`, `cooking`, `alchemy`, `farming`, `foraging`, `hunting`, `crafting`, `smithing`, `tailoring`, `enchanting`, `fletching`, `construction`, `brewing`, `smelting`, `weaving`, `skinning`, `jewelling` |
 | `character.skills.*.experience` | integer | Total XP in this skill |
 | `character.skills.*.level` | integer | Current skill level |
-| `character.stats` | object | Map of stat name to experience and level |
+| `character.stats` | object | Map of stat name → `{experience, level}`. Contains 4 stats: `strength`, `defence`, `speed`, `dexterity` |
 | `character.stats.*.experience` | integer | Total XP in this stat |
 | `character.stats.*.level` | integer | Current stat level |
 | `character.gold` | integer | Current gold balance |
@@ -114,7 +121,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 | `character.guild.position` | string | Character's position in the guild |
 | `character.last_activity` | string\|null | **Deprecated.** Always returns `2025-01-01T00:00:00.000000Z`. Use `current_status` instead. |
 | `character.current_status` | string | `ONLINE` (active within 5 min), `IDLING` (active within 8 hrs with action), or `OFFLINE` |
-| `character.created_at` | string | Account creation timestamp (ISO 8601) |
+| `character.created_at` | string | Account creation timestamp (ISO 8601, `+00:00` timezone offset) |
 | `endpoint_updates_at` | string | When this endpoint data next updates |
 
 ---
