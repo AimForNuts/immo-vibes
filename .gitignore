@@ -45,3 +45,8 @@ next-env.d.ts
 local.db
 
 .vercel
+
+# local / generated files
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+immo_web_suite_logo.png
