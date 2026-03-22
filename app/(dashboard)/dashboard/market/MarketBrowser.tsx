@@ -1138,31 +1138,34 @@ export function MarketBrowser() {
                 ))}
               </div>
             ) : (
-              // Category tabs: group by quality tier, then by type, sorted by vendor price
+              // Category tabs: group by quality tier
               <div className="space-y-8">
                 {QUALITY_ORDER
                   .map((q) => ({ quality: q, qItems: filteredItems.filter((i) => i.quality === q) }))
                   .filter(({ qItems }) => qItems.length > 0)
                   .map(({ quality, qItems }) => {
-                    // Group by type, sort each group by vendor_price asc (null last)
-                    const byType = qItems.reduce<Record<string, typeof qItems>>((acc, item) => {
-                      (acc[item.type] ??= []).push(item);
-                      return acc;
-                    }, {});
-                    const sortedTypes = Object.keys(byType).sort();
-                    for (const type of sortedTypes) {
-                      byType[type].sort((a, b) => {
+                    const groupByType = quality === "LEGENDARY" || quality === "MYTHIC";
+
+                    // Sort by vendor_price asc (null last)
+                    const sortByPrice = (arr: typeof qItems) =>
+                      [...arr].sort((a, b) => {
                         if (a.vendor_price == null && b.vendor_price == null) return 0;
                         if (a.vendor_price == null) return 1;
                         if (b.vendor_price == null) return -1;
                         return a.vendor_price - b.vendor_price;
                       });
-                    }
+
+                    const gridClass = cn(
+                      "grid gap-3",
+                      selectedItem
+                        ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
+                        : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
+                    );
 
                     return (
                       <div key={quality}>
                         {/* Quality section header */}
-                        <div className="flex items-center gap-3 mb-4">
+                        <div className="flex items-center gap-3 mb-3">
                           <span className={cn("text-xs font-bold uppercase tracking-widest", QUALITY_COLORS[quality])}>
                             {quality.charAt(0) + quality.slice(1).toLowerCase()}
                           </span>
@@ -1173,31 +1176,47 @@ export function MarketBrowser() {
                           <span className="text-[10px] text-zinc-700 font-mono">{qItems.length}</span>
                         </div>
 
-                        {/* Type sub-groups */}
-                        <div className="space-y-5">
-                          {sortedTypes.map((type) => (
-                            <div key={type}>
-                              <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-2">
-                                {type.replace(/_/g, "\u00a0")}
-                              </p>
-                              <div className={cn(
-                                "grid gap-3",
-                                selectedItem
-                                  ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
-                                  : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
-                              )}>
-                                {byType[type].map((item) => (
-                                  <ItemCard
-                                    key={item.hashed_id}
-                                    item={item}
-                                    selected={selectedItem?.hashed_id === item.hashed_id}
-                                    onClick={() => handleItemClick(item)}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        {groupByType ? (
+                          // LEGENDARY + MYTHIC: sub-group by type, each sorted by vendor price
+                          <div className="space-y-5">
+                            {Object.entries(
+                              qItems.reduce<Record<string, typeof qItems>>((acc, item) => {
+                                (acc[item.type] ??= []).push(item);
+                                return acc;
+                              }, {})
+                            )
+                              .sort(([a], [b]) => a.localeCompare(b))
+                              .map(([type, typeItems]) => (
+                                <div key={type}>
+                                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-2">
+                                    {type.replace(/_/g, "\u00a0")}
+                                  </p>
+                                  <div className={gridClass}>
+                                    {sortByPrice(typeItems).map((item) => (
+                                      <ItemCard
+                                        key={item.hashed_id}
+                                        item={item}
+                                        selected={selectedItem?.hashed_id === item.hashed_id}
+                                        onClick={() => handleItemClick(item)}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          // Other qualities: flat grid sorted by vendor price
+                          <div className={gridClass}>
+                            {sortByPrice(qItems).map((item) => (
+                              <ItemCard
+                                key={item.hashed_id}
+                                item={item}
+                                selected={selectedItem?.hashed_id === item.hashed_id}
+                                onClick={() => handleItemClick(item)}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })
