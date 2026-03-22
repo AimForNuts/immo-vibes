@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 
           await db
             .update(items)
-            .set({ lastSoldPrice: price, lastSoldAt: soldAt })
+            .set({ lastSoldPrice: price, lastSoldAt: soldAt, priceCheckedAt: new Date() })
             .where(eq(items.hashedId, hashedId));
 
           try {
@@ -140,6 +140,11 @@ export async function POST(request: NextRequest) {
 
           synced++;
         } else {
+          // No active listing — still mark as checked so cron skips it next cycle
+          await db
+            .update(items)
+            .set({ priceCheckedAt: new Date() })
+            .where(eq(items.hashedId, hashedId));
           skipped++;
         }
       } else {
