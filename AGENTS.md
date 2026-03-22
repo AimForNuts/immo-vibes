@@ -10,6 +10,8 @@ Before writing any code, follow this order. Stop as soon as you have enough cont
 
 Never grep the entire project or read files speculatively before completing steps 1–4.
 
+**Reads and edits are always permitted** — you may read or edit any file in the project at any time without asking for permission. The reading-order above governs which files to consult *first* to build context, not which files you are *allowed* to touch.
+
 # Documentation Update After Any Task — MANDATORY
 
 After every task that adds, moves, or renames a route, component, DB column, cron job, or lib export:
