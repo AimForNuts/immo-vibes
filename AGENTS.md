@@ -46,6 +46,31 @@ Keep these files current after every session that changes behaviour:
 - **CLAUDE.md** — mirrors AGENTS.md via `@AGENTS.md`; add anything that only Claude needs to know
 - **README.md** — update on any breaking change or significant feature addition; keep the "Recent changes" section current
 
+# Database & Migrations
+
+Schema source: `lib/db/schema.ts` — full reference at `docs/database.md`.
+**Read `docs/database.md` before writing any code that queries or modifies the database.**
+
+## Migration workflow
+
+1. Edit `lib/db/schema.ts`
+2. Generate the migration from the worktree (requires symlinking `node_modules`):
+   ```bash
+   ln -s ../immo_web_suite/node_modules ./node_modules
+   cp ../immo_web_suite/.env.local .env.local
+   node_modules/.bin/drizzle-kit generate --name="describe_the_change"
+   rm node_modules .env.local
+   ```
+3. Review the generated `.sql` file in `lib/db/migrations/`
+4. Apply to production: `node_modules/.bin/drizzle-kit migrate` (run from main repo after merge)
+
+## Rules
+
+- **Never push schema changes without a migration.** Adding a column to `schema.ts` without a corresponding migration file leaves the live DB out of sync.
+- If a table was added to `schema.ts` without a tracked migration (already exists in the DB), use `CREATE TABLE IF NOT EXISTS` in the generated SQL to prevent a duplicate-table error on apply.
+- Keep `docs/database.md` current whenever the schema changes — update the table, the quick-lookup section, and the sync pipeline diagram.
+- Migrations are append-only — never edit or delete an existing `.sql` file.
+
 # IdleMMO Domain Knowledge
 
 For game mechanics (combat stat formulas, class bonuses, dungeon thresholds, item types/tiers) read the relevant file in `docs/game-mechanics/` before writing code that touches those areas. Do NOT derive these from training data — values differ from wiki.
@@ -63,6 +88,7 @@ For game mechanics (combat stat formulas, class bonuses, dungeon thresholds, ite
 | Shared UI constants (QUALITY_COLORS, SLOT_LABELS, CHAR_STAT_MAP, STATUS_DOT_COLOR) | `lib/game-constants.ts` |
 | Internal API routes (request params, response shapes) | `docs/api/internal/` |
 | IdleMMO external API reference (all endpoints, response shapes) | `docs/api/` |
+| Database schema, table purposes, quick-lookup, sync pipeline | `docs/database.md` |
 
 # Assets
 
