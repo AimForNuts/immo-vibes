@@ -8,6 +8,17 @@
 
 // ─── Item quality ─────────────────────────────────────────────────────────────
 
+/** Canonical display order for IdleMMO quality tiers (lowest → highest). */
+export const QUALITY_ORDER = [
+  "STANDARD",
+  "REFINED",
+  "PREMIUM",
+  "EPIC",
+  "LEGENDARY",
+  "MYTHIC",
+  "UNIQUE",
+] as const;
+
 /** Tailwind text-colour class for each IdleMMO quality tier. */
 export const QUALITY_COLORS: Record<string, string> = {
   STANDARD:  "text-zinc-100",
