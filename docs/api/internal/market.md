@@ -2,6 +2,22 @@
 
 Single-page item search proxy to the IdleMMO API. Used by the Market Browser for both category browsing (by type) and name-based search (All tab).
 
+## Quality tiers
+
+Items have a `quality` field with one of 7 tiers, displayed in this order (lowest → highest):
+
+| Quality | Colour |
+|---|---|
+| `STANDARD` | zinc/white |
+| `REFINED` | blue |
+| `PREMIUM` | green |
+| `EPIC` | purple |
+| `LEGENDARY` | orange |
+| `MYTHIC` | fuchsia |
+| `UNIQUE` | violet |
+
+Colours are defined in `lib/game-constants.ts` (`QUALITY_COLORS`, `QUALITY_BORDER_COLORS`). Canonical display order is `QUALITY_ORDER` (same file). Category tabs in the Market Browser group items by quality using this order, with a coloured section header per tier.
+
 > Source: `app/api/market/route.ts`
 
 ---
