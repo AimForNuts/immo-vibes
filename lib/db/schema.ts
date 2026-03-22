@@ -142,6 +142,29 @@ export const marketPriceHistory = pgTable(
   (t) => [uniqueIndex("market_price_history_uniq").on(t.itemHashedId, t.soldAt)]
 );
 
+/**
+ * Tracks the progress and completion status of each automated cron sync job.
+ * Used by downstream crons to gate on upstream completion (e.g. recipes waits
+ * for items, prices waits for recipes).
+ *
+ * For the prices job, currentTypeIndex + currentPage track pagination state
+ * so each 10-min invocation can resume where the last one left off.
+ */
+export const syncState = pgTable("sync_state", {
+  /** 'items' | 'recipes' | 'prices' */
+  job:              text("job").primaryKey(),
+  /** 'idle' | 'running' | 'done' | 'failed' */
+  status:           text("status").notNull().default("idle"),
+  /** Index into IDLEMMO_ITEM_TYPES — prices only. */
+  currentTypeIndex: integer("current_type_index").notNull().default(0),
+  /** Current pagination page within the active type — prices only. */
+  currentPage:      integer("current_page").notNull().default(1),
+  /** When the current run started (UTC). */
+  startedAt:        timestamp("started_at"),
+  /** When the current run completed (UTC). Null while running. */
+  completedAt:      timestamp("completed_at"),
+});
+
 export const gearPresets = pgTable("gear_presets", {
   id: text("id").primaryKey(),
   userId: text("user_id")
