@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CheckCircle, XCircle, Loader, TrendingUp, Clock, BookOpen } from "lucide-react";
+import {
+  RefreshCw, CheckCircle, XCircle, Loader, TrendingUp,
+  Sparkles, X, BookOpen, Clock,
+} from "lucide-react";
 import { MARKET_TABS } from "@/lib/market-config";
+import { cn } from "@/lib/utils";
 
-// Build tab-grouped type list from MARKET_TABS (excludes "all" tab which has no types)
 const TAB_GROUPS = MARKET_TABS.filter((t) => t.types.length > 0).map((t) => ({
   label: t.label,
   types: t.types,
 }));
 
-// Flat list of all syncable types (for "Sync All")
 const ALL_TYPES = TAB_GROUPS.flatMap((g) => g.types);
 
 type SyncState = "idle" | "syncing" | "done" | "error";
@@ -23,7 +25,7 @@ interface TypeStatus {
   error?: string;
 }
 
-interface PriceStatus {
+interface PagedStatus {
   state:       SyncState;
   synced?:     number;
   skipped?:    number;
@@ -33,222 +35,356 @@ interface PriceStatus {
   error?:      string;
 }
 
-interface RecipeStatus {
-  state:       SyncState;
-  populated?:  number;
-  noData?:     number;
-  errors?:     number;
-  total?:      number;
-  page?:       number;
-  totalPages?: number;
-  error?:      string;
+interface LogEntry {
+  id:   number;
+  msg:  string;
+  kind: "info" | "success" | "error" | "cancel";
 }
 
+let _logId = 0;
+
 export default function AdminPage() {
-  const [statuses, setStatuses] = useState<Record<string, TypeStatus>>(
+  const [busy,       setBusy]       = useState(false);
+  const [activeSync, setActiveSync] = useState<"items" | "prices" | "inspect" | null>(null);
+
+  const [statuses,        setStatuses]        = useState<Record<string, TypeStatus>>(
     Object.fromEntries(ALL_TYPES.map((t) => [t, { state: "idle" }]))
   );
-  const [priceStatuses, setPriceStatuses] = useState<Record<string, PriceStatus>>(
+  const [priceStatuses,   setPriceStatuses]   = useState<Record<string, PagedStatus>>(
     Object.fromEntries(ALL_TYPES.map((t) => [t, { state: "idle" }]))
   );
-  const [recipeStatus, setRecipeStatus] = useState<RecipeStatus>({ state: "idle" });
-  const [running, setRunning] = useState(false);
+  const [inspectStatuses, setInspectStatuses] = useState<Record<string, PagedStatus>>(
+    Object.fromEntries(ALL_TYPES.map((t) => [t, { state: "idle" }]))
+  );
 
-  function setStatus(type: string, update: TypeStatus) {
-    setStatuses((prev) => ({ ...prev, [type]: update }));
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+
+  const cancelRef = useRef(false);
+  const logRef    = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+  }, [logs]);
+
+  function addLog(msg: string, kind: LogEntry["kind"] = "info") {
+    setLogs((prev) => [...prev, { id: _logId++, msg, kind }]);
   }
 
-  function setPriceStatus(type: string, update: PriceStatus) {
-    setPriceStatuses((prev) => ({ ...prev, [type]: update }));
+  function resetLog() { setLogs([]); }
+
+  function setStatus(type: string, u: TypeStatus) {
+    setStatuses((p) => ({ ...p, [type]: u }));
   }
+  function setPriceStatus(type: string, u: PagedStatus) {
+    setPriceStatuses((p) => ({ ...p, [type]: u }));
+  }
+  function setInspectStatus(type: string, u: PagedStatus) {
+    setInspectStatuses((p) => ({ ...p, [type]: u }));
+  }
+
+  function cancel() {
+    cancelRef.current = true;
+    addLog("Cancelling…", "cancel");
+  }
+
+  // ── Single-type helpers ────────────────────────────────────────────────────
 
   async function syncType(type: string) {
     setStatus(type, { state: "syncing" });
+    addLog(`→ Items: ${type}`);
     try {
       const res  = await fetch(`/api/admin/sync-items?type=${type}`, { method: "POST" });
       const data = await res.json();
-      if (!res.ok) setStatus(type, { state: "error", error: data.error ?? "Failed" });
-      else         setStatus(type, { state: "done", count: data.synced });
+      if (!res.ok) {
+        setStatus(type, { state: "error", error: data.error ?? "Failed" });
+        addLog(`✗ ${type}: ${data.error ?? "Failed"}`, "error");
+      } else {
+        setStatus(type, { state: "done", count: data.synced });
+        addLog(`✓ ${type}: ${data.synced} items`, "success");
+      }
     } catch {
       setStatus(type, { state: "error", error: "Network error" });
+      addLog(`✗ ${type}: network error`, "error");
     }
   }
 
-  async function syncPricesForType(type: string) {
+  async function syncPricesForType(type: string): Promise<boolean> {
     setPriceStatus(type, { state: "syncing", page: 1 });
-    let page       = 1;
-    let totalPages = 1;
-    let accSynced  = 0;
-    let accSkipped = 0;
-
+    let page = 1, totalPages = 1, accSynced = 0, accSkipped = 0;
     while (page <= totalPages) {
+      if (cancelRef.current) { setPriceStatus(type, { state: "idle" }); return false; }
       try {
+        addLog(`→ Prices: ${type}${totalPages > 1 ? ` (${page}/${totalPages})` : ""}`);
         const res  = await fetch(`/api/admin/sync-prices?type=${type}&page=${page}&pageSize=80`, { method: "POST" });
         const data = await res.json();
-
         if (!res.ok) {
           setPriceStatus(type, { state: "error", error: data.error ?? "Failed" });
-          return;
+          addLog(`✗ ${type} prices: ${data.error ?? "Failed"}`, "error");
+          return false;
         }
-
         totalPages  = data.totalPages;
         accSynced  += data.synced;
         accSkipped += data.skipped;
-
         setPriceStatus(type, {
-          state:      page < totalPages ? "syncing" : "done",
-          synced:     accSynced,
-          skipped:    accSkipped,
-          total:      data.total,
-          page,
-          totalPages,
+          state: page < totalPages ? "syncing" : "done",
+          synced: accSynced, skipped: accSkipped,
+          total: data.total, page, totalPages,
         });
-
         page++;
       } catch {
         setPriceStatus(type, { state: "error", error: "Network error" });
-        return;
+        addLog(`✗ ${type} prices: network error`, "error");
+        return false;
       }
     }
+    addLog(`✓ ${type} prices: ${accSynced} synced, ${accSkipped} skipped`, "success");
+    return true;
   }
 
-  async function syncRecipes() {
-    setRecipeStatus({ state: "syncing", page: 1 });
-    let page         = 1;
-    let totalPages   = 1;
-    let accPopulated = 0;
-    let accNoData    = 0;
-    let accErrors    = 0;
-
+  async function syncInspectForType(type: string): Promise<boolean> {
+    setInspectStatus(type, { state: "syncing", page: 1 });
+    let page = 1, totalPages = 1, accSynced = 0, accSkipped = 0;
     while (page <= totalPages) {
+      if (cancelRef.current) { setInspectStatus(type, { state: "idle" }); return false; }
+      try {
+        addLog(`→ Stats: ${type}${totalPages > 1 ? ` (${page}/${totalPages})` : ""}`);
+        const res  = await fetch(`/api/admin/sync-inspect?type=${type}&page=${page}&pageSize=40`, { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) {
+          setInspectStatus(type, { state: "error", error: data.error ?? "Failed" });
+          addLog(`✗ ${type} stats: ${data.error ?? "Failed"}`, "error");
+          return false;
+        }
+        totalPages  = data.totalPages;
+        accSynced  += data.synced;
+        accSkipped += data.skipped;
+        setInspectStatus(type, {
+          state: page < totalPages ? "syncing" : "done",
+          synced: accSynced, skipped: accSkipped,
+          total: data.total, page, totalPages,
+        });
+        page++;
+      } catch {
+        setInspectStatus(type, { state: "error", error: "Network error" });
+        addLog(`✗ ${type} stats: network error`, "error");
+        return false;
+      }
+    }
+    addLog(`✓ ${type} stats: ${accSynced} synced, ${accSkipped} skipped`, "success");
+    return true;
+  }
+
+  async function syncRecipes(): Promise<boolean> {
+    addLog("→ Recipe IDs…");
+    let page = 1, totalPages = 1, accPopulated = 0;
+    while (page <= totalPages) {
+      if (cancelRef.current) return false;
       try {
         const res  = await fetch(`/api/admin/sync-recipes?page=${page}&pageSize=80`, { method: "POST" });
         const data = await res.json();
-
         if (!res.ok) {
-          setRecipeStatus({ state: "error", error: data.error ?? "Failed" });
-          return;
+          addLog(`✗ Recipe IDs: ${data.error ?? "Failed"}`, "error");
+          return false;
         }
-
         totalPages    = data.totalPages;
-        accPopulated += data.populated;
-        accNoData    += data.noData ?? 0;
-        accErrors    += data.errors ?? 0;
-
-        setRecipeStatus({
-          state:     page < totalPages ? "syncing" : "done",
-          populated: accPopulated,
-          noData:    accNoData,
-          errors:    accErrors,
-          total:     data.total,
-          page,
-          totalPages,
-        });
-
+        accPopulated += data.populated ?? 0;
         page++;
       } catch {
-        setRecipeStatus({ state: "error", error: "Network error" });
-        return;
+        addLog("✗ Recipe IDs: network error", "error");
+        return false;
       }
     }
+    addLog(`✓ Recipe IDs: ${accPopulated} populated`, "success");
+    return true;
   }
 
+  // ── Bulk actions ───────────────────────────────────────────────────────────
+
   async function syncAll() {
-    setRunning(true);
+    cancelRef.current = false;
+    setBusy(true);
+    setActiveSync("items");
+    resetLog();
     setStatuses(Object.fromEntries(ALL_TYPES.map((t) => [t, { state: "idle" }])));
-    for (const type of ALL_TYPES) await syncType(type);
-    setRunning(false);
+    addLog("Starting full item catalog sync…");
+    for (const type of ALL_TYPES) {
+      if (cancelRef.current) { addLog("Cancelled.", "cancel"); break; }
+      await syncType(type);
+    }
+    if (!cancelRef.current) addLog("Item sync complete.", "success");
+    setActiveSync(null);
+    setBusy(false);
   }
 
   async function syncAllPrices() {
-    setRunning(true);
+    cancelRef.current = false;
+    setBusy(true);
+    setActiveSync("prices");
+    resetLog();
     setPriceStatuses(Object.fromEntries(ALL_TYPES.map((t) => [t, { state: "idle" }])));
-    setRecipeStatus({ state: "idle" });
-    for (const type of ALL_TYPES) await syncPricesForType(type);
+    addLog("Starting full price sync…");
+    for (const type of ALL_TYPES) {
+      if (cancelRef.current) { addLog("Cancelled.", "cancel"); break; }
+      await syncPricesForType(type);
+    }
+    if (!cancelRef.current) {
+      await syncRecipes();
+      addLog("Price sync complete.", "success");
+    }
+    setActiveSync(null);
+    setBusy(false);
+  }
+
+  async function syncAllInspect() {
+    cancelRef.current = false;
+    setBusy(true);
+    setActiveSync("inspect");
+    resetLog();
+    setInspectStatuses(Object.fromEntries(ALL_TYPES.map((t) => [t, { state: "idle" }])));
+    addLog("Starting full stats sync…");
+    for (const type of ALL_TYPES) {
+      if (cancelRef.current) { addLog("Cancelled.", "cancel"); break; }
+      await syncInspectForType(type);
+    }
+    if (!cancelRef.current) addLog("Stats sync complete.", "success");
+    setActiveSync(null);
+    setBusy(false);
+  }
+
+  async function syncRecipesOnly() {
+    cancelRef.current = false;
+    setBusy(true);
+    resetLog();
     await syncRecipes();
-    setRunning(false);
+    setBusy(false);
+  }
+
+  async function runSingle(fn: (type: string) => Promise<unknown>, type: string) {
+    cancelRef.current = false;
+    setBusy(true);
+    resetLog();
+    await fn(type);
+    setBusy(false);
   }
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
-          <p className="text-muted-foreground mt-1">Item catalog and market price management.</p>
+      {/* Header */}
+      <div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Admin</h1>
+            <p className="text-muted-foreground mt-1">Item catalog and market management.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2 justify-end shrink-0">
+            {busy && (
+              <Button variant="destructive" size="sm" onClick={cancel}>
+                <X className="size-4 mr-1.5" />
+                Cancel
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={syncRecipesOnly} disabled={busy}>
+              <BookOpen className="size-4 mr-1.5" />
+              Recipe IDs
+            </Button>
+            <Button variant="outline" size="sm" onClick={syncAllInspect} disabled={busy}>
+              <Sparkles className={cn("size-4 mr-1.5", activeSync === "inspect" && "animate-pulse")} />
+              Sync Stats
+            </Button>
+            <Button variant="outline" size="sm" onClick={syncAllPrices} disabled={busy}>
+              <TrendingUp className={cn("size-4 mr-1.5", activeSync === "prices" && "animate-pulse")} />
+              Sync All Prices
+            </Button>
+            <Button size="sm" onClick={syncAll} disabled={busy}>
+              <RefreshCw className={cn("size-4 mr-1.5", activeSync === "items" && "animate-spin")} />
+              Sync All Items
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={syncAllPrices} disabled={running}>
-            <TrendingUp className={`size-4 mr-2 ${running ? "animate-pulse" : ""}`} />
-            Sync All Prices
-          </Button>
-          <Button onClick={syncAll} disabled={running}>
-            <RefreshCw className={`size-4 mr-2 ${running ? "animate-spin" : ""}`} />
-            Sync All Items
-          </Button>
-        </div>
+
+        {/* Activity log */}
+        {logs.length > 0 && (
+          <div
+            ref={logRef}
+            className="mt-4 bg-zinc-950 border border-zinc-800 rounded-lg p-3 max-h-44 overflow-y-auto font-mono text-xs space-y-0.5"
+          >
+            {logs.map((entry) => (
+              <div
+                key={entry.id}
+                className={cn(
+                  "leading-5",
+                  entry.kind === "success" && "text-green-400",
+                  entry.kind === "error"   && "text-red-400",
+                  entry.kind === "cancel"  && "text-amber-400",
+                  entry.kind === "info"    && "text-zinc-400",
+                )}
+              >
+                {entry.msg}
+              </div>
+            ))}
+            {busy && <div className="text-zinc-600 animate-pulse select-none">▌</div>}
+          </div>
+        )}
       </div>
 
-      {/* Item Catalog Sync — grouped by market tab */}
+      {/* Per-type cards grouped by market tab */}
       {TAB_GROUPS.map((group) => (
         <Card key={group.label}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">{group.label}</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2">
+          <CardContent className="flex flex-col gap-0">
             {group.types.map((type) => {
-              const itemStatus  = statuses[type];
-              const priceStatus = priceStatuses[type];
+              const itemStatus    = statuses[type];
+              const priceStatus   = priceStatuses[type];
+              const inspectStatus = inspectStatuses[type];
               return (
                 <div
                   key={type}
-                  className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0"
+                  className="flex items-center justify-between py-2 border-b border-border/40 last:border-0"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <StatusIcon state={itemStatus.state} />
+                  {/* Left: item status + name + count */}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <StatusDot state={itemStatus.state} />
                     <span className="text-sm font-medium truncate">{type}</span>
                     {itemStatus.state === "done" && (
-                      <span className="text-xs text-muted-foreground shrink-0">{itemStatus.count} items</span>
+                      <span className="text-xs text-muted-foreground">{itemStatus.count}</span>
                     )}
                     {itemStatus.state === "error" && (
-                      <span className="text-xs text-destructive shrink-0">{itemStatus.error}</span>
+                      <span className="text-xs text-destructive truncate">{itemStatus.error}</span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 ml-3">
-                    {/* Price sync status */}
-                    <div className="flex items-center gap-1.5">
-                      <PriceStatusIcon state={priceStatus.state} />
-                      {priceStatus.state === "syncing" && priceStatus.totalPages && priceStatus.totalPages > 1 && (
-                        <span className="text-xs text-muted-foreground">
-                          page {priceStatus.page}/{priceStatus.totalPages}
-                        </span>
-                      )}
-                      {priceStatus.state === "done" && (
-                        <span className="text-xs text-muted-foreground">
-                          {priceStatus.synced}/{priceStatus.total}
-                        </span>
-                      )}
-                      {priceStatus.state === "error" && (
-                        <span className="text-xs text-destructive">{priceStatus.error}</span>
-                      )}
-                    </div>
+                  {/* Right: small status icons + action buttons */}
+                  <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                    <SmallStatus state={inspectStatus.state} icon="sparkles" />
+                    <SmallStatus state={priceStatus.state}   icon="trend" />
 
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => syncPricesForType(type)}
-                      disabled={running || priceStatus.state === "syncing"}
-                      className="h-7 text-xs text-muted-foreground hover:text-foreground px-2"
+                      variant="ghost" size="sm"
+                      onClick={() => runSingle(syncInspectForType, type)}
+                      disabled={busy}
+                      className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                      title="Sync stats"
+                    >
+                      <Sparkles className="size-3" />
+                    </Button>
+                    <Button
+                      variant="ghost" size="sm"
+                      onClick={() => runSingle(syncPricesForType, type)}
+                      disabled={busy}
+                      className="h-7 px-2 text-muted-foreground hover:text-foreground"
                       title="Sync prices"
                     >
                       <TrendingUp className="size-3" />
                     </Button>
-
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => syncType(type)}
-                      disabled={running || itemStatus.state === "syncing"}
+                      variant="outline" size="sm"
+                      onClick={() => runSingle(syncType, type)}
+                      disabled={busy}
                       className="h-7 text-xs"
                     >
                       Sync
@@ -261,57 +397,6 @@ export default function AdminPage() {
         </Card>
       ))}
 
-      {/* Recipe ID Sync */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BookOpen className="size-4" />
-            Recipe IDs
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <RecipeStatusIcon state={recipeStatus.state} />
-              <div className="text-sm">
-                {recipeStatus.state === "idle" && (
-                  <span className="text-muted-foreground">Populates <code className="text-xs">recipe_result_hashed_id</code> for all RECIPE items</span>
-                )}
-                {recipeStatus.state === "syncing" && (
-                  <span className="text-muted-foreground">
-                    {recipeStatus.totalPages && recipeStatus.totalPages > 1
-                      ? `Page ${recipeStatus.page}/${recipeStatus.totalPages} — ${recipeStatus.populated ?? 0} populated`
-                      : "Populating…"}
-                  </span>
-                )}
-                {recipeStatus.state === "done" && recipeStatus.total === 0 && (
-                  <span className="text-muted-foreground">All recipe IDs already populated</span>
-                )}
-                {recipeStatus.state === "done" && (recipeStatus.total ?? 0) > 0 && (
-                  <span>
-                    {recipeStatus.populated} populated
-                    {(recipeStatus.noData ?? 0) > 0 && <span className="text-muted-foreground"> · {recipeStatus.noData} no data</span>}
-                    {(recipeStatus.errors ?? 0) > 0 && <span className="text-destructive"> · {recipeStatus.errors} errors</span>}
-                  </span>
-                )}
-                {recipeStatus.state === "error" && (
-                  <span className="text-destructive">{recipeStatus.error}</span>
-                )}
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={syncRecipes}
-              disabled={running || recipeStatus.state === "syncing"}
-              className="h-7 text-xs shrink-0"
-            >
-              Sync Recipe IDs
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Cron info */}
       <Card>
         <CardHeader className="pb-3">
@@ -322,10 +407,10 @@ export default function AdminPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Item catalog syncs automatically every day at <span className="font-mono text-foreground">00:00 UTC</span> via
-            Vercel Cron (<code className="text-xs">POST /api/cron/sync-market</code>).
-            Prices are not synced by cron — use <strong>Sync All Prices</strong> above.
-            Large types are synced in pages of 80 items to stay within Vercel&apos;s execution limit.
+            Item catalog syncs automatically every day at{" "}
+            <span className="font-mono text-foreground">00:00 UTC</span> via Vercel Cron (
+            <code className="text-xs">POST /api/cron/sync-market</code>).
+            Prices and stats require manual sync — use the buttons above.
           </p>
         </CardContent>
       </Card>
@@ -333,23 +418,17 @@ export default function AdminPage() {
   );
 }
 
-function StatusIcon({ state }: { state: SyncState }) {
-  if (state === "syncing") return <Loader className="size-4 text-muted-foreground animate-spin" />;
-  if (state === "done")    return <CheckCircle className="size-4 text-green-500" />;
-  if (state === "error")   return <XCircle className="size-4 text-destructive" />;
-  return <div className="size-4 rounded-full border border-border" />;
+function StatusDot({ state }: { state: SyncState }) {
+  if (state === "syncing") return <Loader      className="size-3.5 text-muted-foreground animate-spin shrink-0" />;
+  if (state === "done")    return <CheckCircle className="size-3.5 text-green-500 shrink-0" />;
+  if (state === "error")   return <XCircle     className="size-3.5 text-destructive shrink-0" />;
+  return <div className="size-3.5 rounded-full border border-border shrink-0" />;
 }
 
-function PriceStatusIcon({ state }: { state: SyncState }) {
-  if (state === "syncing") return <Loader className="size-3 text-muted-foreground animate-spin" />;
-  if (state === "done")    return <TrendingUp className="size-3 text-green-500" />;
+function SmallStatus({ state, icon }: { state: SyncState; icon: "trend" | "sparkles" }) {
+  const Icon = icon === "sparkles" ? Sparkles : TrendingUp;
+  if (state === "syncing") return <Loader  className="size-3 text-muted-foreground animate-spin" />;
+  if (state === "done")    return <Icon    className="size-3 text-green-500" />;
   if (state === "error")   return <XCircle className="size-3 text-destructive" />;
   return null;
-}
-
-function RecipeStatusIcon({ state }: { state: SyncState }) {
-  if (state === "syncing") return <Loader className="size-4 text-muted-foreground animate-spin" />;
-  if (state === "done")    return <CheckCircle className="size-4 text-green-500" />;
-  if (state === "error")   return <XCircle className="size-4 text-destructive" />;
-  return <div className="size-4 rounded-full border border-border" />;
 }
