@@ -1,8 +1,16 @@
 {
   "crons": [
     {
-      "path": "/api/cron/sync-market",
-      "schedule": "0 0 * * *"
+      "path": "/api/cron/sync-items",
+      "schedule": "0 0 * * 1"
+    },
+    {
+      "path": "/api/cron/sync-recipes",
+      "schedule": "0 1 * * 1"
+    },
+    {
+      "path": "/api/cron/sync-prices",
+      "schedule": "*/10 * * * 1"
     }
   ]
 }
