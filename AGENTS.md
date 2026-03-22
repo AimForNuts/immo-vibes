@@ -1,3 +1,24 @@
+# Reading Order Before Any Task — MANDATORY
+
+Before writing any code, follow this order. Stop as soon as you have enough context.
+
+1. **`AGENTS.md`** — conventions, tools, workflow (you are here)
+2. **`docs/project-map.md`** — identifies which files, tables, and docs are relevant to your task
+3. **Domain docs** — read the specific `docs/game-mechanics/`, `docs/api/`, or `docs/database.md` sections the map points to
+4. **Code files** — read only the files identified above
+5. **If still missing context** — re-check `docs/project-map.md` for hints before doing a broad codebase search
+
+Never grep the entire project or read files speculatively before completing steps 1–4.
+
+# Documentation Update After Any Task — MANDATORY
+
+After every task that adds, moves, or renames a route, component, DB column, cron job, or lib export:
+- **`docs/project-map.md`** — update the relevant feature area(s)
+- **`docs/database.md`** — update if schema changed
+- **`docs/api/internal/`** — update if an internal API route was added or changed
+- **`AGENTS.md`** — update if a convention or workflow changed
+- **`README.md`** — update on breaking changes or significant new features
+
 # Git Workflow — MANDATORY
 
 > Never commit directly to `master`. Every feature or fix must go through a PR.
