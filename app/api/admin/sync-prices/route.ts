@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ synced: 0, skipped: 0, total: 0, page: 1, totalPages: 1 });
   }
 
-  // Paginated item fetch
+  // Paginated item fetch — also load recipeResultHashedId to skip inspect when already known
   const rows = await db
-    .select({ hashedId: items.hashedId })
+    .select({ hashedId: items.hashedId, recipeResultHashedId: items.recipeResultHashedId })
     .from(items)
     .where(eq(items.type, type))
     .orderBy(items.hashedId)
@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
 
       if (res.status !== 429) return res;
 
+      // 429 — wait exactly as long as the API instructs, then retry
       rl.remaining = 0;
       const waitMs = Math.max(1000, rl.resetAt * 1000 - Date.now() + 500);
       await new Promise((r) => setTimeout(r, waitMs));
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
     throw new Error(`Max retries (${MAX_RETRIES}) exceeded — API returning persistent 429`);
   }
 
-  for (const { hashedId } of rows) {
+  for (const { hashedId, recipeResultHashedId } of rows) {
     try {
       const priceRes = await rateLimitedFetch(
         `${BASE}/v1/item/${hashedId}/market-history?tier=0&type=listings`
@@ -143,6 +144,22 @@ export async function POST(request: NextRequest) {
         }
       } else {
         skipped++;
+      }
+
+      // ── RECIPE items: inspect to populate recipe_result_hashed_id ─────────
+      // Skip if already known — avoids doubling API calls on repeat syncs
+      if (type === "RECIPE" && !recipeResultHashedId) {
+        const inspectRes = await rateLimitedFetch(`${BASE}/v1/item/${hashedId}/inspect`);
+        if (inspectRes.ok) {
+          const inspectData = await inspectRes.json();
+          const resultId = inspectData.item?.recipe?.result?.hashed_item_id ?? null;
+          if (resultId) {
+            await db
+              .update(items)
+              .set({ recipeResultHashedId: resultId })
+              .where(eq(items.hashedId, hashedId));
+          }
+        }
       }
     } catch {
       skipped++;
