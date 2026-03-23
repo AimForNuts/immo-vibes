@@ -289,6 +289,52 @@ export function DetailPanel({ item, detail, materialPrices, craftedByDetail, cra
                 </p>
               </div>
             )}
+
+            {/* Where to Find */}
+            {d?.where_to_find && (
+              d.where_to_find.enemies.length > 0 ||
+              d.where_to_find.dungeons.length > 0 ||
+              d.where_to_find.world_bosses.length > 0
+            ) && (
+              <div>
+                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Where to Find</p>
+                <div className="space-y-2">
+                  {d.where_to_find.enemies.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">Enemies</p>
+                      <div className="space-y-0.5">
+                        {d.where_to_find.enemies.map((e) => (
+                          <div key={e.id} className="flex items-center justify-between text-xs">
+                            <span className="text-zinc-300">{e.name}</span>
+                            <span className="font-mono text-zinc-600">Lv.{e.level}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {d.where_to_find.dungeons.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">Dungeons</p>
+                      <div className="space-y-0.5">
+                        {d.where_to_find.dungeons.map((dungeon) => (
+                          <div key={dungeon.id} className="text-xs text-zinc-300">{dungeon.name}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {d.where_to_find.world_bosses.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">World Bosses</p>
+                      <div className="space-y-0.5">
+                        {d.where_to_find.world_bosses.map((wb) => (
+                          <div key={wb.id} className="text-xs text-zinc-300">{wb.name}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
