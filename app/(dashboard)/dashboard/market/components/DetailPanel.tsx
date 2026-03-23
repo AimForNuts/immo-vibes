@@ -178,29 +178,42 @@ export function DetailPanel({
                         )}
                       </div>
                     )}
-                    {craftedByDetail.recipe?.materials && craftedByDetail.recipe.materials.length > 0 && (
-                      <div className="border-t border-zinc-800 pt-2 space-y-1.5">
-                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Materials</p>
-                        {craftedByDetail.recipe.materials.map((mat) => {
-                          const mp = materialPrices[mat.hashed_item_id];
-                          return (
-                            <div key={mat.hashed_item_id} className="flex items-center justify-between text-xs gap-2">
-                              <span className="text-zinc-300 truncate">{mat.item_name}</span>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="font-mono text-zinc-500">×{mat.quantity}</span>
-                                {mp === undefined ? (
-                                  <div className="h-3 w-10 bg-zinc-800 rounded animate-pulse" />
-                                ) : mp?.price != null ? (
-                                  <span className="font-mono text-amber-400/70 text-[10px]">
-                                    {(mp.price * mat.quantity).toLocaleString()}g
-                                  </span>
-                                ) : null}
+                    {craftedByDetail.recipe?.materials && craftedByDetail.recipe.materials.length > 0 && (() => {
+                      const mats = craftedByDetail.recipe!.materials;
+                      const allLoaded = mats.every((m) => materialPrices[m.hashed_item_id] !== undefined);
+                      const total = allLoaded
+                        ? mats.reduce((sum, m) => sum + (materialPrices[m.hashed_item_id]?.price ?? 0) * m.quantity, 0)
+                        : null;
+                      return (
+                        <div className="border-t border-zinc-800 pt-2 space-y-1.5">
+                          <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Materials</p>
+                          {mats.map((mat) => {
+                            const mp = materialPrices[mat.hashed_item_id];
+                            return (
+                              <div key={mat.hashed_item_id} className="flex items-center justify-between text-xs gap-2">
+                                <span className="text-zinc-300 truncate">{mat.item_name}</span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="font-mono text-zinc-500">×{mat.quantity}</span>
+                                  {mp === undefined ? (
+                                    <div className="h-3 w-10 bg-zinc-800 rounded animate-pulse" />
+                                  ) : mp?.price != null ? (
+                                    <span className="font-mono text-amber-400/70 text-[10px]">
+                                      {(mp.price * mat.quantity).toLocaleString()}g
+                                    </span>
+                                  ) : null}
+                                </div>
                               </div>
+                            );
+                          })}
+                          {total !== null && total > 0 && (
+                            <div className="flex items-center justify-between border-t border-zinc-800 pt-1.5 text-xs">
+                              <span className="text-zinc-500">Total cost</span>
+                              <span className="font-mono text-amber-400 font-semibold">{total.toLocaleString()}g</span>
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      );
+                    })()}
                     {/* Recipe scroll drop locations */}
                     {craftedByDetail.where_to_find && (
                       (craftedByDetail.where_to_find.enemies?.length ?? 0) > 0 ||
@@ -305,27 +318,42 @@ export function DetailPanel({
                     <span className="text-zinc-500">Skill</span>
                     <span className="text-zinc-200">{d.recipe.skill} Lv.{d.recipe.level_required}</span>
                   </div>
-                  <div className="border-t border-zinc-800 pt-2 space-y-2">
-                    <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Materials</p>
-                    {d.recipe.materials.map((mat) => {
-                      const mp = materialPrices[mat.hashed_item_id];
-                      return (
-                        <div key={mat.hashed_item_id} className="flex items-center justify-between text-xs gap-2">
-                          <span className="text-zinc-300 truncate">{mat.item_name}</span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-mono text-zinc-500">×{mat.quantity}</span>
-                            {mp === undefined ? (
-                              <div className="h-3 w-10 bg-zinc-800 rounded animate-pulse" />
-                            ) : mp?.price != null ? (
-                              <span className="font-mono text-amber-400/70 text-[10px]">
-                                {(mp.price * mat.quantity).toLocaleString()}g
-                              </span>
-                            ) : null}
+                  {(() => {
+                    const mats = d.recipe.materials;
+                    const allLoaded = mats.every((m) => materialPrices[m.hashed_item_id] !== undefined);
+                    const total = allLoaded
+                      ? mats.reduce((sum, m) => sum + (materialPrices[m.hashed_item_id]?.price ?? 0) * m.quantity, 0)
+                      : null;
+                    return (
+                      <div className="border-t border-zinc-800 pt-2 space-y-2">
+                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Materials</p>
+                        {mats.map((mat) => {
+                          const mp = materialPrices[mat.hashed_item_id];
+                          return (
+                            <div key={mat.hashed_item_id} className="flex items-center justify-between text-xs gap-2">
+                              <span className="text-zinc-300 truncate">{mat.item_name}</span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="font-mono text-zinc-500">×{mat.quantity}</span>
+                                {mp === undefined ? (
+                                  <div className="h-3 w-10 bg-zinc-800 rounded animate-pulse" />
+                                ) : mp?.price != null ? (
+                                  <span className="font-mono text-amber-400/70 text-[10px]">
+                                    {(mp.price * mat.quantity).toLocaleString()}g
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {total !== null && total > 0 && (
+                          <div className="flex items-center justify-between border-t border-zinc-800 pt-1.5 text-xs">
+                            <span className="text-zinc-500">Total cost</span>
+                            <span className="font-mono text-amber-400 font-semibold">{total.toLocaleString()}g</span>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {d.recipe.result && (
                     <div className="border-t border-zinc-800 pt-2 space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
