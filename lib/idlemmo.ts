@@ -11,17 +11,49 @@
 
 const BASE = "https://api.idle-mmo.com";
 
-/** Internal fetch wrapper — adds auth headers and 60s cache revalidation. */
+const MAX_RETRIES = 3;
+
+/**
+ * Internal fetch wrapper — adds auth headers, 60s cache revalidation,
+ * and automatic 429 retry per the rate-limiting spec in docs/api/rate-limiting.md.
+ */
 async function apiFetch<T>(path: string, token: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "User-Agent": "ImmoWebSuite/1.0",
-    },
-    next: { revalidate: 60 },
-  });
-  if (!res.ok) throw new Error(`IdleMMO API ${path} returned ${res.status}`);
-  return res.json() as Promise<T>;
+  const url     = `${BASE}${path}`;
+  const headers = { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" };
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(url, { headers, next: { revalidate: 60 } });
+
+    if (res.status === 429) {
+      if (attempt >= MAX_RETRIES) throw new Error(`IdleMMO API ${path} returned 429`);
+      const rst    = res.headers.get("x-ratelimit-reset");
+      const waitMs = rst
+        ? Math.max(1000, parseInt(rst, 10) * 1000 - Date.now() + 500)
+        : 5000;
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
+    }
+
+    if (!res.ok) throw new Error(`IdleMMO API ${path} returned ${res.status}`);
+    return res.json() as Promise<T>;
+  }
+
+  throw new Error(`IdleMMO API ${path} returned 429`);
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+export interface AuthCheckResult {
+  authenticated: boolean;
+  character: { id: number; hashed_id: string; name: string } | null;
+}
+
+/**
+ * Verify an API token and return the primary character's hashed ID and name.
+ * Endpoint: GET /v1/auth/check
+ */
+export async function checkAuthToken(token: string): Promise<AuthCheckResult> {
+  return apiFetch<AuthCheckResult>("/v1/auth/check", token);
 }
 
 // ─── Characters ───────────────────────────────────────────────────────────────

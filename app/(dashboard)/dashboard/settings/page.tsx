@@ -15,9 +15,9 @@ export default async function SettingsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
-  const currentToken = session.user.idlemmoToken ?? "";
+  const currentToken       = session.user.idlemmoToken ?? "";
   const currentCharacterId = session.user.idlemmoCharacterId ?? "";
-  const currentName = session.user.name ?? session.user.username ?? "";
+  const currentName        = session.user.name ?? session.user.username ?? "";
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -58,24 +58,23 @@ export default async function SettingsPage() {
                 autoComplete="off"
               />
               <p className="text-xs text-muted-foreground">
-                Found in your IdleMMO account settings. Leave blank to remove.
+                Found in your IdleMMO account settings. Leave blank to disconnect.
               </p>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="characterId">{t("characterId")}</Label>
-              <Input
-                id="characterId"
-                name="characterId"
-                type="text"
-                defaultValue={currentCharacterId}
-                placeholder="e.g. c1234567890"
-                autoComplete="off"
-              />
-              <p className="text-xs text-muted-foreground">
-                Enable <strong>Show Hashed IDs</strong> in your IdleMMO account settings,
-                then copy the hashed ID from any character&apos;s profile page.
-              </p>
-            </div>
+
+            {/* Read-only: primary character resolved from token */}
+            {currentCharacterId && (
+              <div className="flex flex-col gap-1.5">
+                <Label>{t("characterId")}</Label>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted border border-border text-sm font-mono text-muted-foreground select-all">
+                  {currentCharacterId}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Resolved automatically from your API token. Re-save the token to refresh.
+                </p>
+              </div>
+            )}
+
             <Button type="submit" className="w-fit">
               {t("save")}
             </Button>
