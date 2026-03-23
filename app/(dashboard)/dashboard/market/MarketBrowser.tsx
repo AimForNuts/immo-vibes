@@ -383,10 +383,15 @@ export function MarketBrowser() {
             <Search className="size-10 opacity-30" />
             <p className="text-sm">Search all items by name</p>
           </div>
+        ) : !loading && items.length > 0 ? (
+          <div className="flex flex-col items-center gap-3 py-16 text-zinc-600">
+            <Package className="size-10 opacity-30" />
+            <p className="text-sm">No items match the current filters</p>
+          </div>
         ) : !loading ? (
           <div className="flex flex-col items-center gap-3 py-16 text-zinc-600">
             <Package className="size-10 opacity-30" />
-            <p className="text-sm">{isAllTab ? "No items found" : "No items synced yet — use Admin → Sync Items"}</p>
+            <p className="text-sm">No items available in this category</p>
           </div>
         ) : null}
       </div>
