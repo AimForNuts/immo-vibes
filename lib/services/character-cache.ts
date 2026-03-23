@@ -8,8 +8,8 @@
  *
  * Business rules:
  * - Characters are ordered by idlemmoId ASC (deterministic, matches game order).
- * - Primary character always has isPrimary = true, locationName, currentStatus.
- * - Alt characters have locationName = null, currentStatus = null.
+ * - All characters (primary + alts) have locationName and currentStatus populated.
+ *   Alt details are fetched in parallel via getCharacterInfo per alt.
  * - Max 5 characters total (primary + up to 4 alts).
  * - Cache TTL: 5 minutes. Data older than this is considered stale.
  */
@@ -61,6 +61,11 @@ export async function refreshCharacters(
       getAltCharacters(charId, token),
     ]);
 
+    const altSlice = alts.slice(0, 4);
+    const altDetails = await Promise.all(
+      altSlice.map((a) => getCharacterInfo(a.hashed_id, token))
+    );
+
     const now = new Date();
     const allChars = [
       {
@@ -76,7 +81,7 @@ export async function refreshCharacters(
         isPrimary:     true,
         cachedAt:      now,
       },
-      ...alts.slice(0, 4).map((a) => ({
+      ...altSlice.map((a, i) => ({
         userId,
         hashedId:      a.hashed_id,
         idlemmoId:     a.id,
@@ -84,8 +89,8 @@ export async function refreshCharacters(
         class:         a.class,
         imageUrl:      a.image_url ?? null,
         totalLevel:    a.total_level,
-        locationName:  null,
-        currentStatus: null,
+        locationName:  altDetails[i]?.location?.name ?? null,
+        currentStatus: altDetails[i]?.current_status ?? null,
         isPrimary:     false,
         cachedAt:      now,
       })),

@@ -2,11 +2,11 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { getCharacterInfo, getAltCharacters, type CharacterDetail, type AltCharacter } from "@/lib/idlemmo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User } from "lucide-react";
 import { STATUS_DOT_COLOR, STATUS_LABEL_KEY } from "@/lib/game-constants";
+import { refreshCharacters, type CachedCharacter } from "@/lib/services/character-cache";
 
 export default async function CharactersPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -30,23 +30,19 @@ export default async function CharactersPage() {
     );
   }
 
-  let primary: CharacterDetail | null = null;
-  let alts: AltCharacter[] = [];
+  let all: CachedCharacter[] = [];
   let error: string | null = null;
 
-  try {
-    [primary, alts] = await Promise.all([
-      getCharacterInfo(charId, token),
-      getAltCharacters(charId, token),
-    ]);
-  } catch (e) {
-    error = e instanceof Error ? e.message : "Failed to load characters.";
+  const result = await refreshCharacters(session.user.id, charId, token);
+  if (result === null) {
+    error = "Failed to load characters. Check your API token in Settings.";
+  } else {
+    // Primary first, then alts ordered by idlemmoId
+    all = [
+      ...result.filter((c) => c.isPrimary),
+      ...result.filter((c) => !c.isPrimary),
+    ];
   }
-
-  const all = [
-    ...(primary ? [{ ...primary, isPrimary: true }] : []),
-    ...alts.map((a) => ({ ...a, isPrimary: false, current_status: undefined as never })),
-  ].slice(0, 5);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -57,14 +53,14 @@ export default async function CharactersPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {all.map((char) => (
-            <Link key={char.hashed_id} href={`/dashboard/characters/${char.hashed_id}`}>
+            <Link key={char.hashedId} href={`/dashboard/characters/${char.hashedId}`}>
               <Card className="group hover:border-primary/50 transition-colors cursor-pointer">
                 <CardContent className="flex items-center gap-4 py-4 px-4">
                   {/* Avatar */}
                   <div className="size-14 shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                    {char.image_url ? (
+                    {char.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={char.image_url} alt={char.name} className="object-cover w-full h-full" />
+                      <img src={char.imageUrl} alt={char.name} className="object-cover w-full h-full" />
                     ) : (
                       <User className="size-6 text-muted-foreground/40" />
                     )}
@@ -87,11 +83,11 @@ export default async function CharactersPage() {
 
                   {/* Right side */}
                   <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className="text-sm font-medium">Lv {char.total_level}</span>
-                    {char.isPrimary && char.current_status && (
+                    <span className="text-sm font-medium">Lv {char.totalLevel}</span>
+                    {char.currentStatus && (
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span className={`size-2 rounded-full ${STATUS_DOT_COLOR[char.current_status] ?? "bg-zinc-500"}`} />
-                        {STATUS_LABEL_KEY[char.current_status] ?? char.current_status}
+                        <span className={`size-2 rounded-full ${STATUS_DOT_COLOR[char.currentStatus] ?? "bg-zinc-500"}`} />
+                        {STATUS_LABEL_KEY[char.currentStatus] ?? char.currentStatus}
                       </span>
                     )}
                   </div>
