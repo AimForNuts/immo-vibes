@@ -25,6 +25,7 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
 | Cron sync progress | `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
 | Saved gear loadouts | `gear_presets` | `user_id`, `slots` (JSONB map of slot → `{hashedId, tier}`) |
+| Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `cached_at` |
 
 ---
 
@@ -154,6 +155,31 @@ One row per user, keyed by `user_id`.
 | `language` | text | Default `'en'` |
 | `dashboard_layout` | jsonb | Array of 6 `DashboardCardType` strings |
 | `updated_at` | timestamp | — |
+
+---
+
+### `characters`
+
+Per-user character roster cache. Populated on first overview load; refreshed when `cached_at` is older than 5 minutes.
+Ordered by `idlemmo_id ASC` for a deterministic, game-consistent order.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | serial PK | — | Auto-increment |
+| `user_id` | text FK | — | → `user.id` (cascade delete) |
+| `hashed_id` | text | — | IdleMMO character identifier |
+| `idlemmo_id` | integer | — | IdleMMO integer ID — used for `ORDER BY idlemmo_id ASC` |
+| `name` | text | — | Character display name |
+| `class` | text | — | e.g. `LUMBERJACK`, `WARRIOR` |
+| `image_url` | text | ✓ | CDN URL |
+| `total_level` | integer | — | Sum of all skill levels |
+| `location_name` | text | ✓ | Current location — primary character only |
+| `current_status` | text | ✓ | `ONLINE` \| `IDLING` \| `OFFLINE` — primary only |
+| `is_primary` | boolean | — | True for the token owner's main character |
+| `cached_at` | timestamp | — | When this row was last written |
+
+**Unique index**: `(user_id, hashed_id)` — prevents duplicates on concurrent refresh.
+**Service**: `lib/services/character-cache.ts` → `getCachedCharacters()`
 
 ---
 

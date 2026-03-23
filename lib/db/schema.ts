@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial } from "drizzle-orm/pg-core";
 
 // ─── Shared types for JSONB columns ───────────────────────────────────────────
 
@@ -242,6 +242,36 @@ export const syncState = pgTable("sync_state", {
   /** When the current run completed (UTC). Null while running. */
   completedAt:      timestamp("completed_at"),
 });
+
+/**
+ * Cached character roster per user — populated on first overview load and
+ * refreshed when the cache is older than CACHE_TTL_MS (5 minutes).
+ * Ordered by idlemmoId ASC so the roster is deterministic.
+ *
+ * Primary character: isPrimary = true, locationName + currentStatus populated.
+ * Alt characters:    isPrimary = false, locationName + currentStatus = null.
+ */
+export const characters = pgTable(
+  "characters",
+  {
+    id:            serial("id").primaryKey(),
+    userId:        text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    hashedId:      text("hashed_id").notNull(),
+    /** IdleMMO integer ID — used for deterministic ordering. */
+    idlemmoId:     integer("idlemmo_id").notNull(),
+    name:          text("name").notNull(),
+    class:         text("class").notNull(),
+    imageUrl:      text("image_url"),
+    totalLevel:    integer("total_level").notNull().default(0),
+    /** Populated for primary character only. */
+    locationName:  text("location_name"),
+    /** ONLINE | IDLING | OFFLINE — populated for primary only. */
+    currentStatus: text("current_status"),
+    isPrimary:     boolean("is_primary").notNull().default(false),
+    cachedAt:      timestamp("cached_at").notNull(),
+  },
+  (t) => [uniqueIndex("characters_user_hashed_uniq").on(t.userId, t.hashedId)]
+);
 
 export const gearPresets = pgTable("gear_presets", {
   id: text("id").primaryKey(),

@@ -204,9 +204,10 @@ Customisable 3×2 shortcut grid with character overview.
 | Page | `app/(dashboard)/dashboard/page.tsx` |
 | Component | `components/dashboard-grid.tsx` |
 | Server action | `app/actions/preferences.ts` → `saveDashboardLayout()` |
+| Cache service | `lib/services/character-cache.ts` → `getCachedCharacters()` |
 
-**DB tables**: `userPreferences` (read/write `dashboardLayout`)
-**External API**: `getCharacterInfo()`, `getAltCharacters()`
+**DB tables**: `userPreferences` (read/write `dashboardLayout`), `characters` (read/write roster cache)
+**External API**: `getCharacterInfo()`, `getAltCharacters()` — called only when cache is stale (> 5 min)
 
 ---
 
