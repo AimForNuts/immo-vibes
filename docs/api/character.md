@@ -23,65 +23,65 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 ```json
 {
     "character": {
-        "id": 67890,
-        "hashed_id": "c1234567890",
+        "id": 100000,
+        "hashed_id": "AbCdEfGhIjKlMnOp",
         "name": "ExampleCharacter",
-        "class": "LUMBERJACK",
-        "image_url": "https://cdn.idle-mmo.com/images/character.png",
-        "background_url": "https://cdn.idle-mmo.com/images/background.png",
+        "class": "SHADOWBLADE",
+        "image_url": "https://cdn.idle-mmo.com/uploaded/skins/example-skin.png",
+        "background_url": "https://cdn.idle-mmo.com/uploaded/skins/example-bg.jpg",
         "skills": {
-            "woodcutting": { "experience": 15000, "level": 10 },
-            "mining": { "experience": 25000, "level": 15 },
-            "fishing": { "experience": 5000, "level": 5 },
-            "cooking": { "experience": 8000, "level": 7 },
-            "alchemy": { "experience": 3000, "level": 4 },
-            "farming": { "experience": 12000, "level": 9 },
-            "foraging": { "experience": 6000, "level": 6 },
-            "hunting": { "experience": 4000, "level": 5 },
-            "crafting": { "experience": 9000, "level": 8 },
-            "smithing": { "experience": 18000, "level": 12 },
-            "tailoring": { "experience": 2000, "level": 3 },
-            "enchanting": { "experience": 1000, "level": 2 },
-            "fletching": { "experience": 500, "level": 1 },
-            "construction": { "experience": 7000, "level": 7 },
-            "brewing": { "experience": 4500, "level": 5 },
-            "smelting": { "experience": 11000, "level": 9 },
-            "weaving": { "experience": 3500, "level": 4 },
-            "skinning": { "experience": 2500, "level": 3 },
-            "jewelling": { "experience": 1500, "level": 2 }
+            "fishing":            { "experience": 1000000,  "level": 72  },
+            "woodcutting":        { "experience": 150,      "level": 2   },
+            "mining":             { "experience": 13000,    "level": 26  },
+            "alchemy":            { "experience": 6000000,  "level": 90  },
+            "smelting":           { "experience": 0,        "level": 1   },
+            "cooking":            { "experience": 19000000, "level": 100 },
+            "forge":              { "experience": 0,        "level": 1   },
+            "shadow-mastery":     { "experience": 2700000,  "level": 80  },
+            "bartering":          { "experience": 5500000,  "level": 88  },
+            "hunting-mastery":    { "experience": 6000000,  "level": 89  },
+            "yule-mastery":       { "experience": 2500000,  "level": 79  },
+            "springtide-mastery": { "experience": 0,        "level": 1   },
+            "combat":             { "experience": 48000000, "level": 100 },
+            "pet-mastery":        { "experience": 55000000, "level": 100 },
+            "guild-mastery":      { "experience": 10000000, "level": 95  },
+            "lunar-mastery":      { "experience": 580000,   "level": 65  },
+            "meditation":         { "experience": 9,        "level": 1   },
+            "dungeoneering":      { "experience": 71000000, "level": 100 },
+            "construction":       { "experience": 0,        "level": 1   }
         },
         "stats": {
-            "strength": { "experience": 12000, "level": 15 },
-            "defence": { "experience": 8000, "level": 11 },
-            "speed": { "experience": 5000, "level": 8 },
-            "dexterity": { "experience": 3000, "level": 6 }
+            "strength":  { "experience": 6000000,  "level": 90  },
+            "defence":   { "experience": 8000000,  "level": 93  },
+            "speed":     { "experience": 16000000, "level": 100 },
+            "dexterity": { "experience": 6000000,  "level": 90  }
         },
-        "gold": 50000,
-        "tokens": 150,
-        "shards": 25,
-        "total_level": 250,
+        "gold": 500000,
+        "tokens": 1000,
+        "shards": 70000,
+        "total_level": 1470,
         "location": {
-            "id": 3,
-            "name": "Bluebell Hollow"
+            "id": 9,
+            "name": "Isle of Whispers"
         },
         "equipped_pet": {
-            "id": 123,
-            "name": "Fluffy",
-            "image_url": "https://cdn.idle-mmo.com/images/pet-fluffy.png",
-            "level": 5
+            "id": 200000,
+            "name": "MyPet",
+            "image_url": "https://cdn.idle-mmo.com/uploaded/skins/example-pet.png",
+            "level": 100
         },
         "guild": {
-            "id": 42,
-            "tag": "GG",
-            "experience": 250000,
-            "level": 15,
-            "position": "SOLDIER"
+            "id": 100,
+            "tag": "TAG",
+            "experience": 20000000,
+            "level": 100,
+            "position": "RECRUIT"
         },
-        "last_activity": "2025-01-01T00:00:00.000000+00:00",
-        "current_status": "ONLINE",
-        "created_at": "2024-06-15T08:00:00.000000+00:00"
+        "last_activity": "2025-01-01T00:00:00.000000Z",
+        "current_status": "IDLING",
+        "created_at": "2025-01-15T12:00:00+00:00"
     },
-    "endpoint_updates_at": "2025-12-21T13:00:00.000000+00:00"
+    "endpoint_updates_at": "2026-01-01T12:00:00+00:00"
 }
 ```
 
@@ -90,18 +90,18 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 | Field | Type | Description |
 |---|---|---|
 | `character` | object | Character details |
-| `character.id` | integer | Character ID |
-| `character.hashed_id` | string | Hashed character ID |
+| `character.id` | integer | Numeric character ID |
+| `character.hashed_id` | string | Hashed character ID (used in all API paths) |
 | `character.name` | string | Character name |
-| `character.class` | string | Character class |
-| `character.image_url` | string\|null | Character image URL |
-| `character.background_url` | string\|null | Character background image URL |
-| `character.skills` | object | Map of skill name → `{experience, level}`. Contains 19 skills: `woodcutting`, `mining`, `fishing`, `cooking`, `alchemy`, `farming`, `foraging`, `hunting`, `crafting`, `smithing`, `tailoring`, `enchanting`, `fletching`, `construction`, `brewing`, `smelting`, `weaving`, `skinning`, `jewelling` |
-| `character.skills.*.experience` | integer | Total XP in this skill |
-| `character.skills.*.level` | integer | Current skill level |
-| `character.stats` | object | Map of stat name → `{experience, level}`. Contains 4 stats: `strength`, `defence`, `speed`, `dexterity` |
-| `character.stats.*.experience` | integer | Total XP in this stat |
-| `character.stats.*.level` | integer | Current stat level |
+| `character.class` | string | Character class (e.g. `SHADOWBLADE`, `WARRIOR`, `FORSAKEN`) |
+| `character.image_url` | string\|null | Character avatar URL |
+| `character.background_url` | string\|null | Character banner/background image URL |
+| `character.skills` | object | Map of skill key → `{experience, level}` for all 19 skills (see table below) |
+| `character.skills.*.experience` | integer | Total XP accumulated in this skill |
+| `character.skills.*.level` | integer | Current skill level (max 100) |
+| `character.stats` | object | Map of stat key → `{experience, level}` for 4 primary combat stats: `strength`, `defence`, `speed`, `dexterity` |
+| `character.stats.*.experience` | integer | Total XP accumulated in this stat |
+| `character.stats.*.level` | integer | Current stat level (max 100) |
 | `character.gold` | integer | Current gold balance |
 | `character.tokens` | integer | Current token balance |
 | `character.shards` | integer | Current shard balance |
@@ -116,19 +116,47 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 | `character.guild` | object\|null | Guild membership details, or null |
 | `character.guild.id` | integer | Guild ID |
 | `character.guild.tag` | string | Guild tag |
-| `character.guild.experience` | integer | Guild XP |
+| `character.guild.experience` | integer | Character's XP contribution to the guild |
 | `character.guild.level` | integer | Guild level |
-| `character.guild.position` | string | Character's position in the guild |
+| `character.guild.position` | string | Character's position: `LEADER`, `OFFICER`, `SOLDIER`, or `RECRUIT` |
 | `character.last_activity` | string\|null | **Deprecated.** Always returns `2025-01-01T00:00:00.000000Z`. Use `current_status` instead. |
 | `character.current_status` | string | `ONLINE` (active within 5 min), `IDLING` (active within 8 hrs with action), or `OFFLINE` |
 | `character.created_at` | string | Account creation timestamp (ISO 8601, `+00:00` timezone offset) |
-| `endpoint_updates_at` | string | When this endpoint data next updates |
+| `endpoint_updates_at` | string | When this endpoint data next refreshes |
+
+**Skills — complete key list (19 skills)**
+
+Skills are returned in `character.skills` keyed by their API name. Mastery skills use hyphenated keys.
+
+| API key | Display name | Category |
+|---|---|---|
+| `fishing` | Fishing | Gathering |
+| `woodcutting` | Woodcutting | Gathering |
+| `mining` | Mining | Gathering |
+| `alchemy` | Alchemy | Crafting |
+| `smelting` | Smelting | Crafting |
+| `cooking` | Cooking | Crafting |
+| `forge` | Forge | Crafting |
+| `construction` | Construction | Crafting |
+| `bartering` | Bartering | Social |
+| `meditation` | Meditation | Passive |
+| `combat` | Combat | Combat mastery |
+| `dungeoneering` | Dungeoneering | Combat mastery |
+| `hunting-mastery` | Hunting Mastery | Hunting mastery |
+| `pet-mastery` | Pet Mastery | Pet mastery |
+| `guild-mastery` | Guild Mastery | Guild mastery |
+| `shadow-mastery` | Shadow Mastery | Seasonal mastery |
+| `yule-mastery` | Yule Mastery | Seasonal mastery (winter) |
+| `springtide-mastery` | Springtide Mastery | Seasonal mastery (spring) |
+| `lunar-mastery` | Lunar Mastery | Seasonal mastery |
+
+> **Note:** There is no separate "mastery" data type. Masteries are ordinary skills that return the same `{experience, level}` shape as all other skills. Seasonal masteries (yule, springtide, lunar, shadow) tend to start at level 1 / 0 XP outside their active season.
 
 ---
 
 #### GET `/v1/character/{hashed_character_id}/metrics` — Character Metrics
 
-Retrieve raw metrics data for a specific character organized by activity type and metric type.
+Retrieve raw metrics data for a specific character organised by activity type.
 
 **Required Scope:** `v1.character.metrics`
 
@@ -143,63 +171,95 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 ```json
 {
     "metrics": {
-        "dungeon": {
-            "times_completed": 156,
-            "gold_spent": 75000
-        },
-        "battle": {
-            "enemies_killed": 2456,
-            "times_defeated": 23,
-            "enemies_found": 567,
-            "food_used": 1234
-        },
-        "hunt": {
-            "enemies_killed": 234,
-            "times_defeated": 5,
-            "enemies_found": 120
-        },
-        "market": {
-            "items_purchased": 234,
-            "items_sold": 189,
-            "orders_fulfilled": 45
-        },
-        "world_boss": {
-            "participated": 78
-        },
-        "guild_raid": {
-            "participated": 15
-        },
-        "guild_challenge": {
-            "contributions": 120
-        },
-        "guild_stockpile": {
-            "contributions": 89
-        },
-        "pet_battle": {
-            "times_performed": 89
-        },
-        "shrine": {
-            "gold_contribution": 50000
-        },
-        "campaign": {
-            "rewards_redeemed": 42
-        },
-        "travel": {
-            "times_teleported": 456,
-            "teleportation_cost": 34500,
-            "total_distance": 987654
+        "fishing": {
+            "items_gathered": 45000,
+            "total_experience": 1000000,
+            "total_time": 1000000000
         },
         "woodcutting": {
-            "items_gathered": 567
+            "items_gathered": 50,
+            "total_experience": 150,
+            "total_time": 600000
         },
-        "mining": {
-            "items_gathered": 892
+        "alchemy": {
+            "items_gathered": 1800,
+            "total_experience": 6000000,
+            "total_time": 1900000000
         },
-        "fishing": {
-            "items_gathered": 412
+        "shadow-mastery": {
+            "items_gathered": 5000,
+            "total_experience": 1400000,
+            "total_time": 220000000
+        },
+        "yule-mastery": {
+            "items_gathered": 55000,
+            "total_experience": 1500000,
+            "total_time": 350000000
+        },
+        "lunar-mastery": {
+            "items_gathered": 10000,
+            "total_experience": 340000,
+            "total_time": 80000000
+        },
+        "battle": {
+            "enemies_killed": 280000,
+            "food_used": 58000,
+            "times_defeated": 10
+        },
+        "hunt": {
+            "enemies_found": 260000,
+            "bonus_enemies": 17000
+        },
+        "dungeon": {
+            "gold_spent": 20000000,
+            "times_completed": 1100
+        },
+        "world_boss": {
+            "participated": 480
+        },
+        "pet_battle": {
+            "times_performed": 13000
+        },
+        "pet_hunt": {
+            "enemies_found": 115000
+        },
+        "market": {
+            "items_purchased": 610000,
+            "items_sold": 54000,
+            "orders_fulfilled": 740
+        },
+        "direct_trade": {
+            "times_completed": 440
+        },
+        "travel": {
+            "times_teleported": 790,
+            "teleportation_cost": 630000,
+            "total_distance": 5500000
+        },
+        "shrine": {
+            "gold_contribution": 12000
+        },
+        "campaign": {
+            "rewards_redeemed": 180,
+            "community_goal_contributions": 510
+        },
+        "guild_raid": {
+            "participated": 400
+        },
+        "guild_challenge": {
+            "contributions": 66000
+        },
+        "guild_stockpile": {
+            "contributions": 200
+        },
+        "league": {
+            "kills_contribution": 24000,
+            "experience_contribution": 6000000,
+            "winnable_leagues": 1,
+            "total_shards_won": 2000
         }
     },
-    "endpoint_updates_at": "2025-12-21T13:00:00.000000Z"
+    "endpoint_updates_at": "2026-01-01T12:00:00Z"
 }
 ```
 
@@ -208,15 +268,45 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 | Field | Type | Description |
 |---|---|---|
 | `metrics` | object | Map of activity type to metric key/value pairs |
-| `metrics.*` | object | Activity category (e.g., `dungeon`, `battle`, `market`) |
-| `metrics.*.*` | integer | Individual metric value for that activity |
-| `endpoint_updates_at` | string | When this endpoint data next updates |
+| `metrics.*` | object | Activity category (see tables below) |
+| `metrics.*.*` | integer | Individual metric value |
+| `endpoint_updates_at` | string | When this endpoint data next refreshes |
+
+**Gathering skill metric keys** — applies to `fishing`, `woodcutting`, `mining`, `cooking`, `alchemy`, and active mastery skills (e.g. `shadow-mastery`, `yule-mastery`, `lunar-mastery`):
+
+| Key | Type | Description |
+|---|---|---|
+| `items_gathered` | integer | Total items gathered |
+| `total_experience` | integer | Total XP earned via this skill |
+| `total_time` | integer | Total time spent (milliseconds) |
+
+> **Note:** Mastery skills only appear in metrics if the character has actively used them. Inactive seasonal masteries may be absent entirely.
+
+**Other activity metric keys**:
+
+| Category | Keys |
+|---|---|
+| `battle` | `enemies_killed`, `food_used`, `times_defeated` |
+| `hunt` | `enemies_found`, `bonus_enemies` |
+| `dungeon` | `gold_spent`, `times_completed` |
+| `world_boss` | `participated` |
+| `pet_battle` | `times_performed` |
+| `pet_hunt` | `enemies_found` |
+| `market` | `items_purchased`, `items_sold`, `orders_fulfilled` |
+| `direct_trade` | `times_completed` |
+| `travel` | `times_teleported`, `teleportation_cost`, `total_distance` |
+| `shrine` | `gold_contribution` |
+| `campaign` | `rewards_redeemed`, `community_goal_contributions` |
+| `guild_raid` | `participated` |
+| `guild_challenge` | `contributions` |
+| `guild_stockpile` | `contributions` |
+| `league` | `kills_contribution`, `experience_contribution`, `winnable_leagues`, `total_shards_won` |
 
 ---
 
 #### GET `/v1/character/{hashed_character_id}/effects` — Character Effects
 
-Retrieve raw effect data for a specific character including buffs, boosts, and temporary effects.
+Retrieve all active effects on a character — buffs from membership, class, equipment, guild conquest, house components, and daily reward streaks.
 
 **Required Scope:** `v1.character.effects`
 
@@ -232,27 +322,87 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 {
     "effects": [
         {
-            "character_id": 67890,
-            "source": "potion",
-            "target": "world_boss",
+            "character_id": 100000,
+            "source": "membership",
+            "target": "primary_skill",
             "attribute": "experience",
             "value": 15,
             "value_type": "percentage",
-            "location_id": 5,
+            "location_id": null,
             "expire_at": null
         },
         {
-            "character_id": 67890,
+            "character_id": 100000,
             "source": "membership",
-            "target": "dungeon",
+            "target": "primary_skill",
+            "attribute": "wait_length",
+            "value": 10,
+            "value_type": "efficiency",
+            "location_id": null,
+            "expire_at": null
+        },
+        {
+            "character_id": 100000,
+            "source": "class",
+            "target": "speed",
             "attribute": "experience",
-            "value": 50,
+            "value": 5,
             "value_type": "percentage",
             "location_id": null,
-            "expire_at": "2025-12-25T23:59:59.000000Z"
+            "expire_at": null
+        },
+        {
+            "character_id": 100000,
+            "source": "guild_conquest",
+            "target": "dungeon",
+            "attribute": "magic_find",
+            "value": 15,
+            "value_type": "percentage",
+            "location_id": 1,
+            "expire_at": "2026-05-07T12:30:00+00:00"
+        },
+        {
+            "character_id": 100000,
+            "source": "equipment",
+            "target": "fishing",
+            "attribute": "wait_length",
+            "value": 30,
+            "value_type": "efficiency",
+            "location_id": null,
+            "expire_at": null
+        },
+        {
+            "character_id": 100000,
+            "source": "equipment",
+            "target": "lunar-mastery",
+            "attribute": "experience",
+            "value": 25,
+            "value_type": "percentage",
+            "location_id": null,
+            "expire_at": null
+        },
+        {
+            "character_id": 100000,
+            "source": "house_component",
+            "target": "dungeon",
+            "attribute": "max_idle_time",
+            "value": 7200000,
+            "value_type": "fixed",
+            "location_id": null,
+            "expire_at": null
+        },
+        {
+            "character_id": 100000,
+            "source": "daily_reward_streak",
+            "target": "dungeon",
+            "attribute": "magic_find",
+            "value": 10,
+            "value_type": "percentage",
+            "location_id": null,
+            "expire_at": "2026-01-02T12:00:00+00:00"
         }
     ],
-    "endpoint_updates_at": "2025-12-21T13:01:00.000000Z"
+    "endpoint_updates_at": "2026-01-01T12:00:00Z"
 }
 ```
 
@@ -260,22 +410,33 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 | Field | Type | Description |
 |---|---|---|
-| `effects` | array | List of active effects on the character |
-| `effects.*.character_id` | integer | Character ID the effect applies to |
-| `effects.*.source` | string | Source of the effect (e.g., `potion`, `membership`) |
-| `effects.*.target` | string | Activity or target affected (e.g., `dungeon`, `world_boss`) |
-| `effects.*.attribute` | string | Affected attribute (e.g., `experience`) |
+| `effects` | array | All active effects on the character |
+| `effects.*.character_id` | integer | Numeric character ID |
+| `effects.*.source` | string | What grants the effect (see source table below) |
+| `effects.*.target` | string | What is affected — a skill key, stat key, or activity (e.g. `dungeon`, `primary_skill`, `fishing`, `lunar-mastery`) |
+| `effects.*.attribute` | string | Which attribute is modified: `experience`, `wait_length`, `magic_find`, or `max_idle_time` |
 | `effects.*.value` | integer | Effect magnitude |
-| `effects.*.value_type` | string | Value type (e.g., `percentage`) |
-| `effects.*.location_id` | integer\|null | Location the effect is limited to, or null for all |
+| `effects.*.value_type` | string | How the value is applied: `percentage`, `efficiency`, or `fixed` |
+| `effects.*.location_id` | integer\|null | Location the effect is scoped to, or null for all locations |
 | `effects.*.expire_at` | string\|null | Expiry timestamp (ISO 8601), or null if permanent |
-| `endpoint_updates_at` | string | When this endpoint data next updates |
+| `endpoint_updates_at` | string | When this endpoint data next refreshes |
+
+**Known effect sources**
+
+| Source | Description |
+|---|---|
+| `membership` | Active membership subscription bonuses |
+| `class` | Class-specific talent bonuses (e.g. Shadowblade gets speed XP + hunt efficiency) |
+| `guild_conquest` | Bonuses from locations controlled by the character's guild. One entry per controlled location — `location_id` identifies which. |
+| `equipment` | Bonuses from currently equipped gear. Mastery XP boosts (e.g. `lunar-mastery +25%`) appear here. |
+| `house_component` | Bonuses from house upgrades (e.g. extended dungeon idle time via `max_idle_time`) |
+| `daily_reward_streak` | Temporary bonuses from daily login streak rewards |
 
 ---
 
-#### GET `/v1/character/{hashed_character_id}/characters` — Character Alt Characters
+#### GET `/v1/character/{hashed_character_id}/characters` — Alt Characters
 
-Retrieve all alternate characters owned by the same user. Only visible to the authenticated owner or if the character owner has enabled the `show_alt_characters` setting.
+Retrieve all alternate characters owned by the same account. Only visible to the authenticated owner or if the character owner has enabled the `show_alt_characters` setting.
 
 **Required Scope:** `v1.character.characters`
 
@@ -291,27 +452,17 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 {
     "characters": [
         {
-            "id": 12345,
-            "hashed_id": "xyz789abc",
-            "name": "AltWarrior",
+            "id": 100001,
+            "hashed_id": "XxXxXxXxXxXxXxXx",
+            "name": "AltCharacter",
             "class": "WARRIOR",
-            "image_url": "https://cdn.idle-mmo.com/images/character-warrior.png",
-            "background_url": "https://cdn.idle-mmo.com/images/background-forest.png",
+            "image_url": "https://cdn.idle-mmo.com/uploaded/skins/example-warrior.png",
+            "background_url": "https://cdn.idle-mmo.com/uploaded/skins/example-bg.jpg",
             "total_level": 185,
             "created_at": "2024-03-15T10:30:00.000000Z"
-        },
-        {
-            "id": 12346,
-            "hashed_id": "def456ghi",
-            "name": "AltMage",
-            "class": "FORSAKEN",
-            "image_url": "https://cdn.idle-mmo.com/images/character-mage.png",
-            "background_url": "https://cdn.idle-mmo.com/images/background-castle.png",
-            "total_level": 92,
-            "created_at": "2024-06-20T14:45:00.000000Z"
         }
     ],
-    "endpoint_updates_at": "2025-12-21T13:00:00.000000Z"
+    "endpoint_updates_at": "2026-01-01T12:00:00Z"
 }
 ```
 
@@ -319,22 +470,22 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 | Field | Type | Description |
 |---|---|---|
-| `characters` | array | List of alternate characters |
-| `characters.*.id` | integer | Character ID |
+| `characters` | array | List of alternate characters on the same account |
+| `characters.*.id` | integer | Numeric character ID |
 | `characters.*.hashed_id` | string | Hashed character ID |
 | `characters.*.name` | string | Character name |
 | `characters.*.class` | string | Character class |
-| `characters.*.image_url` | string\|null | Character image URL |
-| `characters.*.background_url` | string\|null | Background image URL |
+| `characters.*.image_url` | string\|null | Character avatar URL |
+| `characters.*.background_url` | string\|null | Character background image URL |
 | `characters.*.total_level` | integer | Sum of all skill and stat levels |
 | `characters.*.created_at` | string | Character creation timestamp (ISO 8601) |
-| `endpoint_updates_at` | string | When this endpoint data next updates |
+| `endpoint_updates_at` | string | When this endpoint data next refreshes |
 
 ---
 
-#### GET `/v1/character/{hashed_character_id}/museum` — Character Museum
+#### GET `/v1/character/{hashed_character_id}/museum` — Museum
 
-Retrieve a paginated list of museum items collected by a specific character, with optional category filtering.
+Retrieve a paginated list of museum items collected by the character.
 
 **Required Scope:** `v1.character.museum`
 
@@ -342,7 +493,7 @@ Retrieve a paginated list of museum items collected by a specific character, wit
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `page` | integer | No | Page number for pagination (default: `1`) |
+| `page` | integer | No | Page number (default: `1`) |
 | `category` | string | No | Filter by category: `SKINS`, `BACKGROUNDS`, `GUILD_ICONS`, `PETS`, `COLLECTIBLES`, or `BESTIARY` |
 
 **Example Request**
@@ -364,25 +515,11 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
             "image_url": "https://cdn.idle-mmo.com/images/skins/forest-ranger.png"
         },
         {
-            "category": "PETS",
-            "quantity": 1,
-            "id": 45,
-            "name": "Fire Phoenix",
-            "image_url": "https://cdn.idle-mmo.com/images/pets/fire-phoenix.png"
-        },
-        {
             "category": "COLLECTIBLES",
             "quantity": 3,
             "id": "abc123def456",
             "name": "Ancient Coin",
             "image_url": "https://cdn.idle-mmo.com/images/items/ancient-coin.png"
-        },
-        {
-            "category": "BESTIARY",
-            "quantity": 1,
-            "id": 234,
-            "name": "Goblin Warrior",
-            "image_url": "https://cdn.idle-mmo.com/images/enemies/goblin-warrior.png"
         }
     ],
     "pagination": {
@@ -399,23 +536,23 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 | Field | Type | Description |
 |---|---|---|
 | `items` | array | List of collected museum items |
-| `items.*.category` | string | Item category (`SKINS`, `BACKGROUNDS`, `GUILD_ICONS`, `PETS`, `COLLECTIBLES`, `BESTIARY`) |
+| `items.*.category` | string | `SKINS`, `BACKGROUNDS`, `GUILD_ICONS`, `PETS`, `COLLECTIBLES`, or `BESTIARY` |
 | `items.*.quantity` | integer | Quantity owned |
-| `items.*.id` | integer\|string | Item ID (integer for most types, hashed string for collectibles) |
+| `items.*.id` | integer\|string | Item ID (integer for most types; hashed string for collectibles) |
 | `items.*.name` | string | Item name |
 | `items.*.image_url` | string\|null | Item image URL |
-| `pagination.current_page` | integer | Current page number |
+| `pagination.current_page` | integer | Current page |
 | `pagination.last_page` | integer | Last available page |
 | `pagination.per_page` | integer | Items per page |
 | `pagination.total` | integer | Total collected items |
 
 ---
 
-#### GET `/v1/character/{hashed_character_id}/current-action` — Character Current Action
+#### GET `/v1/character/{hashed_character_id}/current-action` — Current Action
 
-Retrieve the current active action for a character, including battle, skill, or other activities. Only visible to the authenticated owner or if the character owner has enabled the `display_active_action` setting.
+Retrieve the character's current active action.
 
-> **Experimental** — This endpoint may behave unexpectedly and is subject to breaking changes without notice. Avoid using it for critical systems.
+> **Experimental** — Subject to breaking changes without notice.
 
 **Required Scope:** `v1.character.current_action`
 
@@ -429,12 +566,11 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 **Example Response**
 ```json
 {
-    "type": "MINING",
-    "item": "Iron Ore",
-    "image_url": "https://cdn.idle-mmo.com/images/iron-ore.png",
-    "title": "Mining Iron Ore",
-    "expires_at": "2025-01-20T14:30:00.000000Z",
-    "started_at": "2025-01-20T14:25:00.000000Z"
+    "type": "HUNTING",
+    "image_url": "https://cdn.idle-mmo.com/uploaded/skins/example-hunting.png",
+    "title": "Hunting",
+    "expires_at": "2026-01-01T14:30:00+00:00",
+    "started_at": "2026-01-01T14:25:00+00:00"
 }
 ```
 
@@ -442,7 +578,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 | Field | Type | Description |
 |---|---|---|
-| `type` | string\|null | Action type (e.g., `MINING`, `BATTLE`) |
+| `type` | string\|null | Action type (e.g. `HUNTING`, `MINING`, `BATTLE`) |
 | `image_url` | string\|null | Image representing the current action |
 | `title` | string\|null | Human-readable action description |
 | `expires_at` | string\|null | When the action completes (ISO 8601) |
@@ -452,7 +588,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 #### GET `/v1/character/{hashed_character_id}/pets` — Character Pets
 
-Retrieve all pets owned by a character, including their stats, battle status, and location.
+Retrieve all pets owned by a character, including stats, battle status, and location.
 
 **Required Scope:** `v1.character.pets`
 
@@ -468,11 +604,11 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 {
     "pets": [
         {
-            "id": 456,
-            "name": "Fluffy",
-            "custom_name": "Mr. Fluffington",
+            "id": 200001,
+            "name": "Dragon",
+            "custom_name": "My Dragon",
             "pet_id": 12,
-            "image_url": "https://cdn.idle-mmo.com/images/pet-fire-dragon.png",
+            "image_url": "https://cdn.idle-mmo.com/uploaded/skins/example-dragon.png",
             "level": 8,
             "experience": 15000,
             "quality": "EPIC",
@@ -498,8 +634,8 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
             },
             "equipped": false,
             "battle": {
-                "started_at": "2025-12-21T10:00:00.000000Z",
-                "ends_at": "2025-12-21T14:00:00.000000Z"
+                "started_at": "2026-01-01T10:00:00+00:00",
+                "ends_at": "2026-01-01T14:00:00+00:00"
             },
             "evolution": {
                 "state": 1,
@@ -509,8 +645,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
                 "next_bonus": 4,
                 "can_evolve": false,
                 "targets": [
-                    { "key": "STRENGTH", "label": "Strength" },
-                    { "key": "DEFENCE", "label": "Defence" }
+                    { "key": "STRENGTH", "label": "Strength" }
                 ]
             },
             "location": {
@@ -518,59 +653,10 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
                 "name": "Simpletopia",
                 "locked": false
             },
-            "created_at": "2024-11-15T08:00:00.000000Z"
-        },
-        {
-            "id": 789,
-            "name": "Ollo",
-            "custom_name": null,
-            "pet_id": 8,
-            "image_url": "https://cdn.idle-mmo.com/images/pet-shadow-wolf.png",
-            "level": 3,
-            "experience": 2500,
-            "quality": "RARE",
-            "stats": {
-                "strength": 80,
-                "defence": 60,
-                "speed": 120
-            },
-            "health": {
-                "current": 500,
-                "maximum": 500,
-                "percentage": 100
-            },
-            "happiness": {
-                "current": 100,
-                "maximum": 100,
-                "percentage": 100
-            },
-            "hunger": {
-                "current": 30,
-                "maximum": 100,
-                "percentage": 30
-            },
-            "equipped": true,
-            "battle": null,
-            "evolution": {
-                "state": 0,
-                "max": 5,
-                "bonus_per_stage": 2,
-                "current_bonus": 0,
-                "next_bonus": 2,
-                "can_evolve": false,
-                "targets": [
-                    { "key": "SPEED", "label": "Speed" }
-                ]
-            },
-            "location": {
-                "id": 10,
-                "name": "Simpletopia",
-                "locked": false
-            },
-            "created_at": "2024-12-01T12:00:00.000000Z"
+            "created_at": "2024-11-15T08:00:00+00:00"
         }
     ],
-    "endpoint_updates_at": "2025-12-21T14:05:00.000000Z"
+    "endpoint_updates_at": "2026-01-01T12:00:00Z"
 }
 ```
 
@@ -586,7 +672,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 | `pets.*.image_url` | string | Pet image URL |
 | `pets.*.level` | integer | Pet level |
 | `pets.*.experience` | integer | Pet total XP |
-| `pets.*.quality` | string | Pet quality |
+| `pets.*.quality` | string | Pet quality tier |
 | `pets.*.stats.strength` | integer | Strength stat |
 | `pets.*.stats.defence` | integer | Defence stat |
 | `pets.*.stats.speed` | integer | Speed stat |
@@ -600,7 +686,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 | `pets.*.hunger.maximum` | integer | Maximum hunger |
 | `pets.*.hunger.percentage` | integer | Hunger percentage |
 | `pets.*.equipped` | boolean | Whether this pet is currently equipped |
-| `pets.*.battle` | object\|null | Active battle details, or null |
+| `pets.*.battle` | object\|null | Active battle details, or null if not in battle |
 | `pets.*.battle.started_at` | string | Battle start timestamp (ISO 8601) |
 | `pets.*.battle.ends_at` | string | Battle end timestamp (ISO 8601) |
 | `pets.*.evolution.state` | integer | Current evolution stage |
@@ -610,10 +696,10 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 | `pets.*.evolution.next_bonus` | integer | Bonus after next evolution |
 | `pets.*.evolution.can_evolve` | boolean | Whether the pet can currently evolve |
 | `pets.*.evolution.targets` | array | Stats that benefit from evolution |
-| `pets.*.evolution.targets.*.key` | string | Stat key (e.g., `STRENGTH`) |
+| `pets.*.evolution.targets.*.key` | string | Stat key (e.g. `STRENGTH`) |
 | `pets.*.evolution.targets.*.label` | string | Stat display label |
 | `pets.*.location.id` | integer | Location ID where the pet is stationed |
 | `pets.*.location.name` | string | Location name |
 | `pets.*.location.locked` | boolean | Whether the location is locked |
 | `pets.*.created_at` | string | Pet acquisition timestamp (ISO 8601) |
-| `endpoint_updates_at` | string | When this endpoint data next updates |
+| `endpoint_updates_at` | string | When this endpoint data next refreshes |
