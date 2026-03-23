@@ -85,8 +85,10 @@ export async function POST(request: NextRequest) {
 
       if (res.ok) {
         const data   = await res.json();
-        const latest = Array.isArray(data.latest_sold) && data.latest_sold.length > 0
-          ? data.latest_sold[0] : null;
+        // The API returns all recent sales across ALL tiers — filter to tier 0 (base tier).
+        const latest = Array.isArray(data.latest_sold)
+          ? (data.latest_sold.find((s: { tier: number }) => s.tier === 0) ?? null)
+          : null;
 
         if (latest?.price_per_item) {
           const price  = latest.price_per_item as number;
@@ -128,8 +130,10 @@ export async function POST(request: NextRequest) {
             );
             if (!tierRes.ok) continue;
             const tierData   = await tierRes.json();
-            const tierLatest = Array.isArray(tierData.latest_sold) && tierData.latest_sold.length > 0
-              ? tierData.latest_sold[0] : null;
+            // Filter to the specific tier — API uses 0-based tiers in response (t-1 = 0-based tier t).
+            const tierLatest = Array.isArray(tierData.latest_sold)
+              ? (tierData.latest_sold.find((s: { tier: number }) => s.tier === t - 1) ?? null)
+              : null;
             if (!tierLatest?.price_per_item) continue;
             await db.insert(marketPriceHistory).values({
               id: randomUUID(), itemHashedId: hashedId, tier: t,
