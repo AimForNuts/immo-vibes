@@ -25,7 +25,7 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
 | Cron sync progress | `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
 | Saved gear loadouts | `gear_presets` | `user_id`, `slots` (JSONB map of slot → `{hashedId, tier}`) |
-| Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `cached_at` |
+| Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
 | Saved main-pet stats for a character | `character_pets` | `user_id`, `character_hashed_id`, `strength`, `defence`, `speed`, `synced_at` |
 
 ---
@@ -177,6 +177,7 @@ Ordered by `idlemmo_id ASC` for a deterministic, game-consistent order.
 | `location_name` | text | ✓ | Current location — primary character only |
 | `current_status` | text | ✓ | `ONLINE` \| `IDLING` \| `OFFLINE` — primary only |
 | `is_primary` | boolean | — | True for the token owner's main character |
+| `is_member` | boolean | ✓ | Account has active membership — derived from primary `/effects` (source `"membership"`). Null until first effects sync. Shared across all characters for the same `user_id`. |
 | `cached_at` | timestamp | — | When this row was last written |
 
 **Unique index**: `(user_id, hashed_id)` — prevents duplicates on concurrent refresh.
