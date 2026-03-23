@@ -15,9 +15,12 @@ Each character skill level converts to a combat stat at a fixed rate:
 | Speed | Agility | × 2.4 per level |
 | Dexterity | Accuracy | × 2.4 per level |
 
-**Formula:** `combatStat = floor(skillLevel × 2.4)`
+**Formula:** `combatStat = round(skillLevel × 2.4)`
 
-**Example:** Strength 78 → Attack Power = floor(78 × 2.4) = floor(187.2) = **187**
+**Example:** Strength 78 → Attack Power = round(78 × 2.4) = round(187.2) = **187**
+
+> Note: The game uses `round` (half-up), not `floor`. For levels where `level × 2.4` ends in `.6+` the result is 1 higher than `floor`.
+> Confirmed empirically: Speed 84 → round(201.6) = 202 (game value), floor(201.6) = 201 (off by 1).
 
 > Note: An earlier estimate used 3.29 (derived from a measurement that unknowingly included gear).
 > The wiki-documented value is 2.4.
