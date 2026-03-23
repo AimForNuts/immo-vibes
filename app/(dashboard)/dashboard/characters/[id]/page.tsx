@@ -84,6 +84,7 @@ export default async function CharacterDetailPage({
 
   const primaryStats = Object.entries(char.stats ?? {});
   const skills = Object.entries(char.skills ?? {});
+  const combatLevel = char.stats?.combat?.level ?? null;
 
   // Derived combat stats from primary stat levels (base only, no gear)
   const combatPower = Object.entries(CHAR_STAT_MAP)
@@ -100,61 +101,82 @@ export default async function CharacterDetailPage({
 
       {/* Header */}
       <Card className="overflow-hidden">
-        {char.background_url && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={char.background_url}
-            alt=""
-            className="w-full h-28 object-cover opacity-60"
-          />
-        )}
-        <CardContent className="flex items-start gap-4 py-4 px-4">
+        {/* Banner + portrait composite */}
+        <div className="relative h-48">
+          {/* Background */}
+          {char.background_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={char.background_url}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-zinc-900" />
+          )}
+          {/* Bottom gradient fade into card */}
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
+          {/* Right-side fade so text stays readable */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-card/80" />
+
+          {/* Character portrait anchored to bottom-left, tall enough to overflow */}
           {char.image_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={char.image_url}
               alt={char.name}
-              className={`size-20 rounded-md object-cover shrink-0 ${
-                char.background_url ? "-mt-10 ring-2 ring-background" : ""
-              }`}
+              className="absolute bottom-0 left-6 h-52 w-auto object-contain drop-shadow-[0_4px_20px_rgba(0,0,0,0.7)]"
             />
           )}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold">{char.name}</h1>
-              <Badge variant="outline" className="capitalize">
-                {char.class.toLowerCase()}
+
+          {/* Name + level badges — bottom-right of banner */}
+          <div className="absolute bottom-4 right-5 flex flex-col items-end gap-2">
+            <h1 className="text-2xl font-bold text-yellow-400 drop-shadow-sm">
+              {char.name}
+            </h1>
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {combatLevel !== null && (
+                <span className="inline-flex items-center rounded-md bg-black/60 border border-white/10 px-2.5 py-1 text-xs font-semibold text-foreground backdrop-blur-sm">
+                  Combat Level&nbsp;<span className="text-yellow-400">{combatLevel}</span>
+                </span>
+              )}
+              <span className="inline-flex items-center rounded-md bg-black/60 border border-white/10 px-2.5 py-1 text-xs font-semibold text-foreground backdrop-blur-sm">
+                Total Level&nbsp;<span className="text-yellow-400">{char.total_level}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Sub-header row: class, pet, status, location */}
+        <CardContent className="py-3 px-5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="outline" className="capitalize">
+              {char.class.toLowerCase()}
+            </Badge>
+            {char.equipped_pet && (
+              <Badge variant="secondary" className="gap-1.5 text-xs">
+                {char.equipped_pet.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={char.equipped_pet.image_url}
+                    alt=""
+                    className="size-3.5 object-contain rounded-sm"
+                  />
+                )}
+                {char.equipped_pet.name} Lv.{char.equipped_pet.level}
               </Badge>
-              {char.equipped_pet && (
-                <Badge variant="secondary" className="gap-1.5 text-xs">
-                  {char.equipped_pet.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={char.equipped_pet.image_url}
-                      alt=""
-                      className="size-3.5 object-contain rounded-sm"
-                    />
-                  )}
-                  {char.equipped_pet.name} Lv.{char.equipped_pet.level}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground flex-wrap">
-              <span className="font-medium text-foreground">
-                Total Lv.{char.total_level}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span
-                  className={`size-2 rounded-full ${
-                    STATUS_DOT_COLOR[char.current_status] ?? "bg-zinc-500"
-                  }`}
-                />
-                {STATUS_LABEL_KEY[char.current_status] ?? char.current_status}
-              </span>
-              {char.location && (
-                <span className="text-muted-foreground">{char.location.name}</span>
-              )}
-            </div>
+            )}
+            <span className="flex items-center gap-1.5 text-sm text-muted-foreground ml-auto">
+              <span
+                className={`size-2 rounded-full ${
+                  STATUS_DOT_COLOR[char.current_status] ?? "bg-zinc-500"
+                }`}
+              />
+              {STATUS_LABEL_KEY[char.current_status] ?? char.current_status}
+            </span>
+            {char.location && (
+              <span className="text-sm text-muted-foreground">{char.location.name}</span>
+            )}
           </div>
         </CardContent>
       </Card>
