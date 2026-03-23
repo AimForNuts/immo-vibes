@@ -12,12 +12,15 @@
  *   Alt details are fetched in parallel via getCharacterInfo per alt.
  * - Max 5 characters total (primary + up to 4 alts).
  * - Cache TTL: 5 minutes. Data older than this is considered stale.
+ * - isMember is derived from the primary character's /effects endpoint:
+ *   any effect with source === "membership" means the account has active membership.
+ *   The flag is written to all characters under the same user.
  */
 
 import { eq, asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { characters } from "@/lib/db/schema";
-import { getCharacterInfo, getAltCharacters } from "@/lib/idlemmo";
+import { getCharacterInfo, getAltCharacters, getCharacterEffects } from "@/lib/idlemmo";
 
 export const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -31,6 +34,8 @@ export interface CachedCharacter {
   locationName:  string | null;
   currentStatus: string | null;
   isPrimary:     boolean;
+  /** Null until the first effects sync. True/false once synced. */
+  isMember:      boolean | null;
   cachedAt:      Date;
 }
 
@@ -56,10 +61,13 @@ export async function refreshCharacters(
   token:  string
 ): Promise<CachedCharacter[] | null> {
   try {
-    const [primary, alts] = await Promise.all([
+    const [primary, alts, effects] = await Promise.all([
       getCharacterInfo(charId, token),
       getAltCharacters(charId, token),
+      getCharacterEffects(charId, token),
     ]);
+
+    const isMember = effects.some((e) => e.source === "membership");
 
     const altSlice = alts.slice(0, 4);
     const altDetails = await Promise.all(
@@ -79,6 +87,7 @@ export async function refreshCharacters(
         locationName:  primary.location?.name ?? null,
         currentStatus: primary.current_status,
         isPrimary:     true,
+        isMember,
         cachedAt:      now,
       },
       ...altSlice.map((a, i) => ({
@@ -92,6 +101,7 @@ export async function refreshCharacters(
         locationName:  altDetails[i]?.location?.name ?? null,
         currentStatus: altDetails[i]?.current_status ?? null,
         isPrimary:     false,
+        isMember,
         cachedAt:      now,
       })),
     ];

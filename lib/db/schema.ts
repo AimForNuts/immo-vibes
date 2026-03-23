@@ -268,6 +268,13 @@ export const characters = pgTable(
     /** ONLINE | IDLING | OFFLINE — populated for primary only. */
     currentStatus: text("current_status"),
     isPrimary:     boolean("is_primary").notNull().default(false),
+    /**
+     * Whether the account has an active membership.
+     * Derived from the /effects endpoint: any effect with source === "membership".
+     * Null until the first effects sync completes.
+     * Shared across all characters in the same user account.
+     */
+    isMember:      boolean("is_member"),
     cachedAt:      timestamp("cached_at").notNull(),
   },
   (t) => [uniqueIndex("characters_user_hashed_uniq").on(t.userId, t.hashedId)]

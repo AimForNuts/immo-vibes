@@ -137,3 +137,17 @@ export const STATUS_LABEL_KEY: Record<string, string> = {
   IDLING:  "idling",
   OFFLINE: "offline",
 };
+
+// ─── Dungeon idle time ────────────────────────────────────────────────────────
+
+/**
+ * Base dungeon max idle time in milliseconds, before house-component bonuses.
+ * Source: game knowledge — not available via IdleMMO API.
+ *
+ * Member:     main = 8 h, alts = 4 h
+ * Non-member: main = 6 h, alts = 3 h
+ */
+export const BASE_IDLE_TIME_MS = {
+  member:    { main: 8 * 60 * 60 * 1000, alt: 4 * 60 * 60 * 1000 },
+  nonMember: { main: 6 * 60 * 60 * 1000, alt: 3 * 60 * 60 * 1000 },
+} as const;
