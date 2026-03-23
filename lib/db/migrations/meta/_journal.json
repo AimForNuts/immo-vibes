@@ -43,6 +43,13 @@
       "when": 1774307829805,
       "tag": "0005_add_pet_combat_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774309563198,
+      "tag": "0006_add_is_member_to_characters",
+      "breakpoints": true
     }
   ]
 }
