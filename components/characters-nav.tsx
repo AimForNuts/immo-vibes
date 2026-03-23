@@ -9,9 +9,9 @@ import { Users, ChevronDown, ChevronRight, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CharStub {
-  hashed_id: string;
+  hashedId: string;
   name: string;
-  image_url: string | null;
+  imageUrl: string | null;
 }
 
 export function CharactersNav() {
@@ -69,19 +69,19 @@ export function CharactersNav() {
         <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-border/50 pl-2">
           {chars.map((char) => (
             <Link
-              key={char.hashed_id}
-              href={`/dashboard/characters/${char.hashed_id}`}
+              key={char.hashedId}
+              href={`/dashboard/characters/${char.hashedId}`}
               className={cn(
                 "flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors",
-                selectedId === char.hashed_id
+                selectedId === char.hashedId
                   ? "bg-primary/10 text-primary font-medium"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
               <div className="size-4 rounded bg-muted overflow-hidden shrink-0 flex items-center justify-center">
-                {char.image_url ? (
+                {char.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={char.image_url} alt={char.name} className="size-full object-cover" />
+                  <img src={char.imageUrl} alt={char.name} className="size-full object-cover" />
                 ) : (
                   <User className="size-2.5 text-muted-foreground/50" />
                 )}
