@@ -127,7 +127,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
           for (const [k, v] of Object.entries(data.stats as Record<string, { level: number }>)) {
             const m = CHAR_STAT_MAP[k];
             if (!m) continue;
-            const base = Math.floor(v.level * m.multiplier);
+            const base = Math.round(v.level * m.multiplier);
             stats[m.key] = base;
             bk[m.key] = { skillLabel: m.skillLabel, skillLevel: v.level, charBase: base, gear: [] };
           }
