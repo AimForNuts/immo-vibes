@@ -36,6 +36,13 @@
       "when": 1774306824565,
       "tag": "0004_add_character_pets",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774307829805,
+      "tag": "0005_add_pet_combat_stats",
+      "breakpoints": true
     }
   ]
 }
