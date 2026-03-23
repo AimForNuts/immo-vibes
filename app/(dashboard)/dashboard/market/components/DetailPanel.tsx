@@ -94,22 +94,15 @@ export function DetailPanel({
             {maxTier > 1 && (
               <div>
                 <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Tier</p>
-                <div className="flex flex-wrap gap-1">
+                <select
+                  value={selectedTier}
+                  onChange={(e) => onTierChange(parseInt(e.target.value, 10))}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-1.5 text-xs font-mono text-amber-400 focus:outline-none focus:border-amber-400/40 cursor-pointer"
+                >
                   {Array.from({ length: maxTier }, (_, i) => i + 1).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => onTierChange(t)}
-                      className={cn(
-                        "text-[10px] font-mono px-2.5 py-1 rounded border transition-colors",
-                        selectedTier === t
-                          ? "bg-amber-400/10 border-amber-400/40 text-amber-400"
-                          : "border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600"
-                      )}
-                    >
-                      T{t}
-                    </button>
+                    <option key={t} value={t}>T{t}</option>
                   ))}
-                </div>
+                </select>
               </div>
             )}
 
