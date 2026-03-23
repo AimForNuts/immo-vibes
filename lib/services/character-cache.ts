@@ -1,15 +1,17 @@
 /**
  * Character cache service.
  *
- * Reads the character roster from the DB and refreshes from the IdleMMO API
- * when the cache is stale (older than CACHE_TTL_MS). This eliminates the
- * two live API calls on every overview page load while keeping data fresh.
+ * getDbCharacters  — instant DB read, no API calls. Used on page render.
+ * refreshCharacters — fetches from IdleMMO API, updates the DB cache.
+ *                     Called in the background after the page has rendered.
+ * getCachedCharacters — legacy combined function kept for /api/characters/route.ts.
  *
  * Business rules:
  * - Characters are ordered by idlemmoId ASC (deterministic, matches game order).
  * - Primary character always has isPrimary = true, locationName, currentStatus.
  * - Alt characters have locationName = null, currentStatus = null.
  * - Max 5 characters total (primary + up to 4 alts).
+ * - Cache TTL: 5 minutes. Data older than this is considered stale.
  */
 
 import { eq, asc } from "drizzle-orm";
@@ -17,7 +19,7 @@ import { db } from "@/lib/db";
 import { characters } from "@/lib/db/schema";
 import { getCharacterInfo, getAltCharacters } from "@/lib/idlemmo";
 
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+export const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export interface CachedCharacter {
   hashedId:      string;
@@ -29,29 +31,30 @@ export interface CachedCharacter {
   locationName:  string | null;
   currentStatus: string | null;
   isPrimary:     boolean;
+  cachedAt:      Date;
 }
 
 /**
- * Returns the cached character roster for a user, refreshing from the API if stale.
- * Never throws — returns an empty array if the API is unavailable.
+ * Reads the character roster from the DB only — no API calls, always instant.
+ * Returns an empty array if no cache exists yet.
  */
-export async function getCachedCharacters(
-  userId: string,
-  charId: string,
-  token:  string
-): Promise<CachedCharacter[]> {
-  const rows = await db
+export async function getDbCharacters(userId: string): Promise<CachedCharacter[]> {
+  return db
     .select()
     .from(characters)
     .where(eq(characters.userId, userId))
     .orderBy(asc(characters.idlemmoId));
+}
 
-  const isStale = rows.length === 0
-    || (Date.now() - rows[0].cachedAt.getTime()) > CACHE_TTL_MS;
-
-  if (!isStale) return rows;
-
-  // Cache is empty or stale — fetch fresh data
+/**
+ * Fetches fresh character data from the IdleMMO API and updates the DB cache.
+ * Returns the updated roster. Never throws — returns null if the API is unavailable.
+ */
+export async function refreshCharacters(
+  userId: string,
+  charId: string,
+  token:  string
+): Promise<CachedCharacter[] | null> {
   try {
     const [primary, alts] = await Promise.all([
       getCharacterInfo(charId, token),
@@ -88,15 +91,30 @@ export async function getCachedCharacters(
       })),
     ];
 
-    // Delete old rows for this user and insert fresh ones atomically
     await db.delete(characters).where(eq(characters.userId, userId));
     await db.insert(characters).values(allChars);
 
-    return allChars
-      .slice()
-      .sort((a, b) => a.idlemmoId - b.idlemmoId);
+    return allChars.slice().sort((a, b) => a.idlemmoId - b.idlemmoId);
   } catch {
-    // API unavailable — return whatever is in the DB (may be stale)
-    return rows;
+    return null;
   }
+}
+
+/**
+ * Returns the cached character roster, refreshing from the API if stale.
+ * Kept for use in /api/characters/route.ts (background-safe — not called during SSR).
+ */
+export async function getCachedCharacters(
+  userId: string,
+  charId: string,
+  token:  string
+): Promise<CachedCharacter[]> {
+  const rows = await getDbCharacters(userId);
+
+  const isStale = rows.length === 0
+    || (Date.now() - rows[0].cachedAt.getTime()) > CACHE_TTL_MS;
+
+  if (!isStale) return rows;
+
+  return (await refreshCharacters(userId, charId, token)) ?? rows;
 }
