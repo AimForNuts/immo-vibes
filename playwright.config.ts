@@ -2,8 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Playwright configuration for E2E smoke tests.
- * Tests run against the production deployment — no local server is started.
- * Auth state is saved once in global-setup and reused across tests.
+ *
+ * Local:  runs against http://localhost:3000 (start with `npm run dev` first).
+ * CI:     runs against the production URL via the BASE_URL env var.
+ *
+ * Auth state is saved once by auth.setup.ts and reused across all tests.
  */
 export default defineConfig({
   testDir: "./e2e",
@@ -14,9 +17,8 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
 
   use: {
-    baseURL: "https://immowebsuite.vercel.app",
+    baseURL: process.env.BASE_URL ?? "http://localhost:3000",
     trace: "on-first-retry",
-    // Auth state file produced by the auth setup fixture
     storageState: "playwright/.auth/user.json",
   },
 

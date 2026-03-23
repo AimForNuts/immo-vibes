@@ -33,6 +33,7 @@ jobs:
       - name: Run smoke tests
         run: npx playwright test
         env:
+          BASE_URL: https://immowebsuite.vercel.app
           E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
 
