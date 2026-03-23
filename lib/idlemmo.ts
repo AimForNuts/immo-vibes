@@ -131,6 +131,34 @@ export async function getAltCharacters(
   return data.characters;
 }
 
+// ─── Character Effects ────────────────────────────────────────────────────────
+
+export interface CharacterEffect {
+  character_id: number;
+  source: string;
+  target: string;
+  attribute: string;
+  value: number;
+  value_type: string;
+  location_id: number | null;
+}
+
+/**
+ * Fetch all active effects for a character.
+ * Endpoint: GET /v1/character/{hashedId}/effects
+ * Used to detect active membership (source === "membership") and house bonuses.
+ */
+export async function getCharacterEffects(
+  hashedId: string,
+  token: string
+): Promise<CharacterEffect[]> {
+  const data = await apiFetch<{ effects: CharacterEffect[] }>(
+    `/v1/character/${hashedId}/effects`,
+    token
+  );
+  return data.effects;
+}
+
 // ─── Pets ─────────────────────────────────────────────────────────────────────
 
 export interface CharacterPet {
