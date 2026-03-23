@@ -39,7 +39,7 @@ const SKILL_ICONS: Record<string, string> = {
 
 /** Normalize an API skill key to the lookup format used in SKILL_ICONS. */
 function normalizeSkillKey(key: string) {
-  return key.toLowerCase().replace(/_/g, " ");
+  return key.toLowerCase().replace(/[-_]/g, " ");
 }
 
 /** Title-case a skill name for display (e.g. "shadow mastery" → "Shadow Mastery"). */
