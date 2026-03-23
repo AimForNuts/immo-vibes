@@ -273,6 +273,36 @@ export const characters = pgTable(
   (t) => [uniqueIndex("characters_user_hashed_uniq").on(t.userId, t.hashedId)]
 );
 
+/**
+ * Saved equipped-pet stats per character, synced manually by the user.
+ * One row per (user, character) — upserted each time the user clicks "Sync Current Pet".
+ * Stats reflect the pet-skills API values (may be 0 due to a known API bug).
+ */
+export const characterPets = pgTable(
+  "character_pets",
+  {
+    id:                   text("id").primaryKey(),
+    userId:               text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    characterHashedId:    text("character_hashed_id").notNull(),
+    /** IdleMMO integer pet-instance ID — matches `equipped_pet.id` in character info. */
+    petId:                integer("pet_id").notNull(),
+    name:                 text("name").notNull(),
+    customName:           text("custom_name"),
+    imageUrl:             text("image_url"),
+    level:                integer("level").notNull(),
+    quality:              text("quality").notNull(),
+    /** Pet skill training levels — contribute ×2.4 to derived combat stats. */
+    strength:             integer("strength").notNull().default(0),
+    defence:              integer("defence").notNull().default(0),
+    speed:                integer("speed").notNull().default(0),
+    evolutionState:       integer("evolution_state").notNull().default(0),
+    evolutionMax:         integer("evolution_max").notNull().default(5),
+    evolutionBonusPerStage: integer("evolution_bonus_per_stage").notNull().default(5),
+    syncedAt:             timestamp("synced_at").notNull(),
+  },
+  (t) => [uniqueIndex("character_pets_user_char_uniq").on(t.userId, t.characterHashedId)]
+);
+
 export const gearPresets = pgTable("gear_presets", {
   id: text("id").primaryKey(),
   userId: text("user_id")

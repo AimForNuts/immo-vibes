@@ -3,10 +3,15 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { getCharacterInfo } from "@/lib/idlemmo";
+import { db } from "@/lib/db";
+import { characterPets } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, Swords, Users, Zap } from "lucide-react";
+import { ChevronLeft, Swords, Users, Zap, PawPrint } from "lucide-react";
 import { STATUS_DOT_COLOR, STATUS_LABEL_KEY, CHAR_STAT_MAP } from "@/lib/game-constants";
+import { SyncPetButton } from "./SyncPetButton";
+import { QUALITY_COLORS } from "@/lib/game-constants";
 
 // ─── Skill icon mapping ────────────────────────────────────────────────────────
 // Icons sourced from cdn.idle-mmo.com — keys are normalized lowercase with
@@ -66,9 +71,27 @@ export default async function CharacterDetailPage({
   const token = session.user.idlemmoToken;
   if (!token) redirect("/dashboard/settings");
 
+  // Fetch saved pet from DB in parallel with character info
+  const [charResult, savedPetRows] = await Promise.allSettled([
+    getCharacterInfo(id, token),
+    db
+      .select()
+      .from(characterPets)
+      .where(
+        and(
+          eq(characterPets.userId, session.user.id),
+          eq(characterPets.characterHashedId, id)
+        )
+      )
+      .limit(1),
+  ]);
+
+  const savedPet = savedPetRows.status === "fulfilled" ? (savedPetRows.value[0] ?? null) : null;
+
   let char;
   try {
-    char = await getCharacterInfo(id, token);
+    if (charResult.status === "rejected") throw charResult.reason;
+    char = charResult.value;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
     if (msg.includes("404")) notFound();
@@ -307,6 +330,81 @@ export default async function CharacterDetailPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Pet */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <PawPrint className="size-4" />
+            Equipped Pet
+            <span className="ml-auto">
+              <SyncPetButton characterId={id} />
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!savedPet ? (
+            <p className="text-sm text-muted-foreground">
+              No pet synced yet. Click &ldquo;Sync Current Pet&rdquo; to save stats.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                {savedPet.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={savedPet.imageUrl}
+                    alt={savedPet.name}
+                    className="size-12 object-contain rounded-md bg-muted/60 p-0.5"
+                  />
+                )}
+                <div>
+                  <p className="font-semibold">
+                    {savedPet.customName ?? savedPet.name}
+                    {savedPet.customName && (
+                      <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+                        ({savedPet.name})
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${QUALITY_COLORS[savedPet.quality] ?? ""}`}
+                    >
+                      {savedPet.quality.charAt(0) + savedPet.quality.slice(1).toLowerCase()}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">Lv.{savedPet.level}</span>
+                    {savedPet.evolutionState > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        Evo {savedPet.evolutionState}/{savedPet.evolutionMax}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    { label: "Strength", value: savedPet.strength, combat: `AP +${Math.floor(savedPet.strength * 2.4)}` },
+                    { label: "Defence",  value: savedPet.defence,  combat: `Prot +${Math.floor(savedPet.defence * 2.4)}` },
+                    { label: "Speed",    value: savedPet.speed,    combat: `Agi +${Math.floor(savedPet.speed * 2.4)}` },
+                  ] as const
+                ).map((s) => (
+                  <div key={s.label} className="bg-muted/60 rounded-lg px-3 py-2">
+                    <p className="text-xs text-muted-foreground">{s.label}</p>
+                    <p className="text-xl font-bold tabular-nums">{s.value}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{s.combat}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Synced {savedPet.syncedAt.toLocaleDateString()}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Guild */}
       <Card>
