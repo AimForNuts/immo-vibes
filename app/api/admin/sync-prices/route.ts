@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ synced: 0, skipped: 0, total: 0, page: 1, totalPages: 1 });
   }
 
-  // Paginated item fetch — also load recipeResultHashedId to skip inspect when already known
+  // Paginated item fetch — also load recipeResultHashedId and maxTier
   const rows = await db
-    .select({ hashedId: items.hashedId, recipeResultHashedId: items.recipeResultHashedId })
+    .select({ hashedId: items.hashedId, recipeResultHashedId: items.recipeResultHashedId, maxTier: items.maxTier })
     .from(items)
     .where(eq(items.type, type))
     .orderBy(items.hashedId)
@@ -107,8 +107,9 @@ export async function POST(request: NextRequest) {
     throw new Error(`Max retries (${MAX_RETRIES}) exceeded — API returning persistent 429`);
   }
 
-  for (const { hashedId, recipeResultHashedId } of rows) {
+  for (const { hashedId, recipeResultHashedId, maxTier } of rows) {
     try {
+      // Always fetch tier 1 (API uses tier=0 to mean tier 1)
       const priceRes = await rateLimitedFetch(
         `${BASE}/v1/item/${hashedId}/market-history?tier=0&type=listings`
       );
@@ -131,6 +132,7 @@ export async function POST(request: NextRequest) {
             await db.insert(marketPriceHistory).values({
               id:           randomUUID(),
               itemHashedId: hashedId,
+              tier:         1,
               price,
               quantity:     latest.quantity ?? 1,
               soldAt,
@@ -149,6 +151,32 @@ export async function POST(request: NextRequest) {
         }
       } else {
         skipped++;
+      }
+
+      // Fetch higher tiers for upgradeable items (maxTier known from sync-inspect)
+      if (maxTier !== null && maxTier > 1) {
+        for (let t = 2; t <= maxTier; t++) {
+          try {
+            // IdleMMO API uses 0-based tier values: tier 2 = ?tier=1, etc.
+            const tierRes = await rateLimitedFetch(
+              `${BASE}/v1/item/${hashedId}/market-history?tier=${t - 1}&type=listings`
+            );
+            if (!tierRes.ok) continue;
+            const tierData   = await tierRes.json();
+            const tierLatest = Array.isArray(tierData.latest_sold) && tierData.latest_sold.length > 0
+              ? tierData.latest_sold[0] : null;
+            if (!tierLatest?.price_per_item) continue;
+            await db.insert(marketPriceHistory).values({
+              id:           randomUUID(),
+              itemHashedId: hashedId,
+              tier:         t,
+              price:        tierLatest.price_per_item as number,
+              quantity:     tierLatest.quantity ?? 1,
+              soldAt:       new Date(tierLatest.sold_at),
+              recordedAt:   new Date(),
+            }).onConflictDoNothing();
+          } catch { /* non-blocking — don't let a higher-tier failure skip the item */ }
+        }
       }
 
       // ── RECIPE items: inspect to populate recipe_result_hashed_id ─────────

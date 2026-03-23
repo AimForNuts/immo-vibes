@@ -36,9 +36,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No admin IdleMMO token configured" }, { status: 500 });
   }
 
-  // Pick the next PAGE_SIZE items that haven't been checked (or were checked longest ago)
+  // Pick the next PAGE_SIZE items that haven't been checked (or were checked longest ago).
+  // Also load maxTier so we can fetch all tiers for upgradeable items.
   const rows = await db
-    .select({ hashedId: items.hashedId })
+    .select({ hashedId: items.hashedId, maxTier: items.maxTier })
     .from(items)
     .orderBy(asc(items.priceCheckedAt))
     .limit(PAGE_SIZE);
@@ -75,8 +76,9 @@ export async function POST(request: NextRequest) {
   let skipped = 0;
   const now   = new Date();
 
-  for (const { hashedId } of rows) {
+  for (const { hashedId, maxTier } of rows) {
     try {
+      // Always fetch tier 1 (API uses tier=0 to mean tier 1)
       const res = await rateLimitedFetch(
         `${BASE}/v1/item/${hashedId}/market-history?tier=0&type=listings`
       );
@@ -97,7 +99,7 @@ export async function POST(request: NextRequest) {
 
           try {
             await db.insert(marketPriceHistory).values({
-              id: randomUUID(), itemHashedId: hashedId,
+              id: randomUUID(), itemHashedId: hashedId, tier: 1,
               price, quantity: latest.quantity ?? 1,
               soldAt, recordedAt: now,
             }).onConflictDoNothing();
@@ -114,6 +116,30 @@ export async function POST(request: NextRequest) {
         }
       } else {
         skipped++;
+      }
+
+      // Fetch higher tiers for upgradeable items (maxTier known from sync-inspect)
+      if (maxTier !== null && maxTier > 1) {
+        for (let t = 2; t <= maxTier; t++) {
+          try {
+            // IdleMMO API uses 0-based tier values: tier 2 = ?tier=1, etc.
+            const tierRes = await rateLimitedFetch(
+              `${BASE}/v1/item/${hashedId}/market-history?tier=${t - 1}&type=listings`
+            );
+            if (!tierRes.ok) continue;
+            const tierData   = await tierRes.json();
+            const tierLatest = Array.isArray(tierData.latest_sold) && tierData.latest_sold.length > 0
+              ? tierData.latest_sold[0] : null;
+            if (!tierLatest?.price_per_item) continue;
+            await db.insert(marketPriceHistory).values({
+              id: randomUUID(), itemHashedId: hashedId, tier: t,
+              price:    tierLatest.price_per_item as number,
+              quantity: tierLatest.quantity ?? 1,
+              soldAt:   new Date(tierLatest.sold_at),
+              recordedAt: now,
+            }).onConflictDoNothing();
+          } catch { /* non-blocking — don't let a higher-tier failure skip the item */ }
+        }
       }
     } catch {
       skipped++;

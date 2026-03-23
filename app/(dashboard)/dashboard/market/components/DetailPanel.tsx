@@ -2,27 +2,42 @@
 
 import { X, Package, BookOpen, ChevronRight, Coins } from "lucide-react";
 import { QUALITY_HEX, QUALITY_BORDER_CSS } from "@/lib/game-constants";
+import { cn } from "@/lib/utils";
 import type { DbItem, FullItem, MarketPrice } from "../types";
 
 interface DetailPanelProps {
   item:              DbItem;
   detail:            FullItem | null | "loading";
+  selectedTier:      number;
+  tierMarketPrice:   MarketPrice | null | undefined;
   materialPrices:    Record<string, MarketPrice | null | undefined>;
   craftedByDetail:   FullItem | null | "loading" | undefined;
   craftedByItemData: DbItem | null | undefined;
   resultItemData:    DbItem | null | undefined;
   onClose:           () => void;
+  onTierChange:      (tier: number) => void;
 }
 
-export function DetailPanel({ item, detail, materialPrices, craftedByDetail, craftedByItemData, resultItemData, onClose }: DetailPanelProps) {
+export function DetailPanel({
+  item, detail, selectedTier, tierMarketPrice, materialPrices,
+  craftedByDetail, craftedByItemData, resultItemData, onClose, onTierChange,
+}: DetailPanelProps) {
   const qualityColor = QUALITY_HEX[item.quality]        ?? "#a1a1aa";
   const borderColor  = QUALITY_BORDER_CSS[item.quality] ?? "rgba(113,113,122,0.4)";
 
   const isLoading = detail === "loading";
   const d = detail !== "loading" ? detail : null;
 
+  const maxTier = d?.max_tier ?? 1;
+
   function statLabel(key: string) {
     return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  /** Compute the effective stat value at the currently selected tier. */
+  function effectiveStat(key: string, base: number): number {
+    if (selectedTier <= 1 || !d?.tier_modifiers) return base;
+    return base + (selectedTier - 1) * (d.tier_modifiers[key] ?? 0);
   }
 
   return (
@@ -75,6 +90,29 @@ export function DetailPanel({ item, detail, materialPrices, craftedByDetail, cra
               </p>
             )}
 
+            {/* Tier selector — only shown for upgradeable items */}
+            {maxTier > 1 && (
+              <div>
+                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Tier</p>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: maxTier }, (_, i) => i + 1).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => onTierChange(t)}
+                      className={cn(
+                        "text-[10px] font-mono px-2.5 py-1 rounded border transition-colors",
+                        selectedTier === t
+                          ? "bg-amber-400/10 border-amber-400/40 text-amber-400"
+                          : "border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600"
+                      )}
+                    >
+                      T{t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Prices */}
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-zinc-900 rounded-md p-3 border border-zinc-800">
@@ -86,13 +124,17 @@ export function DetailPanel({ item, detail, materialPrices, craftedByDetail, cra
                 )}
               </div>
               <div className="bg-zinc-900 rounded-md p-3 border border-zinc-800">
-                <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mb-1">Market</p>
-                {item.last_sold_price != null ? (
+                <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mb-1">
+                  Market{maxTier > 1 ? ` · T${selectedTier}` : ""}
+                </p>
+                {tierMarketPrice === undefined ? (
+                  <div className="h-4 w-16 bg-zinc-800 rounded animate-pulse" />
+                ) : tierMarketPrice?.price != null ? (
                   <div>
-                    <p className="text-sm font-mono text-amber-400">{item.last_sold_price.toLocaleString()}g</p>
-                    {item.last_sold_at && (
+                    <p className="text-sm font-mono text-amber-400">{tierMarketPrice.price.toLocaleString()}g</p>
+                    {tierMarketPrice.sold_at && (
                       <p className="text-[9px] text-zinc-600 mt-0.5">
-                        {new Date(item.last_sold_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {new Date(tierMarketPrice.sold_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </p>
                     )}
                   </div>
@@ -171,17 +213,25 @@ export function DetailPanel({ item, detail, materialPrices, craftedByDetail, cra
               </div>
             )}
 
-            {/* Stats */}
+            {/* Stats — values scale with selected tier */}
             {d?.base_stats && Object.keys(d.base_stats).length > 0 && (
               <div>
-                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Stats</p>
+                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">
+                  Stats{selectedTier > 1 ? ` · T${selectedTier}` : ""}
+                </p>
                 <div className="space-y-1">
-                  {Object.entries(d.base_stats).map(([key, val]) => (
-                    <div key={key} className="flex items-center justify-between text-xs">
-                      <span className="text-zinc-400">{statLabel(key)}</span>
-                      <span className="font-mono text-zinc-200">+{val}</span>
-                    </div>
-                  ))}
+                  {Object.entries(d.base_stats).map(([key, base]) => {
+                    const val = effectiveStat(key, base);
+                    const boosted = val !== base;
+                    return (
+                      <div key={key} className="flex items-center justify-between text-xs">
+                        <span className="text-zinc-400">{statLabel(key)}</span>
+                        <span className={cn("font-mono", boosted ? "text-amber-400" : "text-zinc-200")}>
+                          +{val}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -278,15 +328,6 @@ export function DetailPanel({ item, detail, materialPrices, craftedByDetail, cra
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-
-            {/* Tier info */}
-            {d && (d.max_tier ?? 0) > 1 && (
-              <div className="border-t border-zinc-800 pt-3">
-                <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
-                  Upgradeable · Max Tier {d.max_tier}
-                </p>
               </div>
             )}
 
