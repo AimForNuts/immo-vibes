@@ -187,12 +187,14 @@ Character roster and detail pages.
 |---|---|
 | List page | `app/(dashboard)/dashboard/characters/page.tsx` |
 | Detail page | `app/(dashboard)/dashboard/characters/[id]/page.tsx` |
+| Client component — sync pet button | `app/(dashboard)/dashboard/characters/[id]/SyncPetButton.tsx` |
 | API — list | `app/api/characters/route.ts` |
 | API — detail | `app/api/idlemmo/character/[id]/route.ts` |
+| API — sync pet | `app/api/characters/[id]/sync-pet/route.ts` |
 
-**DB tables**: none — live from API
+**DB tables**: `character_pets` (read/write via sync-pet route)
 **External API**: `getCharacterInfo()`, `getAltCharacters()`, `getCharacterPets()`
-**Docs**: `docs/game-mechanics/classes.md`, `docs/game-mechanics/pets.md`
+**Docs**: `docs/game-mechanics/classes.md`, `docs/game-mechanics/pets.md`, `docs/database.md`
 
 ---
 
@@ -286,6 +288,8 @@ Email/password auth via better-auth.
 | `gearPresets` | gear actions | gear page, dungeons page |
 | `userPreferences` | preferences action | dashboard, settings |
 | `syncState` | all cron jobs | cron jobs (gating), admin panel |
+| `characters` | character-cache service | dashboard, characters list |
+| `character_pets` | sync-pet API route (user action) | character detail page |
 | `user` / `session` / `account` / `verification` | better-auth | auth middleware |
 
 ---

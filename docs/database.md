@@ -26,6 +26,7 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | Cron sync progress | `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
 | Saved gear loadouts | `gear_presets` | `user_id`, `slots` (JSONB map of slot → `{hashedId, tier}`) |
 | Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `cached_at` |
+| Saved main-pet stats for a character | `character_pets` | `user_id`, `character_hashed_id`, `strength`, `defence`, `speed`, `synced_at` |
 
 ---
 
@@ -180,6 +181,37 @@ Ordered by `idlemmo_id ASC` for a deterministic, game-consistent order.
 
 **Unique index**: `(user_id, hashed_id)` — prevents duplicates on concurrent refresh.
 **Service**: `lib/services/character-cache.ts` → `getCachedCharacters()`
+
+---
+
+### `character_pets`
+
+Per-user, per-character saved main-pet stats. One row per `(user_id, character_hashed_id)`.
+Upserted each time the user clicks **Sync Current Pet** on the character detail page.
+Stats reflect the `/v1/character/{id}/pets` API values (may be 0 due to a known API bug).
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | text PK | — | UUID |
+| `user_id` | text FK | — | → `user.id` (cascade delete) |
+| `character_hashed_id` | text | — | IdleMMO character hashed ID |
+| `pet_id` | integer | — | IdleMMO pet-instance integer ID |
+| `name` | text | — | Pet base name |
+| `custom_name` | text | ✓ | Player-assigned name |
+| `image_url` | text | ✓ | CDN URL |
+| `level` | integer | — | Current level |
+| `quality` | text | — | e.g. `LEGENDARY` |
+| `strength` | integer | — | Pet skill level — contributes `floor(×2.4)` to Attack Power |
+| `defence` | integer | — | Pet skill level — contributes `floor(×2.4)` to Protection |
+| `speed` | integer | — | Pet skill level — contributes `floor(×2.4)` to Agility |
+| `evolution_state` | integer | — | 0–5 |
+| `evolution_max` | integer | — | Always 5 |
+| `evolution_bonus_per_stage` | integer | — | Always 5 (= 5% per stage) |
+| `synced_at` | timestamp | — | When the user last synced |
+
+**Unique index**: `(user_id, character_hashed_id)` — one pet per character.
+**API route**: `POST /api/characters/[id]/sync-pet`
+**Docs**: `docs/game-mechanics/pets.md`
 
 ---
 
