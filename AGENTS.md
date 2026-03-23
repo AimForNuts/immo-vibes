@@ -142,6 +142,7 @@ For game mechanics (combat stat formulas, class bonuses, dungeon thresholds, ite
 | All 42 item types, market tab assignments | `docs/game-mechanics/item-types.md` |
 | Pet combat contribution, evolution, mastery | `docs/game-mechanics/pets.md` |
 | Combat system, hunting formula, stances, scaling, XP, food | `docs/game-mechanics/combat.md` |
+| Skill/stat XP table (levels 1–100), ascension mechanic | `docs/game-mechanics/xp-levels.md` |
 | Enemy combat stats (AP/Prot/Agi/Acc — not in API) | `data/enemy-combat-stats.ts` |
 | Shared UI constants (QUALITY_COLORS, SLOT_LABELS, CHAR_STAT_MAP, STATUS_DOT_COLOR) | `lib/game-constants.ts` |
 | Internal API routes (request params, response shapes) | `docs/api/internal/` |
