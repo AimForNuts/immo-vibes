@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { getCharacterInfo, getAltCharacters } from "@/lib/idlemmo";
+import { getCachedCharacters } from "@/lib/services/character-cache";
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -11,19 +11,9 @@ export async function GET() {
   const charId = session.user.idlemmoCharacterId;
   if (!token || !charId) return NextResponse.json([]);
 
-  try {
-    const [primary, alts] = await Promise.all([
-      getCharacterInfo(charId, token),
-      getAltCharacters(charId, token),
-    ]);
+  const chars = await getCachedCharacters(session.user.id, charId, token);
 
-    const chars = [
-      { hashed_id: primary.hashed_id, name: primary.name, image_url: primary.image_url },
-      ...alts.map((a) => ({ hashed_id: a.hashed_id, name: a.name, image_url: a.image_url })),
-    ].slice(0, 5);
-
-    return NextResponse.json(chars);
-  } catch {
-    return NextResponse.json([], { status: 500 });
-  }
+  return NextResponse.json(
+    chars.map((c) => ({ hashed_id: c.hashedId, name: c.name, image_url: c.imageUrl }))
+  );
 }
