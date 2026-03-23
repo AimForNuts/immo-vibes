@@ -99,8 +99,11 @@ export async function GET(
     }
 
     const data   = await res.json();
-    const latest = Array.isArray(data.latest_sold) && data.latest_sold.length > 0
-      ? data.latest_sold[0] : null;
+    // The API returns all recent sales across ALL tiers in latest_sold — filter to the
+    // requested tier. The response uses 0-based tiers (tier=0 = game tier 1).
+    const latest = Array.isArray(data.latest_sold)
+      ? (data.latest_sold.find((s: { tier: number }) => s.tier === tier - 1) ?? null)
+      : null;
 
     if (!latest?.price_per_item) {
       return NextResponse.json({ price: null, sold_at: null, quantity: null });
