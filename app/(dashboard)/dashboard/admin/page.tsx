@@ -295,7 +295,7 @@ export default function AdminPage() {
                 Cancel
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={syncRecipesOnly} disabled={busy}>
+            <Button variant="outline" size="sm" onClick={syncRecipesOnly} disabled={busy}>
               <BookOpen className="size-4 mr-1.5" />
               Sync Recipes
             </Button>
