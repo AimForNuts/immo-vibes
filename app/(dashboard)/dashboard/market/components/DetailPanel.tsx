@@ -208,6 +208,40 @@ export function DetailPanel({
                         })}
                       </div>
                     )}
+                    {/* Recipe scroll drop locations */}
+                    {craftedByDetail.where_to_find && (
+                      (craftedByDetail.where_to_find.enemies?.length ?? 0) > 0 ||
+                      (craftedByDetail.where_to_find.dungeons?.length ?? 0) > 0 ||
+                      (craftedByDetail.where_to_find.world_bosses?.length ?? 0) > 0
+                    ) && (
+                      <div className="border-t border-zinc-800 pt-2 space-y-1.5">
+                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Recipe drops from</p>
+                        {(craftedByDetail.where_to_find!.enemies?.length ?? 0) > 0 && (
+                          <div className="space-y-0.5">
+                            {craftedByDetail.where_to_find!.enemies!.map((e) => (
+                              <div key={e.id} className="flex items-center justify-between text-xs">
+                                <span className="text-zinc-400">{e.name}</span>
+                                <span className="font-mono text-zinc-600">Lv.{e.level}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {(craftedByDetail.where_to_find!.dungeons?.length ?? 0) > 0 && (
+                          <div className="space-y-0.5">
+                            {craftedByDetail.where_to_find!.dungeons!.map((dungeon) => (
+                              <div key={dungeon.id} className="text-xs text-zinc-400">{dungeon.name}</div>
+                            ))}
+                          </div>
+                        )}
+                        {(craftedByDetail.where_to_find!.world_bosses?.length ?? 0) > 0 && (
+                          <div className="space-y-0.5">
+                            {craftedByDetail.where_to_find!.world_bosses!.map((wb) => (
+                              <div key={wb.id} className="text-xs text-zinc-400">{wb.name}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
