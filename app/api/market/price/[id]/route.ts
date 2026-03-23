@@ -85,9 +85,10 @@ export async function GET(
   }
 
   try {
-    // IdleMMO API uses 0-based tier values (tier=0 → tier 1, tier=1 → tier 2, etc.)
+    // The tier parameter is ignored by the API — it always returns all tiers.
+    // We pass tier=1 as a stable cache-busting value; filter by response tier field.
     const res = await fetch(
-      `${IDLEMMO_BASE}/v1/item/${id}/market-history?tier=${tier - 1}&type=listings`,
+      `${IDLEMMO_BASE}/v1/item/${id}/market-history?tier=1&type=listings`,
       {
         headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
         cache: "no-store",
@@ -99,10 +100,10 @@ export async function GET(
     }
 
     const data   = await res.json();
-    // The API returns all recent sales across ALL tiers in latest_sold — filter to the
-    // requested tier. The response uses 0-based tiers (tier=0 = game tier 1).
+    // The API returns all recent sales across ALL tiers in latest_sold.
+    // Response tier field is 1-based (tier=1 = game tier 1, tier=6 = game tier 6).
     const latest = Array.isArray(data.latest_sold)
-      ? (data.latest_sold.find((s: { tier: number }) => s.tier === tier - 1) ?? null)
+      ? (data.latest_sold.find((s: { tier: number }) => s.tier === tier) ?? null)
       : null;
 
     if (!latest?.price_per_item) {

@@ -119,8 +119,8 @@ export async function POST(request: NextRequest) {
       if (priceRes.ok) {
         const data     = await priceRes.json();
         const allSales = Array.isArray(data.latest_sold) ? data.latest_sold : [];
-        // API uses 0-based tiers; we store 1-based (tier=0 → game tier 1)
-        const tier1    = allSales.find((s: { tier: number }) => s.tier === 0) ?? null;
+        // API returns 1-based tiers in latest_sold (tier=1 → game tier 1)
+        const tier1    = allSales.find((s: { tier: number }) => s.tier === 1) ?? null;
         const now      = new Date();
 
         if (tier1?.price_per_item) {
@@ -150,11 +150,11 @@ export async function POST(request: NextRequest) {
 
         // Persist all higher-tier sales from the same response — no extra API calls needed
         for (const sale of allSales) {
-          if (sale.tier === 0 || !sale.price_per_item) continue; // tier 1 already handled
+          if (sale.tier === 1 || !sale.price_per_item) continue; // tier 1 already handled
           try {
             await db.insert(marketPriceHistory).values({
               id: randomUUID(), itemHashedId: hashedId,
-              tier:       sale.tier + 1, // convert 0-based API tier to 1-based game tier
+              tier:       sale.tier, // response tier is already 1-based game tier
               price:      sale.price_per_item as number,
               quantity:   sale.quantity ?? 1,
               soldAt:     new Date(sale.sold_at),
