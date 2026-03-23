@@ -5,17 +5,23 @@ import type { DbItem, FullItem, MarketPrice } from "../types";
 
 interface UseItemDetailReturn {
   selectedItem:      DbItem | null;
+  selectedTier:      number;
+  tierMarketPrice:   MarketPrice | null | undefined;
   itemDetail:        FullItem | null | "loading";
   materialPrices:    Record<string, MarketPrice | null | undefined>;
   craftedByDetail:   FullItem | null | "loading" | undefined;
   craftedByItemData: DbItem | null | undefined;
   resultItemData:    DbItem | null | undefined;
   handleItemClick:   (item: DbItem) => void;
+  handleTierChange:  (tier: number) => void;
   clearSelection:    () => void;
 }
 
 export function useItemDetail(): UseItemDetailReturn {
   const [selectedItem, setSelectedItem]     = useState<DbItem | null>(null);
+  const [selectedTier, setSelectedTier]     = useState<number>(1);
+  // undefined = loading, null = no data / error
+  const [tierMarketPrice, setTierMarketPrice] = useState<MarketPrice | null | undefined>(undefined);
   const [itemDetail, setItemDetail]         = useState<FullItem | null | "loading">(null);
   const [materialPrices, setMaterialPrices] = useState<Record<string, MarketPrice | null | undefined>>({});
   // For non-recipe items: the recipe that crafts this item (if any)
@@ -27,6 +33,9 @@ export function useItemDetail(): UseItemDetailReturn {
 
   const handleItemClick = useCallback((item: DbItem) => {
     setSelectedItem(item);
+    setSelectedTier(1);
+    // Seed tier-1 price immediately from the DB item — no extra fetch needed
+    setTierMarketPrice({ price: item.last_sold_price, sold_at: item.last_sold_at, quantity: null });
     setItemDetail("loading");
     setMaterialPrices({});
     setCraftedByDetail(undefined);
@@ -52,12 +61,12 @@ export function useItemDetail(): UseItemDetailReturn {
             setResultItemData(null);
           }
 
-          // Fetch material prices
+          // Fetch material prices (tier 1)
           if (detail?.recipe?.materials?.length) {
             const mats = detail.recipe.materials;
             setMaterialPrices(Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])));
             for (const mat of mats) {
-              fetch(`/api/market/price/${mat.hashed_item_id}?tier=0`)
+              fetch(`/api/market/price/${mat.hashed_item_id}`)
                 .then((r) => r.json())
                 .then((pd) => setMaterialPrices((prev: Record<string, MarketPrice | null | undefined>) => ({
                   ...prev,
@@ -95,7 +104,7 @@ export function useItemDetail(): UseItemDetailReturn {
                       ...Object.fromEntries(mats.map((m) => [m.hashed_item_id, undefined])),
                     }));
                     for (const mat of mats) {
-                      fetch(`/api/market/price/${mat.hashed_item_id}?tier=0`)
+                      fetch(`/api/market/price/${mat.hashed_item_id}`)
                         .then((r) => r.json())
                         .then((pd) => setMaterialPrices((prev: Record<string, MarketPrice | null | undefined>) => ({
                           ...prev,
@@ -113,18 +122,38 @@ export function useItemDetail(): UseItemDetailReturn {
       .catch(() => setItemDetail(null));
   }, []);
 
+  const handleTierChange = useCallback((tier: number) => {
+    if (!selectedItem) return;
+    setSelectedTier(tier);
+    if (tier === 1) {
+      // Tier 1 is already in the DB item — no fetch needed
+      setTierMarketPrice({ price: selectedItem.last_sold_price, sold_at: selectedItem.last_sold_at, quantity: null });
+      return;
+    }
+    setTierMarketPrice(undefined);
+    fetch(`/api/market/price/${selectedItem.hashed_id}?tier=${tier}`)
+      .then((r) => r.json())
+      .then((pd) => setTierMarketPrice({ price: pd.price ?? null, sold_at: pd.sold_at ?? null, quantity: pd.quantity ?? null }))
+      .catch(() => setTierMarketPrice(null));
+  }, [selectedItem]);
+
   const clearSelection = useCallback(() => {
     setSelectedItem(null);
+    setSelectedTier(1);
+    setTierMarketPrice(undefined);
   }, []);
 
   return {
     selectedItem,
+    selectedTier,
+    tierMarketPrice,
     itemDetail,
     materialPrices,
     craftedByDetail,
     craftedByItemData,
     resultItemData,
     handleItemClick,
+    handleTierChange,
     clearSelection,
   };
 }

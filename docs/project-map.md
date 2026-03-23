@@ -35,9 +35,15 @@ The item browse/search page with detail panel and recipe cost calculator.
 | Config | `lib/market-config.ts` (tab → item type mapping) |
 | Folder docs | `app/(dashboard)/dashboard/market/README.md` |
 
-**DB tables**: `items` (read), `market_price_history` (read via price route)
-**External API**: none — fully served from DB
+**DB tables**: `items` (read), `market_price_history` (read/write via price route — per-tier prices)
+**External API**: `GET /v1/item/{id}/market-history?tier=N` — live fallback in price route when tier > 1 is not yet in DB
 **Docs**: `docs/game-mechanics/item-types.md`, `docs/game-mechanics/items.md`, `docs/database.md`
+
+**Tier pricing notes**:
+- `market_price_history` stores prices per tier (1-based). The price route reads from this table first.
+- Tier 1 fallback: `items.last_sold_price` (populated by sync-prices, always up to date).
+- Tier > 1 cache miss: the price route fetches live from IdleMMO API using the session user's token and persists the result.
+- The sync-prices jobs (cron + admin) now fetch all tiers for items where `max_tier > 1` is known.
 
 ---
 
