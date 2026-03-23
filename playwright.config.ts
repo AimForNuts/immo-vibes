@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { config } from "dotenv";
+
+config({ path: ".env.local" });
 
 /**
  * Playwright configuration for E2E smoke tests.
@@ -19,21 +22,16 @@ export default defineConfig({
   use: {
     baseURL: process.env.BASE_URL ?? "http://localhost:3000",
     trace: "on-first-retry",
-    storageState: "playwright/.auth/user.json",
   },
 
   projects: [
-    // --- Setup project: log in once and save storage state ---
     {
       name: "setup",
       testMatch: /.*\.setup\.ts/,
-      use: { storageState: undefined },
     },
-
-    // --- Smoke tests: run with saved auth state ---
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: { ...devices["Desktop Chrome"], storageState: "playwright/.auth/user.json" },
       dependencies: ["setup"],
     },
   ],
