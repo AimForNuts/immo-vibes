@@ -299,6 +299,16 @@ export const characterPets = pgTable(
     evolutionMax:         integer("evolution_max").notNull().default(5),
     evolutionBonusPerStage: integer("evolution_bonus_per_stage").notNull().default(5),
     syncedAt:             timestamp("synced_at").notNull(),
+    /**
+     * Manually entered pet combat-stat contributions (AP/Prot/Agi/Acc).
+     * The IdleMMO API always returns strength/defence/speed = 0 (known bug),
+     * so these values are entered by the user and saved here.
+     * Null until the user saves them.
+     */
+    attackPower:  integer("attack_power"),
+    protection:   integer("protection"),
+    agility:      integer("agility"),
+    accuracy:     integer("accuracy"),
   },
   (t) => [uniqueIndex("character_pets_user_char_uniq").on(t.userId, t.characterHashedId)]
 );

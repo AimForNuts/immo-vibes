@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Skull, User, Swords, Shield, Wind, Crosshair, Zap,
-  Link2, Sparkles, AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, PawPrint,
+  Link2, Sparkles, AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, PawPrint, Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CHAR_STAT_MAP, QUALITY_COLORS, SLOT_LABELS } from "@/lib/game-constants";
@@ -15,13 +15,10 @@ import {
   formatDuration,
   COMBAT_STAT_KEYS,
   type StaticDungeon,
-  type MFTier,
 } from "./difficulty";
 import type { SavedPreset } from "../gear/actions";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-// CHAR_STAT_MAP, QUALITY_COLORS, SLOT_LABELS imported from lib/game-constants.ts
 
 const COMBAT_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
   attack_power: { label: "Attack Power", icon: Swords },
@@ -42,12 +39,15 @@ interface StatBreakdown {
 }
 
 interface EquippedPet {
+  id: number;
   name: string;
   level: number;
   quality: string;
   image_url: string | null;
   stats: { strength: number; defence: number; speed: number };
 }
+
+type PetCombatStats = { attack_power: number; protection: number; agility: number; accuracy: number };
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -59,6 +59,8 @@ interface DungeonExplorerProps {
   hasDifficultyData: boolean;
 }
 
+const EMPTY_PET_STATS: PetCombatStats = { attack_power: 0, protection: 0, agility: 0, accuracy: 0 };
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDifficultyData }: DungeonExplorerProps) {
@@ -69,11 +71,11 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
   const [equippedPet, setEquippedPet] = useState<EquippedPet | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Expanded stat breakdown
   const [expandedStat, setExpandedStat] = useState<string | null>(null);
 
-  // Manual pet combat stats (API bug: strength/defence/speed return 0)
-  const [petStats, setPetStats] = useState({ attack_power: 0, protection: 0, agility: 0, accuracy: 0 });
+  // Pet combat stats — manually entered, pre-filled from DB
+  const [petStats, setPetStats] = useState<PetCombatStats>(EMPTY_PET_STATS);
+  const [petSaving, setPetSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   // Override total combat
   const [overrideEnabled, setOverrideEnabled] = useState(false);
@@ -85,7 +87,29 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
   const noGear = presetId === NO_GEAR_ID;
   const selectedPreset = noGear ? null : (presets.find((p) => p.id === presetId) ?? null);
 
-  // Compute combat stats whenever character or preset changes
+  // ── Load saved pet combat stats from DB whenever character changes ──────────
+
+  useEffect(() => {
+    if (!characterId) { setPetStats(EMPTY_PET_STATS); return; }
+    fetch(`/api/characters/${characterId}/pet-stats`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.pet) {
+          setPetStats({
+            attack_power: data.pet.attackPower ?? 0,
+            protection:   data.pet.protection  ?? 0,
+            agility:      data.pet.agility      ?? 0,
+            accuracy:     data.pet.accuracy     ?? 0,
+          });
+        } else {
+          setPetStats(EMPTY_PET_STATS);
+        }
+      })
+      .catch(() => setPetStats(EMPTY_PET_STATS));
+  }, [characterId]);
+
+  // ── Compute combat stats whenever character or preset changes ───────────────
+
   useEffect(() => {
     if (!characterId) { setCombatStats(null); setBreakdown(null); setEquippedPet(null); return; }
     let cancelled = false;
@@ -95,12 +119,10 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
       const stats: Record<string, number> = {};
       const bk: Record<string, StatBreakdown> = {};
 
-      // 1. Character base combat stats + equipped pet
       try {
         const res = await fetch(`/api/idlemmo/character/${characterId}`);
         const data = await res.json();
 
-        // Character skills → combat stats (×2.4 per level)
         if (data.stats) {
           for (const [k, v] of Object.entries(data.stats as Record<string, { level: number }>)) {
             const m = CHAR_STAT_MAP[k];
@@ -112,7 +134,6 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
         }
 
         // Class talent bonuses at combat L70 — see docs/game-mechanics/classes.md
-        // Warrior Shield Wall: +40 Protection  |  Shadowblade Shadow's Veil: +40 Agility
         const charClass: string = data.class ?? "";
         const combatLevel: number = (data.stats as Record<string, { level: number }>).combat?.level ?? 0;
         if (combatLevel >= 70) {
@@ -127,24 +148,9 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
           }
         }
 
-        // Equipped pet → adds strength/defence/speed × 2.4 to combat stats
-        // See docs/game-mechanics/pets.md
+        // Equipped pet — API always returns str/def/spd = 0; manual stats are entered separately
         if (data.equipped_pet) {
-          const pet = data.equipped_pet as EquippedPet;
-          setEquippedPet(pet);
-          const petStatMap: Record<string, string> = {
-            strength: "attack_power",
-            defence:  "protection",
-            speed:    "agility",
-          };
-          for (const [petStat, combatKey] of Object.entries(petStatMap)) {
-            const level = pet.stats[petStat as keyof typeof pet.stats] ?? 0;
-            if (level === 0) continue;
-            const value = Math.floor(level * 2.4);
-            stats[combatKey] = (stats[combatKey] ?? 0) + value;
-            if (!bk[combatKey]) bk[combatKey] = { skillLabel: "", skillLevel: 0, charBase: 0, gear: [] };
-            bk[combatKey].gear.push({ slotLabel: `Pet — ${pet.name}`, value });
-          }
+          setEquippedPet({ ...data.equipped_pet } as EquippedPet);
         } else {
           setEquippedPet(null);
         }
@@ -152,7 +158,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
 
       if (cancelled) return;
 
-      // 2. Gear stats from preset (skip if "no gear")
+      // Gear stats from preset
       if (selectedPreset) {
         const slots = Object.entries(selectedPreset.slots);
         const uniqueIds = [...new Set(slots.map(([, s]) => s.hashedId))];
@@ -191,14 +197,43 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
         setCombatStats(stats);
         setBreakdown(bk);
         setLoading(false);
-      } else {
-        setEquippedPet(null);
       }
     }
 
     compute().catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [characterId, presetId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Save pet combat stats ───────────────────────────────────────────────────
+
+  async function savePetStats() {
+    if (!characterId || !equippedPet) return;
+    setPetSaving("saving");
+    try {
+      const res = await fetch(`/api/characters/${characterId}/pet-stats`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attackPower: petStats.attack_power,
+          protection:  petStats.protection,
+          agility:     petStats.agility,
+          accuracy:    petStats.accuracy,
+          pet: {
+            id:       equippedPet.id,
+            name:     equippedPet.name,
+            level:    equippedPet.level,
+            quality:  equippedPet.quality,
+            imageUrl: equippedPet.image_url,
+          },
+        }),
+      });
+      setPetSaving(res.ok ? "saved" : "error");
+      setTimeout(() => setPetSaving("idle"), 2000);
+    } catch {
+      setPetSaving("error");
+      setTimeout(() => setPetSaving("idle"), 2000);
+    }
+  }
 
   const petStatsTotal = petStats.attack_power + petStats.protection + petStats.agility + petStats.accuracy;
   const computedTotal = combatStats ? totalCombatStats(combatStats) + petStatsTotal : null;
@@ -282,114 +317,121 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
         </div>
       </div>
 
-      {/* Pet combat stats — manual input (API bug: strength/defence/speed return 0) */}
-      {equippedPet && (
-        <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <PawPrint className="size-3.5 text-muted-foreground/60 shrink-0" />
-            <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
-              Pet Stats — {equippedPet.name}
-            </span>
-            <span className={cn("text-[10px] font-mono ml-1", QUALITY_COLORS[equippedPet.quality] ?? "text-muted-foreground")}>
-              L{equippedPet.level} {equippedPet.quality.charAt(0) + equippedPet.quality.slice(1).toLowerCase()}
-            </span>
-            {petStatsTotal > 0 && (
-              <button
-                onClick={() => setPetStats({ attack_power: 0, protection: 0, agility: 0, accuracy: 0 })}
-                className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-              >
-                reset
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {([
-              { key: "attack_power", label: "Attack Power", icon: Swords },
-              { key: "protection",   label: "Protection",   icon: Shield },
-              { key: "agility",      label: "Agility",      icon: Wind },
-              { key: "accuracy",     label: "Accuracy",     icon: Crosshair },
-            ] as const).map(({ key, label, icon: Icon }) => (
-              <div key={key} className="space-y-1">
-                <label className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground/70 flex items-center gap-1">
-                  <Icon className="size-2.5" /> {label}
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={petStats[key] || ""}
-                  placeholder="0"
-                  onChange={(e) => setPetStats((prev) => ({ ...prev, [key]: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
-                  className="w-full text-sm bg-background border border-border rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
-                />
-              </div>
-            ))}
-          </div>
-          {petStatsTotal > 0 && (
-            <p className="text-[10px] font-mono text-muted-foreground/50">
-              Pet total: +{petStatsTotal.toLocaleString()} combat score
-            </p>
-          )}
-        </div>
-      )}
-
       {/* Gear preview + Combat stats */}
       {showStatsSection && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Gear slot preview */}
+          {/* Gear card */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-mono uppercase tracking-widest text-muted-foreground">
                 {noGear ? "Gear — None equipped" : `Gear — ${selectedPreset!.name}`}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-1">
               {noGear ? (
                 <p className="text-xs text-muted-foreground/50 font-mono">No gear — showing base character stats only.</p>
               ) : (
-                <div className="space-y-1">
-                  {Object.entries(selectedPreset!.slots).map(([slot, { hashedId, tier }]) => {
-                    const meta = itemsMap[hashedId];
-                    return (
-                      <div key={slot} className="flex items-center gap-2 text-sm">
-                        <span className="w-24 text-xs text-muted-foreground shrink-0">{SLOT_LABELS[slot] ?? slot}</span>
-                        {meta ? (
-                          <>
-                            <span className={cn("flex-1 truncate font-medium", QUALITY_COLORS[meta.quality] ?? "")}>
-                              {meta.name}
-                            </span>
-                            <span className="text-xs font-mono text-muted-foreground shrink-0">T{tier}</span>
-                          </>
-                        ) : (
-                          <span className="flex-1 text-xs font-mono text-muted-foreground/50 truncate">{hashedId}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                Object.entries(selectedPreset!.slots).map(([slot, { hashedId, tier }]) => {
+                  const meta = itemsMap[hashedId];
+                  return (
+                    <div key={slot} className="flex items-center gap-2 text-sm">
+                      <span className="w-24 text-xs text-muted-foreground shrink-0">{SLOT_LABELS[slot] ?? slot}</span>
+                      {meta ? (
+                        <>
+                          <span className={cn("flex-1 truncate font-medium", QUALITY_COLORS[meta.quality] ?? "")}>
+                            {meta.name}
+                          </span>
+                          <span className="text-xs font-mono text-muted-foreground shrink-0">T{tier}</span>
+                        </>
+                      ) : (
+                        <span className="flex-1 text-xs font-mono text-muted-foreground/50 truncate">{hashedId}</span>
+                      )}
+                    </div>
+                  );
+                })
               )}
 
-              {/* Equipped pet */}
+              {/* Pet row — inline within gear card */}
               {equippedPet && !loading && (
-                <div className={cn("mt-3 pt-3 border-t border-border/40", noGear && "mt-0 pt-0 border-t-0")}>
-                  <div className="flex items-center gap-2">
-                    <PawPrint className="size-3 text-muted-foreground/60 shrink-0" />
+                <div className={cn(
+                  "mt-3 pt-3 border-t border-border/40 space-y-3",
+                  noGear && "mt-0 pt-0 border-t-0"
+                )}>
+                  {/* Identity */}
+                  <div className="flex items-center gap-3">
+                    <PawPrint className="size-3 text-muted-foreground/50 shrink-0" />
                     <span className="text-xs text-muted-foreground w-20 shrink-0">Pet</span>
-                    {equippedPet.image_url && (
+                    {equippedPet.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={equippedPet.image_url} alt="" className="size-4 object-contain shrink-0" />
+                      <img
+                        src={equippedPet.image_url}
+                        alt={equippedPet.name}
+                        className="size-8 object-contain shrink-0 rounded-sm bg-muted/40 p-0.5"
+                      />
+                    ) : (
+                      <div className="size-8 rounded-sm bg-muted/40 shrink-0 flex items-center justify-center">
+                        <PawPrint className="size-4 text-muted-foreground/30" />
+                      </div>
                     )}
-                    <span className={cn("flex-1 text-sm font-medium truncate", QUALITY_COLORS[equippedPet.quality] ?? "")}>
-                      {equippedPet.name}
-                    </span>
-                    <span className="text-xs font-mono text-muted-foreground shrink-0">L{equippedPet.level}</span>
+                    <div className="min-w-0">
+                      <p className={cn("text-sm font-medium leading-tight", QUALITY_COLORS[equippedPet.quality] ?? "")}>
+                        {equippedPet.name}
+                      </p>
+                      <p className="text-[10px] font-mono text-muted-foreground/60 mt-0.5">
+                        L{equippedPet.level} · {equippedPet.quality.charAt(0) + equippedPet.quality.slice(1).toLowerCase()}
+                      </p>
+                    </div>
                   </div>
-                  <div className="mt-1 ml-[1.375rem] pl-[1.375rem] flex gap-3 text-[10px] font-mono text-muted-foreground/60">
-                    <span>str {equippedPet.stats.strength}</span>
-                    <span>def {equippedPet.stats.defence}</span>
-                    <span>spd {equippedPet.stats.speed}</span>
-                    {equippedPet.stats.strength === 0 && equippedPet.stats.defence === 0 && equippedPet.stats.speed === 0 && (
-                      <span className="text-muted-foreground/40 italic">no trained stats</span>
-                    )}
+
+                  {/* Manual combat stat inputs */}
+                  <div className="ml-[1.625rem] pl-[1.625rem] space-y-2 border-l border-border/30">
+                    <p className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-wide">
+                      Combat contribution
+                    </p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                      {([
+                        { key: "attack_power" as const, label: "Attack Power", icon: Swords },
+                        { key: "protection"   as const, label: "Protection",   icon: Shield },
+                        { key: "agility"      as const, label: "Agility",      icon: Wind },
+                        { key: "accuracy"     as const, label: "Accuracy",     icon: Crosshair },
+                      ]).map(({ key, label, icon: Icon }) => (
+                        <div key={key} className="flex items-center gap-1.5">
+                          <Icon className="size-3 text-muted-foreground/40 shrink-0" />
+                          <span className="text-[10px] font-mono text-muted-foreground/60 w-[4.5rem] shrink-0">{label}</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={petStats[key] || ""}
+                            placeholder="0"
+                            onChange={(e) => setPetStats((prev) => ({ ...prev, [key]: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                            className="w-14 text-xs bg-background border border-border rounded px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-0.5">
+                      <button
+                        onClick={savePetStats}
+                        disabled={petSaving === "saving"}
+                        className={cn(
+                          "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-colors",
+                          petSaving === "saved"
+                            ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                            : petSaving === "error"
+                            ? "border-destructive/40 text-destructive"
+                            : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
+                        )}
+                      >
+                        <Save className="size-3" />
+                        {petSaving === "saving" ? "Saving…" : petSaving === "saved" ? "Saved" : petSaving === "error" ? "Error" : "Save"}
+                      </button>
+                      {petStatsTotal > 0 && (
+                        <span className="text-[10px] font-mono text-muted-foreground/50">
+                          +{petStatsTotal.toLocaleString()} total
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -449,14 +491,10 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                             <span className="tabular-nums text-foreground/70 shrink-0 ml-2">+{g.value}</span>
                           </div>
                         ))}
-                        {petStats[key as keyof typeof petStats] > 0 && equippedPet && (
+                        {petManual > 0 && equippedPet && (
                           <div className="flex items-center justify-between text-[11px] font-mono">
-                            <span className="text-muted-foreground truncate max-w-[200px]">
-                              Pet — {equippedPet.name} (manual)
-                            </span>
-                            <span className="tabular-nums text-foreground/70 shrink-0 ml-2">
-                              +{petStats[key as keyof typeof petStats]}
-                            </span>
+                            <span className="text-muted-foreground truncate max-w-[200px]">Pet — {equippedPet.name}</span>
+                            <span className="tabular-nums text-foreground/70 shrink-0 ml-2">+{petManual}</span>
                           </div>
                         )}
                         <div className="flex items-center justify-between text-[11px] font-mono border-t border-border/30 pt-0.5 mt-0.5">
@@ -469,19 +507,15 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                 );
               })}
 
-              {/* Total combat */}
               {computedTotal !== null && !loading && (
                 <div className="flex items-center justify-between px-3 py-2 rounded-md bg-primary/5 border border-primary/20">
                   <span className="text-xs font-mono uppercase tracking-wide text-muted-foreground">Total Combat</span>
-                  <div className="flex items-center gap-2">
-                    <span className={cn("text-lg font-bold tabular-nums", overrideEnabled ? "text-muted-foreground/40 line-through text-sm" : "text-primary")}>
-                      {computedTotal.toLocaleString()}
-                    </span>
-                  </div>
+                  <span className={cn("text-lg font-bold tabular-nums", overrideEnabled ? "text-muted-foreground/40 line-through text-sm" : "text-primary")}>
+                    {computedTotal.toLocaleString()}
+                  </span>
                 </div>
               )}
 
-              {/* Override */}
               {computedTotal !== null && !loading && (
                 <div className="flex items-center gap-3 px-3 py-2 rounded-md border border-border/40 bg-muted/20">
                   <input
@@ -540,7 +574,6 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
               ? combatTotal / dungeon.difficulty
               : null;
 
-          // Bar max = 2.0 (200% of difficulty); thresholds at 70%, 130%, 160%
           const BAR_MAX = 2.0;
           const barPct = ratio !== null ? Math.min(ratio / BAR_MAX, 1) * 100 : 0;
 
@@ -570,21 +603,14 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                 i % 2 === 0 ? "bg-background" : "bg-muted/10"
               )}
             >
-              {/* Name + location */}
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">{dungeon.name}</p>
                 <p className="text-[10px] text-muted-foreground/60 truncate font-mono">{dungeon.location}</p>
               </div>
-
-              {/* Level */}
               <span className="text-xs font-mono tabular-nums text-muted-foreground">{dungeon.minLevel}</span>
-
-              {/* Difficulty */}
               <span className="text-xs font-mono tabular-nums text-muted-foreground">
                 {dungeon.difficulty > 0 ? dungeon.difficulty.toLocaleString() : "—"}
               </span>
-
-              {/* Readiness bar — thresholds at 70% (35%), 130% (65%), 160% (80%) of bar */}
               <div className="relative h-5 rounded-sm overflow-hidden bg-muted/30 border border-border/40">
                 <div className={cn("h-full transition-all duration-500", barColor)} style={{ width: `${barPct}%` }} />
                 <div className="absolute inset-0">
@@ -598,8 +624,6 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                   )}
                 </div>
               </div>
-
-              {/* Status badge */}
               <div>
                 {!assessment ? (
                   <span className="text-[10px] font-mono text-muted-foreground/40">—</span>
@@ -625,8 +649,6 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                   </Badge>
                 )}
               </div>
-
-              {/* Health loss */}
               <span className={cn(
                 "text-xs font-mono tabular-nums text-right",
                 !assessment ? "text-muted-foreground/40" :
@@ -634,12 +656,8 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                 assessment.mfTier !== "none" ? "text-emerald-400" :
                 assessment.healthLossPct > 50 ? "text-amber-400" : "text-green-400"
               )}>
-                {!assessment ? "—" :
-                 !assessment.canEnter ? "100%" :
-                 `${assessment.healthLossPct}%`}
+                {!assessment ? "—" : !assessment.canEnter ? "100%" : `${assessment.healthLossPct}%`}
               </span>
-
-              {/* Duration */}
               <span className="text-[10px] font-mono text-muted-foreground/60 flex items-center gap-0.5">
                 <Clock className="size-2.5 shrink-0" />
                 {formatDuration(effectiveDuration(dungeon.durationSec))}
