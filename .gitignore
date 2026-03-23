@@ -50,3 +50,9 @@ local.db
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 immo_web_suite_logo.png
+
+# playwright
+playwright-report/
+playwright/.auth/
+!playwright/.auth/.gitkeep
+.playwright/

@@ -302,6 +302,21 @@ Email/password auth via better-auth.
 
 ---
 
+## E2E Smoke Tests
+
+Playwright tests that verify key pages load without a 500 error against the production deployment at `https://immowebsuite.vercel.app`.
+
+| File | Purpose |
+|---|---|
+| `playwright.config.ts` | Playwright configuration — base URL, projects, storageState path |
+| `e2e/auth.setup.ts` | One-time login fixture — saves session to `playwright/.auth/user.json` |
+| `e2e/smoke.spec.ts` | Smoke tests: unauthenticated redirect check + authenticated page load checks |
+| `.github/workflows/e2e.yml` | CI workflow — runs on push to master and on PRs |
+
+**Secrets required** (already in GitHub repo): `E2E_EMAIL`, `E2E_PASSWORD`
+
+---
+
 ## Keeping This Map Current
 
 After every task that adds, moves, or renames a route, component, table column, or cron job — update the relevant section(s) above. If you add a new feature area, add a new section.
