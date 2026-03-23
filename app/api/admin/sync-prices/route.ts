@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ synced: 0, skipped: 0, total: 0, page: 1, totalPages: 1 });
   }
 
-  // Paginated item fetch — also load recipeResultHashedId and maxTier
+  // Paginated item fetch
   const rows = await db
-    .select({ hashedId: items.hashedId, recipeResultHashedId: items.recipeResultHashedId, maxTier: items.maxTier })
+    .select({ hashedId: items.hashedId, recipeResultHashedId: items.recipeResultHashedId })
     .from(items)
     .where(eq(items.type, type))
     .orderBy(items.hashedId)
@@ -107,80 +107,63 @@ export async function POST(request: NextRequest) {
     throw new Error(`Max retries (${MAX_RETRIES}) exceeded — API returning persistent 429`);
   }
 
-  for (const { hashedId, recipeResultHashedId, maxTier } of rows) {
+  for (const { hashedId, recipeResultHashedId } of rows) {
     try {
-      // Always fetch tier 1 (API uses tier=0 to mean tier 1)
+      // One API call per item — the response includes latest_sold entries for ALL tiers.
+      // Previously we made a separate call per tier (up to 35×), causing timeouts on
+      // gear types. Now we extract every tier from this single response.
       const priceRes = await rateLimitedFetch(
         `${BASE}/v1/item/${hashedId}/market-history?tier=0&type=listings`
       );
 
       if (priceRes.ok) {
-        const data   = await priceRes.json();
-        // Filter to tier 0 (= game tier 1) — API returns all tiers in latest_sold[]
-        const latest = Array.isArray(data.latest_sold)
-          ? (data.latest_sold.find((s: { tier: number }) => s.tier === 0) ?? null)
-          : null;
+        const data     = await priceRes.json();
+        const allSales = Array.isArray(data.latest_sold) ? data.latest_sold : [];
+        // API returns 1-based tiers in latest_sold (tier=1 → game tier 1)
+        const tier1    = allSales.find((s: { tier: number }) => s.tier === 1) ?? null;
+        const now      = new Date();
 
-        if (latest?.price_per_item) {
-          const price  = latest.price_per_item as number;
-          const soldAt = new Date(latest.sold_at);
+        if (tier1?.price_per_item) {
+          const price  = tier1.price_per_item as number;
+          const soldAt = new Date(tier1.sold_at);
 
           await db
             .update(items)
-            .set({ lastSoldPrice: price, lastSoldAt: soldAt, priceCheckedAt: new Date() })
+            .set({ lastSoldPrice: price, lastSoldAt: soldAt, priceCheckedAt: now })
             .where(eq(items.hashedId, hashedId));
 
           try {
             await db.insert(marketPriceHistory).values({
-              id:           randomUUID(),
-              itemHashedId: hashedId,
-              tier:         1,
-              price,
-              quantity:     latest.quantity ?? 1,
-              soldAt,
-              recordedAt:   new Date(),
+              id: randomUUID(), itemHashedId: hashedId, tier: 1,
+              price, quantity: tier1.quantity ?? 1, soldAt, recordedAt: now,
             }).onConflictDoNothing();
           } catch { /* non-blocking */ }
 
           synced++;
         } else {
-          // No active listing — still mark as checked so cron skips it next cycle
           await db
             .update(items)
             .set({ priceCheckedAt: new Date() })
             .where(eq(items.hashedId, hashedId));
           skipped++;
         }
+
+        // Persist all higher-tier sales from the same response — no extra API calls needed
+        for (const sale of allSales) {
+          if (sale.tier === 1 || !sale.price_per_item) continue; // tier 1 already handled
+          try {
+            await db.insert(marketPriceHistory).values({
+              id: randomUUID(), itemHashedId: hashedId,
+              tier:       sale.tier, // response tier is already 1-based game tier
+              price:      sale.price_per_item as number,
+              quantity:   sale.quantity ?? 1,
+              soldAt:     new Date(sale.sold_at),
+              recordedAt: new Date(),
+            }).onConflictDoNothing();
+          } catch { /* non-blocking */ }
+        }
       } else {
         skipped++;
-      }
-
-      // Fetch higher tiers for upgradeable items (maxTier known from sync-inspect)
-      if (maxTier !== null && maxTier > 1) {
-        for (let t = 2; t <= maxTier; t++) {
-          try {
-            // IdleMMO API uses 0-based tier values: tier 2 = ?tier=1, etc.
-            const tierRes = await rateLimitedFetch(
-              `${BASE}/v1/item/${hashedId}/market-history?tier=${t - 1}&type=listings`
-            );
-            if (!tierRes.ok) continue;
-            const tierData   = await tierRes.json();
-            // Filter to the specific tier — API uses 0-based tiers in response (t-1 = 0-based tier t)
-            const tierLatest = Array.isArray(tierData.latest_sold)
-              ? (tierData.latest_sold.find((s: { tier: number }) => s.tier === t - 1) ?? null)
-              : null;
-            if (!tierLatest?.price_per_item) continue;
-            await db.insert(marketPriceHistory).values({
-              id:           randomUUID(),
-              itemHashedId: hashedId,
-              tier:         t,
-              price:        tierLatest.price_per_item as number,
-              quantity:     tierLatest.quantity ?? 1,
-              soldAt:       new Date(tierLatest.sold_at),
-              recordedAt:   new Date(),
-            }).onConflictDoNothing();
-          } catch { /* non-blocking — don't let a higher-tier failure skip the item */ }
-        }
       }
 
       // ── RECIPE items: inspect to populate recipe_result_hashed_id ─────────
