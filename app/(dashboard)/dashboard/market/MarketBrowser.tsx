@@ -73,12 +73,15 @@ export function MarketBrowser() {
 
   const {
     selectedItem,
+    selectedTier,
+    tierMarketPrice,
     itemDetail,
     materialPrices,
     craftedByDetail,
     craftedByItemData,
     resultItemData,
     handleItemClick,
+    handleTierChange,
     clearSelection,
   } = useItemDetail();
 
@@ -402,11 +405,14 @@ export function MarketBrowser() {
           <DetailPanel
             item={selectedItem}
             detail={itemDetail}
+            selectedTier={selectedTier}
+            tierMarketPrice={tierMarketPrice}
             materialPrices={materialPrices}
             craftedByDetail={craftedByDetail}
             craftedByItemData={craftedByItemData}
             resultItemData={resultItemData}
             onClose={clearSelection}
+            onTierChange={handleTierChange}
           />
         </div>
       )}
