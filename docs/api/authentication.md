@@ -32,13 +32,13 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
     "api_key": {
         "name": "My Application",
         "rate_limit": 20,
-        "expires_at": "2025-12-31T23:59:59.000000Z",
-        "scopes": [
-            "v1.auth.check"
-        ]
+        "expires_at": null,
+        "scopes": null
     }
 }
 ```
+
+> **Note:** `scopes` is `null` when the API key has been granted all scopes (the default). It returns a restricted array only when the key has been explicitly limited. `expires_at` is `null` when the key does not expire.
 
 **Response Fields**
 
