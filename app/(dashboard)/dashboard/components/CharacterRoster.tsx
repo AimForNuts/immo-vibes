@@ -5,6 +5,9 @@ import Link from "next/link";
 import { User, MapPin, Crown, RefreshCw } from "lucide-react";
 import type { CachedCharacter } from "@/lib/services/character-cache";
 
+// cachedAt is a Date on the server — strip it before passing to this client component
+type RosterItem = Omit<CachedCharacter, "cachedAt">;
+
 const STATUS_CONFIG = {
   ONLINE:  { dot: "bg-emerald-500", ring: "shadow-[0_0_8px_#10b981]", text: "text-emerald-400",  label: "online"  },
   IDLING:  { dot: "bg-amber-400",   ring: "shadow-[0_0_8px_#fbbf24]", text: "text-amber-400",    label: "idling"  },
@@ -12,7 +15,7 @@ const STATUS_CONFIG = {
 } as const;
 
 interface CharacterRosterProps {
-  initialRoster:  CachedCharacter[];
+  initialRoster:  RosterItem[];
   initialIsStale: boolean;
   titleLabel:     string;
   countLabel:     (n: number) => string;
@@ -28,7 +31,7 @@ export function CharacterRoster({
   columnLabels,
   statusLabels,
 }: CharacterRosterProps) {
-  const [roster,    setRoster]    = useState(initialRoster);
+  const [roster,    setRoster]    = useState<RosterItem[]>(initialRoster);
   const [syncing,   setSyncing]   = useState(false);
   const [syncDone,  setSyncDone]  = useState(false);
 
@@ -38,7 +41,7 @@ export function CharacterRoster({
     setSyncing(true);
     fetch("/api/characters")
       .then((r) => r.json())
-      .then((data: CachedCharacter[]) => {
+      .then((data: RosterItem[]) => {
         if (Array.isArray(data) && data.length > 0) setRoster(data);
         setSyncing(false);
         setSyncDone(true);
