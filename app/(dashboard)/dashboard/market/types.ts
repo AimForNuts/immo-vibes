@@ -1,4 +1,4 @@
-import type { ItemEffect, ItemRecipe } from "@/lib/db/schema";
+import type { ItemEffect, ItemRecipe, ItemWhereToFind } from "@/lib/db/schema";
 
 /** Item shape returned by the DB-backed GET /api/market route. */
 export interface DbItem {
@@ -23,6 +23,7 @@ export interface FullItem extends DbItem {
   tier_modifiers: Record<string, number> | null;
   effects:        ItemEffect[] | null;
   recipe:         ItemRecipe | null;
+  where_to_find:  ItemWhereToFind | null;
 }
 
 export interface MarketPrice {
