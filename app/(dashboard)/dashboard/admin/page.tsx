@@ -91,23 +91,32 @@ export default function AdminPage() {
 
   // ── Single-type helpers ────────────────────────────────────────────────────
 
-  async function syncType(type: string) {
+  async function syncType(type: string): Promise<boolean> {
     setStatus(type, { state: "syncing" });
-    addLog(`→ Items: ${type}`);
-    try {
-      const res  = await fetch(`/api/admin/sync-items?type=${type}`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) {
-        setStatus(type, { state: "error", error: data.error ?? "Failed" });
-        addLog(`✗ ${type}: ${data.error ?? "Failed"}`, "error");
-      } else {
-        setStatus(type, { state: "done", count: data.synced });
-        addLog(`✓ ${type}: ${data.synced} items`, "success");
+    let page = 1, totalPages = 1, accSynced = 0;
+    while (page <= totalPages) {
+      if (cancelRef.current) { setStatus(type, { state: "idle" }); return false; }
+      try {
+        addLog(`→ Items: ${type}${totalPages > 1 ? ` (${page}/${totalPages})` : ""}`);
+        const res  = await fetch(`/api/admin/sync-items?type=${type}&page=${page}`, { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) {
+          setStatus(type, { state: "error", error: data.error ?? "Failed" });
+          addLog(`✗ ${type}: ${data.error ?? "Failed"}`, "error");
+          return false;
+        }
+        totalPages  = data.totalPages;
+        accSynced  += data.synced;
+        setStatus(type, { state: page < totalPages ? "syncing" : "done", count: accSynced });
+        page++;
+      } catch {
+        setStatus(type, { state: "error", error: "Network error" });
+        addLog(`✗ ${type}: network error`, "error");
+        return false;
       }
-    } catch {
-      setStatus(type, { state: "error", error: "Network error" });
-      addLog(`✗ ${type}: network error`, "error");
     }
+    addLog(`✓ ${type}: ${accSynced} items`, "success");
+    return true;
   }
 
   async function syncPricesForType(type: string): Promise<boolean> {
@@ -177,7 +186,7 @@ export default function AdminPage() {
   }
 
   async function syncRecipes(): Promise<boolean> {
-    addLog("→ Recipe IDs…");
+    addLog("→ Sync Recipes…");
     let page = 1, totalPages = 1, accPopulated = 0;
     while (page <= totalPages) {
       if (cancelRef.current) return false;
@@ -185,18 +194,18 @@ export default function AdminPage() {
         const res  = await fetch(`/api/admin/sync-recipes?page=${page}&pageSize=80`, { method: "POST" });
         const data = await res.json();
         if (!res.ok) {
-          addLog(`✗ Recipe IDs: ${data.error ?? "Failed"}`, "error");
+          addLog(`✗ Sync Recipes: ${data.error ?? "Failed"}`, "error");
           return false;
         }
         totalPages    = data.totalPages;
         accPopulated += data.populated ?? 0;
         page++;
       } catch {
-        addLog("✗ Recipe IDs: network error", "error");
+        addLog("✗ Sync Recipes: network error", "error");
         return false;
       }
     }
-    addLog(`✓ Recipe IDs: ${accPopulated} populated`, "success");
+    addLog(`✓ Sync Recipes: ${accPopulated} populated`, "success");
     return true;
   }
 
@@ -288,7 +297,7 @@ export default function AdminPage() {
             )}
             <Button variant="ghost" size="sm" onClick={syncRecipesOnly} disabled={busy}>
               <BookOpen className="size-4 mr-1.5" />
-              Recipe IDs
+              Sync Recipes
             </Button>
             <Button variant="outline" size="sm" onClick={syncAllInspect} disabled={busy}>
               <Sparkles className={cn("size-4 mr-1.5", activeSync === "inspect" && "animate-pulse")} />
