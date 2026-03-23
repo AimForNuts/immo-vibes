@@ -56,7 +56,7 @@ export default async function DashboardPage() {
 
       {/* Character roster — client component handles background refresh when stale */}
       <CharacterRoster
-        initialRoster={roster}
+        initialRoster={roster.map(({ cachedAt: _ignored, ...rest }) => rest)}
         initialIsStale={isStale}
         titleLabel={t("characters.title")}
         countLabel={(n: number) => t("overview.characters", { count: n })}
