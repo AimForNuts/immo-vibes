@@ -59,7 +59,7 @@ export default async function DashboardPage() {
         initialRoster={roster.map(({ cachedAt: _ignored, ...rest }) => rest)}
         initialIsStale={isStale}
         titleLabel={t("characters.title")}
-        countLabel={(n: number) => t("overview.characters", { count: n })}
+        countTemplate={t("overview.characters", { count: "{count}" })}
         columnLabels={{
           name:     t("characters.columns.name"),
           class:    t("characters.columns.class"),
