@@ -40,6 +40,7 @@ export async function GET(
       tierModifiers: items.tierModifiers,
       effects:       items.effects,
       recipe:        items.recipe,
+      whereToFind:   items.whereToFind,
     })
     .from(items)
     .where(eq(items.hashedId, id))
@@ -66,6 +67,7 @@ export async function GET(
       tier_modifiers:  r.tierModifiers,
       effects:         r.effects,
       recipe:          r.recipe,
+      where_to_find:   r.whereToFind,
     },
   });
 }
