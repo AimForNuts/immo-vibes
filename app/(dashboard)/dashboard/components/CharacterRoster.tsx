@@ -18,7 +18,8 @@ interface CharacterRosterProps {
   initialRoster:  RosterItem[];
   initialIsStale: boolean;
   titleLabel:     string;
-  countLabel:     (n: number) => string;
+  /** Translation template with a `{count}` placeholder, e.g. "{count} characters" */
+  countTemplate:  string;
   columnLabels:   { name: string; class: string; level: string; location: string; status: string };
   statusLabels:   { online: string; idling: string; offline: string };
 }
@@ -27,7 +28,7 @@ export function CharacterRoster({
   initialRoster,
   initialIsStale,
   titleLabel,
-  countLabel,
+  countTemplate,
   columnLabels,
   statusLabels,
 }: CharacterRosterProps) {
@@ -76,7 +77,7 @@ export function CharacterRoster({
             </span>
           )}
           <span className="text-xs font-mono text-muted-foreground">
-            {countLabel(roster.length)}
+            {countTemplate.replace("{count}", String(roster.length))}
           </span>
         </div>
       </div>
