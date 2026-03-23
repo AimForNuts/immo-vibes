@@ -223,6 +223,26 @@ export interface ItemInspect {
 }
 
 /**
+ * Fetch a single page of items for a given type — no rate-limit sleeping.
+ * Used by the admin sync route so pagination is controlled client-side.
+ * Endpoint: GET /v1/item/search?type={type}&page={n}
+ */
+export async function searchItemsByTypePage(
+  type: string,
+  page: number,
+  token: string
+): Promise<{ items: ItemSearchResult[]; pagination: { current_page: number; last_page: number } }> {
+  const normalizedType = type.toUpperCase();
+  const url = `${BASE}/v1/item/search?type=${encodeURIComponent(normalizedType)}&page=${page}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`IdleMMO API /v1/item/search?type=${normalizedType} returned ${res.status}`);
+  return res.json() as Promise<{ items: ItemSearchResult[]; pagination: { current_page: number; last_page: number } }>;
+}
+
+/**
  * Fetch all pages of items for a given type (auto-paginates).
  * Type is normalised to uppercase before the request.
  * Endpoint: GET /v1/item/search?type={type}&page={n}
