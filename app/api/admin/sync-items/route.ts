@@ -3,9 +3,9 @@ import { sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
-import { searchItemsByType, IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
+import { searchItemsByTypePage, IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 const ALL_TYPES = IDLEMMO_ITEM_TYPES as readonly string[];
 
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type")?.toUpperCase();
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
 
   if (!type || !ALL_TYPES.includes(type)) {
     return NextResponse.json(
@@ -31,9 +32,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let fetched;
+  let fetched: Awaited<ReturnType<typeof searchItemsByTypePage>>;
   try {
-    fetched = await searchItemsByType(type, token);
+    fetched = await searchItemsByTypePage(type, page, token);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: msg }, { status: 502 });
@@ -41,11 +42,11 @@ export async function POST(request: NextRequest) {
 
   const now = new Date();
 
-  if (fetched.length > 0) {
+  if (fetched.items.length > 0) {
     await db
       .insert(items)
       .values(
-        fetched.map((item) => ({
+        fetched.items.map((item) => ({
           hashedId:    item.hashed_id,
           name:        item.name,
           type:        item.type.toUpperCase(),
@@ -68,5 +69,10 @@ export async function POST(request: NextRequest) {
       });
   }
 
-  return NextResponse.json({ type, synced: fetched.length });
+  return NextResponse.json({
+    type,
+    synced:     fetched.items.length,
+    page:       fetched.pagination.current_page,
+    totalPages: fetched.pagination.last_page,
+  });
 }
