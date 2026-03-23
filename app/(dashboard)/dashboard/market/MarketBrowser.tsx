@@ -7,6 +7,7 @@ import {
   SlidersHorizontal,
   ShoppingBag, Sparkles, BookOpen, Archive,
   AlertCircle,
+  ChevronDown, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MARKET_TABS } from "@/lib/market-config";
@@ -53,9 +54,10 @@ function LoadingStatus({ loading }: { loading: boolean }) {
 
 export function MarketBrowser() {
   // Filters
-  const [showFilters,    setShowFilters]    = useState(false);
-  const [filters,        setFilters]        = useState<Filters>(DEFAULT_FILTERS);
-  const [showUntradable, setShowUntradable] = useState(false);
+  const [showFilters,       setShowFilters]       = useState(false);
+  const [filters,           setFilters]           = useState<Filters>(DEFAULT_FILTERS);
+  const [showUntradable,    setShowUntradable]    = useState(false);
+  const [collapsedQualities, setCollapsedQualities] = useState<Set<string>>(new Set());
 
   const {
     items,
@@ -159,6 +161,7 @@ export function MarketBrowser() {
                   onClick={() => switchTab(t.id, () => {
                     setFilters(DEFAULT_FILTERS);
                     clearSelection();
+                    setCollapsedQualities(new Set());
                   })}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors",
@@ -293,10 +296,25 @@ export function MarketBrowser() {
                         : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
                     );
 
+                    const isCollapsed = collapsedQualities.has(quality);
+
                     return (
                       <div key={quality}>
-                        {/* Quality section header */}
-                        <div className="flex items-center gap-3 mb-3">
+                        {/* Quality section header — click to toggle */}
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedQualities((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(quality)) next.delete(quality);
+                            else next.add(quality);
+                            return next;
+                          })}
+                          className="flex items-center gap-3 mb-3 w-full text-left group"
+                        >
+                          {isCollapsed
+                            ? <ChevronRight className={cn("size-3 shrink-0", QUALITY_COLORS[quality])} />
+                            : <ChevronDown  className={cn("size-3 shrink-0", QUALITY_COLORS[quality])} />
+                          }
                           <span className={cn("text-xs font-bold uppercase tracking-widest", QUALITY_COLORS[quality])}>
                             {quality.charAt(0) + quality.slice(1).toLowerCase()}
                           </span>
@@ -305,9 +323,9 @@ export function MarketBrowser() {
                             style={{ backgroundColor: QUALITY_BORDER_CSS[quality] ?? "rgba(113,113,122,0.4)" }}
                           />
                           <span className="text-[10px] text-zinc-700 font-mono">{qItems.length}</span>
-                        </div>
+                        </button>
 
-                        {groupByType ? (
+                        {!isCollapsed && (groupByType ? (
                           // LEGENDARY + MYTHIC: sub-group by type, each sorted by vendor price
                           <div className="space-y-5">
                             {Object.entries(
@@ -347,7 +365,7 @@ export function MarketBrowser() {
                               />
                             ))}
                           </div>
-                        )}
+                        ))}
                       </div>
                     );
                   })

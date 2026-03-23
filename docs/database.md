@@ -19,6 +19,7 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | Item effects, requirements | `items` | `effects`, `requirements` |
 | Recipe materials for a RECIPE item | `items` | `recipe` (full JSONB) |
 | Which recipe produces a given item | `items` | `recipe_result_hashed_id` (deprecated → join on `recipe.result.hashed_item_id`) |
+| Item drop locations (enemies, dungeons, world bosses) | `items` | `where_to_find` |
 | User settings / dashboard layout | `user_preferences` | `user_id`, `dashboard_layout` |
 | User's tracked price alerts | `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
@@ -55,6 +56,7 @@ Populated in stages by three separate sync jobs.
 | `effects` | jsonb | ✓ | sync-inspect | Passive bonuses (see `ItemEffect` type in schema) |
 | `recipe` | jsonb | ✓ | sync-inspect | Full recipe: skill, level, materials, result (see `ItemRecipe` type) |
 | `inspected_at` | timestamp | ✓ | sync-inspect | When inspect data was last synced |
+| `where_to_find` | jsonb | ✓ | sync-inspect | Drop locations: `{ enemies: [{id, name, level}], dungeons: [{id, name}], world_bosses: [{id, name}] }` |
 
 **Tier stat formula** (client-side):
 ```

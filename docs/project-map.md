@@ -97,7 +97,7 @@ Admin-only sync that populates full item stats (combat stats, effects, requireme
 | Admin route | `app/api/admin/sync-inspect/route.ts` |
 | IdleMMO client | `lib/idlemmo.ts` → `inspectItem()` |
 
-**DB tables**: `items` (write inspect fields: `description`, `baseStats`, `tierModifiers`, `effects`, `recipe`, `requirements`, `inspectedAt`)
+**DB tables**: `items` (write inspect fields: `description`, `baseStats`, `tierModifiers`, `effects`, `recipe`, `requirements`, `whereToFind`, `inspectedAt`)
 **External API**: `GET /v1/item/{hashedId}/inspect`
 **Docs**: `docs/database.md`, `docs/game-mechanics/items.md`, `docs/game-mechanics/combat-stats.md`
 

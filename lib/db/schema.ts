@@ -21,6 +21,12 @@ export interface ItemRecipe {
   result: { hashed_item_id: string; item_name: string } | null;
 }
 
+export interface ItemWhereToFind {
+  enemies:      Array<{ id: number; name: string; level: number }>;
+  dungeons:     Array<{ id: number; name: string }>;
+  world_bosses: Array<{ id: number; name: string }>;
+}
+
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -116,6 +122,8 @@ export const items = pgTable("items", {
   recipe:               jsonb("recipe").$type<ItemRecipe>(),
   /** When inspect data was last synced from the IdleMMO API. */
   inspectedAt:          timestamp("inspected_at"),
+  /** Drop locations from the IdleMMO API inspect response. Null if not available or item has no drops. */
+  whereToFind:          jsonb("where_to_find").$type<ItemWhereToFind>(),
 
   // ── Price fields (populated by sync-prices) ─────────────────────────────
   /**
