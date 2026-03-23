@@ -1,9 +1,11 @@
 import { config } from "dotenv";
 import { defineConfig } from "drizzle-kit";
-import { neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 
-neonConfig.webSocketConstructor = ws;
+// Polyfill WebSocket for @neondatabase/serverless in Node.js environments (CI)
+if (!globalThis.WebSocket) {
+  (globalThis as unknown as Record<string, unknown>).WebSocket = ws;
+}
 
 config({ path: ".env.local" });
 
