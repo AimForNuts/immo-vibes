@@ -50,6 +50,13 @@
       "when": 1774309563198,
       "tag": "0006_add_is_member_to_characters",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1774311305254,
+      "tag": "0007_add_dungeons_table",
+      "breakpoints": true
     }
   ]
 }
