@@ -1,3 +1,7 @@
+import type { DungeonLootItem } from "@/lib/db/schema";
+
+export type { DungeonLootItem };
+
 /**
  * Dungeon difficulty calculations.
  * Source: https://wiki.idle-mmo.com/combat/dungeons
@@ -69,6 +73,7 @@ export interface StaticDungeon {
   goldCost: number;
   durationSec: number;
   difficulty: number; // 0 = unknown, filled by API when available
+  loot?: DungeonLootItem[];
 }
 
 function dur(h: number, m = 0, s = 0) {

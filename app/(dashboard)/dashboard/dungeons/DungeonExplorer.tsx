@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Skull, User, Swords, Shield, Wind, Crosshair, Zap,
   Link2, Sparkles, AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, PawPrint, Save,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CHAR_STAT_MAP, QUALITY_COLORS, SLOT_LABELS } from "@/lib/game-constants";
+import { CHAR_STAT_MAP, QUALITY_COLORS, SLOT_LABELS, BASE_IDLE_TIME_MS } from "@/lib/game-constants";
 import {
   assessDungeon,
   totalCombatStats,
@@ -17,6 +18,7 @@ import {
   type StaticDungeon,
 } from "./difficulty";
 import type { SavedPreset } from "../gear/actions";
+import type { CharacterEffect } from "@/lib/idlemmo";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -55,7 +57,7 @@ interface DungeonExplorerProps {
   dungeons: StaticDungeon[];
   presets: SavedPreset[];
   itemsMap: Record<string, { name: string; quality: string; imageUrl: string | null }>;
-  characters: { hashed_id: string; name: string }[];
+  characters: { hashed_id: string; name: string; isMember: boolean | null; isPrimary: boolean }[];
   hasDifficultyData: boolean;
 }
 
@@ -84,8 +86,68 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
   // Efficiency modifier
   const [efficiencyPct, setEfficiencyPct] = useState(0);
 
+  // Expandable dungeon rows
+  const [expandedDungeon, setExpandedDungeon] = useState<string | null>(null);
+
+  // Extra MF input (for future use)
+  const [extraMfPct, setExtraMfPct] = useState(0);
+
+  // Effects / idle time
+  const [effectsHouseBonus, setEffectsHouseBonus] = useState(0);
+  const [effectsLoading, setEffectsLoading] = useState(false);
+  const [effectsCooldown, setEffectsCooldown] = useState(false);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const noGear = presetId === NO_GEAR_ID;
   const selectedPreset = noGear ? null : (presets.find((p) => p.id === presetId) ?? null);
+  const selectedChar = characters.find((c) => c.hashed_id === characterId) ?? null;
+
+  // ── Max idle time ────────────────────────────────────────────────────────────
+
+  const maxIdleMs: number | null = (() => {
+    if (!selectedChar) return null;
+    if (selectedChar.isMember === null) return null;
+    const memberKey = selectedChar.isMember ? "member" : "nonMember";
+    const roleKey   = selectedChar.isPrimary ? "main" : "alt";
+    return BASE_IDLE_TIME_MS[memberKey][roleKey] + effectsHouseBonus;
+  })();
+
+  // ── Load effects from sessionStorage or API ──────────────────────────────────
+
+  function applyEffects(effects: CharacterEffect[]) {
+    const bonus = effects
+      .filter((e) => e.source === "house_component" && e.attribute === "max_idle_time")
+      .reduce((sum, e) => sum + e.value, 0);
+    setEffectsHouseBonus(bonus);
+  }
+
+  async function loadEffects(charId: string, forceRefresh = false) {
+    if (!charId) { setEffectsHouseBonus(0); return; }
+
+    const cacheKey = `effects:${charId}`;
+
+    if (!forceRefresh) {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          applyEffects(JSON.parse(cached) as CharacterEffect[]);
+          return;
+        } catch { /* fall through to fetch */ }
+      }
+    }
+
+    setEffectsLoading(true);
+    try {
+      const res = await fetch(`/api/idlemmo/character/${charId}/effects`);
+      if (res.ok) {
+        const data = await res.json();
+        const effects: CharacterEffect[] = data.effects ?? [];
+        sessionStorage.setItem(cacheKey, JSON.stringify(effects));
+        applyEffects(effects);
+      }
+    } catch { /* leave bonus at 0 */ }
+    setEffectsLoading(false);
+  }
 
   // ── Load saved pet combat stats from DB whenever character changes ──────────
 
@@ -107,6 +169,29 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
       })
       .catch(() => setPetStats(EMPTY_PET_STATS));
   }, [characterId]);
+
+  // ── Load effects whenever character changes ──────────────────────────────────
+
+  useEffect(() => {
+    setEffectsHouseBonus(0);
+    setEffectsCooldown(false);
+    if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    loadEffects(characterId);
+    return () => {
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [characterId]);
+
+  // ── Refresh effects button handler ──────────────────────────────────────────
+
+  function handleRefreshEffects() {
+    if (!characterId || effectsCooldown || effectsLoading) return;
+    sessionStorage.removeItem(`effects:${characterId}`);
+    loadEffects(characterId, true);
+    setEffectsCooldown(true);
+    cooldownTimerRef.current = setTimeout(() => setEffectsCooldown(false), 10_000);
+  }
 
   // ── Compute combat stats whenever character or preset changes ───────────────
 
@@ -274,6 +359,45 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
               <option key={c.hashed_id} value={c.hashed_id}>{c.name}</option>
             ))}
           </select>
+
+          {/* Max idle time display */}
+          {characterId && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
+              <Clock className="size-3 shrink-0" />
+              {selectedChar?.isMember === null ? (
+                <span className="text-amber-500/70">Sync characters to see idle time</span>
+              ) : maxIdleMs !== null ? (
+                <span>
+                  Max idle:
+                  {effectsHouseBonus > 0 ? (
+                    <>
+                      {" "}{formatDuration(Math.round((maxIdleMs - effectsHouseBonus) / 1000))}
+                      <span className="text-emerald-400/80"> + {formatDuration(Math.round(effectsHouseBonus / 1000))} house</span>
+                      {" = "}<span className="text-foreground/80">{formatDuration(Math.round(maxIdleMs / 1000))}</span>
+                    </>
+                  ) : (
+                    <> <span className="text-foreground/80">{formatDuration(Math.round(maxIdleMs / 1000))}</span></>
+                  )}
+                </span>
+              ) : (
+                <span>—</span>
+              )}
+              <button
+                onClick={handleRefreshEffects}
+                disabled={effectsCooldown || effectsLoading || !characterId}
+                title={effectsCooldown ? "Cooldown — wait 10s" : "Refresh house effects"}
+                className={cn(
+                  "ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] transition-colors",
+                  (effectsCooldown || effectsLoading)
+                    ? "border-border/30 text-muted-foreground/30 cursor-not-allowed"
+                    : "border-border/50 text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                )}
+              >
+                <RefreshCw className={cn("size-2.5", effectsLoading && "animate-spin")} />
+                Refresh
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -593,78 +717,183 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
             assessment.canChain ? "border-l-green-500" :
             "border-l-amber-500";
 
+          const isExpanded = expandedDungeon === dungeon.name;
+          const effectiveDurSec = effectiveDuration(dungeon.durationSec);
+          const runsInIdle = maxIdleMs !== null
+            ? Math.floor(maxIdleMs / (effectiveDurSec * 1000))
+            : null;
+
           return (
-            <div
-              key={dungeon.name}
-              className={cn(
-                "grid grid-cols-[1fr_3rem_5rem_10rem_6rem_5rem_5rem] items-center gap-3 px-4 py-3 border-l-2 transition-colors",
-                "border-b border-border/50 last:border-b-0",
-                leftBorder,
-                i % 2 === 0 ? "bg-background" : "bg-muted/10"
-              )}
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{dungeon.name}</p>
-                <p className="text-[10px] text-muted-foreground/60 truncate font-mono">{dungeon.location}</p>
-              </div>
-              <span className="text-xs font-mono tabular-nums text-muted-foreground">{dungeon.minLevel}</span>
-              <span className="text-xs font-mono tabular-nums text-muted-foreground">
-                {dungeon.difficulty > 0 ? dungeon.difficulty.toLocaleString() : "—"}
-              </span>
-              <div className="relative h-5 rounded-sm overflow-hidden bg-muted/30 border border-border/40">
-                <div className={cn("h-full transition-all duration-500", barColor)} style={{ width: `${barPct}%` }} />
-                <div className="absolute inset-0">
-                  <div className="absolute top-0 bottom-0 w-px bg-foreground/20" style={{ left: "35%" }} />
-                  <div className="absolute top-0 bottom-0 w-px bg-foreground/20" style={{ left: "65%" }} />
-                  <div className="absolute top-0 bottom-0 w-px bg-foreground/10" style={{ left: "80%" }} />
-                  {ratio !== null && (
-                    <span className="absolute right-1 top-0 bottom-0 flex items-center text-[9px] font-mono text-foreground/50">
-                      {Math.round(ratio * 100)}%
-                    </span>
+            <div key={dungeon.name} className={cn("border-b border-border/50 last:border-b-0", i % 2 === 0 ? "bg-background" : "bg-muted/10")}>
+              {/* Main row — clickable to expand */}
+              <button
+                type="button"
+                onClick={() => setExpandedDungeon(isExpanded ? null : dungeon.name)}
+                className={cn(
+                  "w-full grid grid-cols-[1fr_3rem_5rem_10rem_6rem_5rem_5rem] items-center gap-3 px-4 py-3 border-l-2 transition-colors text-left",
+                  "hover:bg-muted/20",
+                  leftBorder,
+                )}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    {isExpanded
+                      ? <ChevronDown className="size-3 text-muted-foreground/50 shrink-0" />
+                      : <ChevronRight className="size-3 text-muted-foreground/30 shrink-0" />
+                    }
+                    <p className="text-sm font-medium truncate">{dungeon.name}</p>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/60 truncate font-mono pl-4">{dungeon.location}</p>
+                </div>
+                <span className="text-xs font-mono tabular-nums text-muted-foreground">{dungeon.minLevel}</span>
+                <span className="text-xs font-mono tabular-nums text-muted-foreground">
+                  {dungeon.difficulty > 0 ? dungeon.difficulty.toLocaleString() : "—"}
+                </span>
+                <div className="relative h-5 rounded-sm overflow-hidden bg-muted/30 border border-border/40">
+                  <div className={cn("h-full transition-all duration-500", barColor)} style={{ width: `${barPct}%` }} />
+                  <div className="absolute inset-0">
+                    <div className="absolute top-0 bottom-0 w-px bg-foreground/20" style={{ left: "35%" }} />
+                    <div className="absolute top-0 bottom-0 w-px bg-foreground/20" style={{ left: "65%" }} />
+                    <div className="absolute top-0 bottom-0 w-px bg-foreground/10" style={{ left: "80%" }} />
+                    {ratio !== null && (
+                      <span className="absolute right-1 top-0 bottom-0 flex items-center text-[9px] font-mono text-foreground/50">
+                        {Math.round(ratio * 100)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  {!assessment ? (
+                    <span className="text-[10px] font-mono text-muted-foreground/40">—</span>
+                  ) : !assessment.canEnter ? (
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 gap-0.5 h-5">
+                      <Ban className="size-2.5" /> Blocked
+                    </Badge>
+                  ) : assessment.mfTier === "max" ? (
+                    <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-emerald-400/20 text-emerald-300 border-emerald-400/30">
+                      <Sparkles className="size-2.5" /> Max MF
+                    </Badge>
+                  ) : assessment.mfTier === "small" ? (
+                    <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-emerald-600/20 text-emerald-500 border-emerald-600/30">
+                      <Sparkles className="size-2.5" /> MF
+                    </Badge>
+                  ) : assessment.canChain ? (
+                    <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-green-500/20 text-green-400 border-green-500/30">
+                      <Link2 className="size-2.5" /> Chain
+                    </Badge>
+                  ) : (
+                    <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-amber-500/20 text-amber-400 border-amber-500/30">
+                      <AlertTriangle className="size-2.5" /> Risky
+                    </Badge>
                   )}
                 </div>
-              </div>
-              <div>
-                {!assessment ? (
-                  <span className="text-[10px] font-mono text-muted-foreground/40">—</span>
-                ) : !assessment.canEnter ? (
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 gap-0.5 h-5">
-                    <Ban className="size-2.5" /> Blocked
-                  </Badge>
-                ) : assessment.mfTier === "max" ? (
-                  <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-emerald-400/20 text-emerald-300 border-emerald-400/30">
-                    <Sparkles className="size-2.5" /> Max MF
-                  </Badge>
-                ) : assessment.mfTier === "small" ? (
-                  <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-emerald-600/20 text-emerald-500 border-emerald-600/30">
-                    <Sparkles className="size-2.5" /> MF
-                  </Badge>
-                ) : assessment.canChain ? (
-                  <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-green-500/20 text-green-400 border-green-500/30">
-                    <Link2 className="size-2.5" /> Chain
-                  </Badge>
-                ) : (
-                  <Badge className="text-[10px] px-1.5 py-0 gap-0.5 h-5 bg-amber-500/20 text-amber-400 border-amber-500/30">
-                    <AlertTriangle className="size-2.5" /> Risky
-                  </Badge>
-                )}
-              </div>
-              <span className={cn(
-                "text-xs font-mono tabular-nums text-right",
-                !assessment ? "text-muted-foreground/40" :
-                !assessment.canEnter ? "text-red-500" :
-                assessment.mfTier !== "none" ? "text-emerald-400" :
-                assessment.healthLossPct > 50 ? "text-amber-400" : "text-green-400"
-              )}>
-                {!assessment ? "—" : !assessment.canEnter ? "100%" : `${assessment.healthLossPct}%`}
-              </span>
-              <span className="text-[10px] font-mono text-muted-foreground/60 flex items-center gap-0.5">
-                <Clock className="size-2.5 shrink-0" />
-                {formatDuration(effectiveDuration(dungeon.durationSec))}
-                {efficiencyPct > 0 && (
-                  <span className="text-muted-foreground/40 ml-0.5">({formatDuration(dungeon.durationSec)})</span>
-                )}
-              </span>
+                <span className={cn(
+                  "text-xs font-mono tabular-nums text-right",
+                  !assessment ? "text-muted-foreground/40" :
+                  !assessment.canEnter ? "text-red-500" :
+                  assessment.mfTier !== "none" ? "text-emerald-400" :
+                  assessment.healthLossPct > 50 ? "text-amber-400" : "text-green-400"
+                )}>
+                  {!assessment ? "—" : !assessment.canEnter ? "100%" : `${assessment.healthLossPct}%`}
+                </span>
+                <span className="text-[10px] font-mono text-muted-foreground/60 flex items-center gap-0.5">
+                  <Clock className="size-2.5 shrink-0" />
+                  {formatDuration(effectiveDurSec)}
+                  {efficiencyPct > 0 && (
+                    <span className="text-muted-foreground/40 ml-0.5">({formatDuration(dungeon.durationSec)})</span>
+                  )}
+                </span>
+              </button>
+
+              {/* Expansion panel */}
+              {isExpanded && (
+                <div className="border-t border-border/30 bg-muted/5 px-4 py-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                    {/* Left — Idle time stats */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">Idle Stats</p>
+                      {selectedChar?.isMember === null ? (
+                        <p className="text-xs text-amber-500/70 font-mono">Sync characters to calculate</p>
+                      ) : maxIdleMs !== null ? (
+                        <div className="space-y-1.5 font-mono text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Max idle</span>
+                            <span className="text-foreground/80">{formatDuration(Math.round(maxIdleMs / 1000))}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Run duration</span>
+                            <span className="text-foreground/80">{formatDuration(effectiveDurSec)}</span>
+                          </div>
+                          <div className="flex items-center justify-between border-t border-border/30 pt-1.5">
+                            <span className="text-muted-foreground">Runs possible</span>
+                            <span className={cn(
+                              "font-bold",
+                              runsInIdle === null ? "text-muted-foreground/40"
+                              : runsInIdle >= 3 ? "text-emerald-400"
+                              : runsInIdle >= 2 ? "text-green-400"
+                              : "text-amber-400"
+                            )}>
+                              {runsInIdle ?? "—"}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground/40 font-mono">No character selected</p>
+                      )}
+                    </div>
+
+                    {/* Middle — Modifier inputs */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">Modifiers</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-muted-foreground w-24 shrink-0">Efficiency</span>
+                          <span className="text-xs font-mono text-foreground/60 tabular-nums">{efficiencyPct}%</span>
+                          <span className="text-[10px] text-muted-foreground/40">(global)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs font-mono text-muted-foreground w-24 shrink-0">Magic Find %</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={extraMfPct || ""}
+                            placeholder="0"
+                            onChange={(e) => setExtraMfPct(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                            className="w-16 text-xs bg-background border border-border rounded px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right — Loot table */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">Loot Table</p>
+                      {!dungeon.loot || dungeon.loot.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground/40 font-mono">
+                          Loot data unavailable — sync dungeons in Admin
+                        </p>
+                      ) : (
+                        <div className="space-y-1">
+                          {[...dungeon.loot]
+                            .sort((a, b) => b.chance - a.chance)
+                            .map((item, idx) => (
+                              <div key={`${item.hashed_item_id}-${idx}`} className="flex items-center justify-between gap-2 text-xs">
+                                <span className={cn("truncate font-medium", QUALITY_COLORS[item.quality] ?? "text-foreground")}>
+                                  {item.name}
+                                </span>
+                                <span className="text-muted-foreground/60 font-mono tabular-nums shrink-0">
+                                  {item.chance}%
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
