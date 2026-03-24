@@ -9,6 +9,8 @@
  * Game mechanic formulas: docs/game-mechanics/
  */
 
+import type { DungeonLootItem } from "@/lib/db/schema";
+
 const BASE = "https://api.idle-mmo.com";
 
 const MAX_RETRIES = 3;
@@ -424,6 +426,9 @@ export interface DungeonInfo {
   cost: number;
   location: { id: number; name: string } | null;
   image_url: string | null;
+  description: string | null;
+  shards: number;
+  loot: DungeonLootItem[];
 }
 
 /**

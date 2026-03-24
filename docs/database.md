@@ -27,6 +27,7 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | Saved gear loadouts | `gear_presets` | `user_id`, `slots` (JSONB map of slot → `{hashedId, tier}`) |
 | Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
 | Saved main-pet stats for a character | `character_pets` | `user_id`, `character_hashed_id`, `strength`, `defence`, `speed`, `synced_at` |
+| Dungeon catalog (difficulty, duration, loot) | `dungeons` | `id`, `name`, `difficulty`, `duration_ms`, `loot` |
 
 ---
 
@@ -213,6 +214,36 @@ Stats reflect the `/v1/character/{id}/pets` API values (may be 0 due to a known 
 **Unique index**: `(user_id, character_hashed_id)` — one pet per character.
 **API route**: `POST /api/characters/[id]/sync-pet`
 **Docs**: `docs/game-mechanics/pets.md`
+
+---
+
+### `dungeons`
+
+Global dungeon catalog. One row per IdleMMO dungeon ID.
+Populated by the admin "Sync Dungeons" action (`POST /api/admin/sync-dungeons`).
+Not per-user — dungeon data is the same for everyone.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | integer PK | — | IdleMMO dungeon integer ID |
+| `name` | text | — | Display name |
+| `image_url` | text | ✓ | CDN URL |
+| `location` | text | ✓ | `location.name` from the IdleMMO API |
+| `level_required` | integer | — | Minimum character level. Default 0. |
+| `difficulty` | integer | — | Difficulty score used in combat ratio. Default 0 (unknown). |
+| `duration_ms` | integer | — | Run duration in milliseconds (`length` field from API). Default 0. |
+| `gold_cost` | integer | — | Gold cost to enter. Default 0. |
+| `shards` | integer | — | Shard reward. Default 0. |
+| `loot` | jsonb | ✓ | Array of `DungeonLootItem` — null until synced. |
+| `synced_at` | timestamp | — | When this row was last written. |
+
+**`DungeonLootItem` shape** (each element in the `loot` array):
+```ts
+{ hashed_item_id, name, image_url, quality, quantity, chance }
+```
+
+**Admin route**: `POST /api/admin/sync-dungeons`
+**Docs**: `docs/api/internal/dungeons-sync.md`
 
 ---
 

@@ -2,6 +2,15 @@ import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial 
 
 // ─── Shared types for JSONB columns ───────────────────────────────────────────
 
+export interface DungeonLootItem {
+  hashed_item_id: string;
+  name: string;
+  image_url: string | null;
+  quality: string;
+  quantity: number;
+  chance: number;
+}
+
 export interface ItemEffect {
   attribute:  string;
   target:     string;
@@ -333,4 +342,27 @@ export const gearPresets = pgTable("gear_presets", {
     .notNull(),
   createdAt: timestamp("created_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
+});
+
+/**
+ * Cached dungeon catalog from the IdleMMO API.
+ * Populated by the admin "Sync Dungeons" action.
+ * One row per dungeon ID.
+ */
+export const dungeons = pgTable("dungeons", {
+  /** IdleMMO dungeon integer ID */
+  id:            integer("id").primaryKey(),
+  name:          text("name").notNull(),
+  imageUrl:      text("image_url"),
+  /** location.name from the IdleMMO API */
+  location:      text("location"),
+  levelRequired: integer("level_required").notNull().default(0),
+  difficulty:    integer("difficulty").notNull().default(0),
+  /** Run duration in milliseconds (the "length" field from the API) */
+  durationMs:    integer("duration_ms").notNull().default(0),
+  goldCost:      integer("gold_cost").notNull().default(0),
+  shards:        integer("shards").notNull().default(0),
+  /** Full loot array from the API */
+  loot:          jsonb("loot").$type<DungeonLootItem[]>(),
+  syncedAt:      timestamp("synced_at").notNull(),
 });

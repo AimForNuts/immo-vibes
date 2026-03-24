@@ -166,17 +166,19 @@ DPS calculator with enemy list and character selector.
 ---
 
 ### Dungeons Explorer
-Dungeon difficulty calculator with character stat comparison.
+Dungeon difficulty calculator with character stat comparison, idle time planner, and loot table viewer.
 
 | Layer | Files |
 |---|---|
 | Page | `app/(dashboard)/dashboard/dungeons/page.tsx` |
 | Component | `app/(dashboard)/dashboard/dungeons/DungeonExplorer.tsx` |
 | Static data | `app/(dashboard)/dashboard/dungeons/difficulty.ts` |
+| API — admin sync | `app/api/admin/sync-dungeons/route.ts` |
+| API — effects proxy | `app/api/idlemmo/character/[id]/effects/route.ts` |
 
-**DB tables**: `gearPresets` (read for preset selector)
-**External API**: `getCharacterInfo()`, `getAltCharacters()`, `getDungeons()`
-**Docs**: `docs/game-mechanics/dungeons.md`, `docs/game-mechanics/combat-stats.md`
+**DB tables**: `dungeons` (read for dungeon catalog), `gearPresets` (read for preset selector), `characters` (read via `getDbCharacters` for `isMember`/`isPrimary`)
+**External API**: `getDungeons()` (admin sync only), `getCharacterEffects()` (proxied via effects route)
+**Docs**: `docs/game-mechanics/dungeons.md`, `docs/game-mechanics/combat-stats.md`, `docs/database.md`, `docs/api/internal/dungeons-sync.md`, `docs/api/internal/character-effects.md`
 
 ---
 
@@ -237,8 +239,9 @@ Manual sync triggers with live activity log and per-type status.
 | | `app/api/admin/sync-recipes/route.ts` |
 | | `app/api/admin/sync-inspect/route.ts` |
 | | `app/api/admin/market-type-check/route.ts` |
+| | `app/api/admin/sync-dungeons/route.ts` |
 
-**DB tables**: `items`, `market_price_history`, `sync_state`
+**DB tables**: `items`, `market_price_history`, `sync_state`, `dungeons`
 **External API**: All IdleMMO sync endpoints
 **Requires**: `session.user.role === "admin"`
 
@@ -290,6 +293,7 @@ Email/password auth via better-auth.
 | `syncState` | all cron jobs | cron jobs (gating), admin panel |
 | `characters` | character-cache service | dashboard, characters list |
 | `character_pets` | sync-pet API route (user action) | character detail page |
+| `dungeons` | admin sync-dungeons route | dungeons page |
 | `user` / `session` / `account` / `verification` | better-auth | auth middleware |
 
 ---

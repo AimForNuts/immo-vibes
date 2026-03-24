@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { gearPresets, items } from "@/lib/db/schema";
-import { getCharacterInfo, getAltCharacters, getDungeons } from "@/lib/idlemmo";
+import { gearPresets, items, dungeons as dungeonsTable } from "@/lib/db/schema";
+import { getDbCharacters } from "@/lib/services/character-cache";
 import { STATIC_DUNGEONS, type StaticDungeon } from "./difficulty";
 import { DungeonExplorer } from "./DungeonExplorer";
 
@@ -12,47 +12,60 @@ export default async function DungeonsPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
-  const { idlemmoToken: token, idlemmoCharacterId: charId } = session.user;
+  // Load characters from DB cache (instant — no API call)
+  const dbChars = await getDbCharacters(session.user.id);
+  const characters = dbChars.map((c) => ({
+    hashed_id: c.hashedId,
+    name:      c.name,
+    isMember:  c.isMember,
+    isPrimary: c.isPrimary,
+  }));
 
-  // Load characters and dungeons in parallel (both best-effort)
-  type CharOption = { hashed_id: string; name: string };
-  let characters: CharOption[] = [];
-  let dungeons: StaticDungeon[] = STATIC_DUNGEONS;
+  // Load dungeon data from DB, fall back to STATIC_DUNGEONS
+  const dbDungeons = await db.select().from(dungeonsTable);
 
-  if (token && charId) {
-    const [charResult, dungeonResult] = await Promise.allSettled([
-      Promise.all([getCharacterInfo(charId, token), getAltCharacters(charId, token)]),
-      getDungeons(token),
-    ]);
+  let dungeons: StaticDungeon[];
 
-    if (charResult.status === "fulfilled") {
-      const [primary, alts] = charResult.value;
-      characters = [
-        { hashed_id: primary.hashed_id, name: primary.name },
-        ...alts.map((a) => ({ hashed_id: a.hashed_id, name: a.name })),
-      ];
+  if (dbDungeons.length > 0) {
+    // Merge DB rows over the static list by name (case-insensitive).
+    // DB dungeons not in the static list are appended at the end.
+    const dbMap = new Map(dbDungeons.map((d) => [d.name.toLowerCase(), d]));
+
+    const merged = STATIC_DUNGEONS.map((s) => {
+      const row = dbMap.get(s.name.toLowerCase());
+      if (!row) return s;
+      return {
+        ...s,
+        difficulty:  row.difficulty,
+        durationSec: Math.round(row.durationMs / 1000),
+        minLevel:    row.levelRequired,
+        goldCost:    row.goldCost,
+        loot:        row.loot ?? undefined,
+      };
+    });
+
+    // Append any DB dungeon not already in the static list (e.g. newly added dungeons)
+    const staticNames = new Set(STATIC_DUNGEONS.map((s) => s.name.toLowerCase()));
+    for (const d of dbDungeons) {
+      if (!staticNames.has(d.name.toLowerCase())) {
+        merged.push({
+          name:        d.name,
+          minLevel:    d.levelRequired,
+          location:    d.location ?? "",
+          goldCost:    d.goldCost,
+          durationSec: Math.round(d.durationMs / 1000),
+          difficulty:  d.difficulty,
+          loot:        d.loot ?? undefined,
+        });
+      }
     }
 
-    if (dungeonResult.status === "fulfilled") {
-      const apiDungeons = dungeonResult.value;
-      // Merge API data into the static list (matched by name, case-insensitive)
-      const apiMap = new Map(apiDungeons.map((d) => [d.name?.toLowerCase(), d]));
-      dungeons = STATIC_DUNGEONS.map((d) => {
-        const apiEntry = apiMap.get(d.name.toLowerCase());
-        if (!apiEntry) return d;
-        return {
-          ...d,
-          difficulty: apiEntry.difficulty,
-          // API returns duration in ms; convert to seconds
-          durationSec: Math.round(apiEntry.length / 1000),
-          minLevel: apiEntry.level_required,
-          goldCost: apiEntry.cost,
-        };
-      });
-    } else {
-      console.error("[DungeonsPage] getDungeons failed:", dungeonResult.reason);
-    }
+    dungeons = merged;
+  } else {
+    dungeons = STATIC_DUNGEONS;
   }
+
+  const hasDifficultyData = dungeons.some((d) => d.difficulty > 0);
 
   // Load user's saved gear presets
   const presetRows = await db
@@ -92,8 +105,6 @@ export default async function DungeonsPage() {
     slots: p.slots as Record<string, { hashedId: string; tier: number }>,
     characterId: p.characterId ?? undefined,
   }));
-
-  const hasDifficultyData = dungeons.some((d) => d.difficulty > 0);
 
   return (
     <DungeonExplorer

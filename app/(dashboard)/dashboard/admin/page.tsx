@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   RefreshCw, CheckCircle, XCircle, Loader, TrendingUp,
-  Sparkles, X, BookOpen, Clock,
+  Sparkles, X, BookOpen, Clock, Skull,
 } from "lucide-react";
 import { MARKET_TABS } from "@/lib/market-config";
 import { cn } from "@/lib/utils";
@@ -45,7 +45,8 @@ let _logId = 0;
 
 export default function AdminPage() {
   const [busy,       setBusy]       = useState(false);
-  const [activeSync, setActiveSync] = useState<"items" | "prices" | "inspect" | null>(null);
+  const [activeSync, setActiveSync] = useState<"items" | "prices" | "inspect" | "dungeons" | null>(null);
+  const [dungeonsState, setDungeonsState] = useState<SyncState>("idle");
 
   const [statuses,        setStatuses]        = useState<Record<string, TypeStatus>>(
     Object.fromEntries(ALL_TYPES.map((t) => [t, { state: "idle" }]))
@@ -270,6 +271,31 @@ export default function AdminPage() {
     setBusy(false);
   }
 
+  async function syncDungeons() {
+    cancelRef.current = false;
+    setBusy(true);
+    setActiveSync("dungeons");
+    setDungeonsState("syncing");
+    resetLog();
+    addLog("→ Sync Dungeons…");
+    try {
+      const res  = await fetch("/api/admin/sync-dungeons", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setDungeonsState("error");
+        addLog(`✗ Sync Dungeons: ${data.error ?? "Failed"}`, "error");
+      } else {
+        setDungeonsState("done");
+        addLog(`✓ Sync Dungeons: ${data.synced} synced`, "success");
+      }
+    } catch {
+      setDungeonsState("error");
+      addLog("✗ Sync Dungeons: network error", "error");
+    }
+    setActiveSync(null);
+    setBusy(false);
+  }
+
   async function runSingle(fn: (type: string) => Promise<unknown>, type: string) {
     cancelRef.current = false;
     setBusy(true);
@@ -295,6 +321,10 @@ export default function AdminPage() {
                 Cancel
               </Button>
             )}
+            <Button variant="outline" size="sm" onClick={syncDungeons} disabled={busy}>
+              <Skull className={cn("size-4 mr-1.5", activeSync === "dungeons" && "animate-pulse")} />
+              {dungeonsState === "done" ? "Dungeons ✓" : dungeonsState === "error" ? "Dungeons ✗" : "Sync Dungeons"}
+            </Button>
             <Button variant="outline" size="sm" onClick={syncRecipesOnly} disabled={busy}>
               <BookOpen className="size-4 mr-1.5" />
               Sync Recipes
