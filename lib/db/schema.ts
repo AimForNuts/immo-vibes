@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial } from "drizzle-orm/pg-core";
 
 // ─── Shared types for JSONB columns ───────────────────────────────────────────
@@ -99,6 +100,8 @@ export const items = pgTable("items", {
   quality:              text("quality").notNull(),
   imageUrl:             text("image_url"),
   syncedAt:             timestamp("synced_at").notNull(),
+  /** When this item was first inserted into the database. Set once on insert; never updated. */
+  firstSeenAt:          timestamp("first_seen_at").notNull().default(sql`now()`),
   /** NPC buy price — stable, set by the game. Populated during catalog sync. */
   vendorPrice:          integer("vendor_price"),
 
