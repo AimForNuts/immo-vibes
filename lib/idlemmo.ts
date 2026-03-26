@@ -16,6 +16,19 @@ const BASE = "https://api.idle-mmo.com";
 const MAX_RETRIES = 3;
 
 /**
+ * Thrown by searchItemsByTypePage when the IdleMMO API responds with 429.
+ * Contains retryAfterMs so callers can wait the correct amount before retrying.
+ */
+export class RateLimitError extends Error {
+  readonly retryAfterMs: number;
+  constructor(retryAfterMs: number) {
+    super("IdleMMO API returned 429");
+    this.name = "RateLimitError";
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+/**
  * Internal fetch wrapper — adds auth headers, 60s cache revalidation,
  * and automatic 429 retry per the rate-limiting spec in docs/api/rate-limiting.md.
  */
@@ -293,15 +306,37 @@ export async function searchItemsByTypePage(
   type: string,
   page: number,
   token: string
-): Promise<{ items: ItemSearchResult[]; pagination: { current_page: number; last_page: number } }> {
+): Promise<{
+  items: ItemSearchResult[];
+  pagination: { current_page: number; last_page: number };
+  rl: { remaining: number | null; resetAt: number };
+}> {
   const normalizedType = type.toUpperCase();
   const url = `${BASE}/v1/item/search?type=${encodeURIComponent(normalizedType)}&page=${page}`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`IdleMMO API /v1/item/search?type=${normalizedType} returned ${res.status}`);
-  return res.json() as Promise<{ items: ItemSearchResult[]; pagination: { current_page: number; last_page: number } }>;
+
+  const rem = res.headers.get("x-ratelimit-remaining");
+  const rst = res.headers.get("x-ratelimit-reset");
+  const remaining = rem !== null ? parseInt(rem, 10) : null;
+  const resetAt   = rst !== null && !isNaN(parseInt(rst, 10)) ? parseInt(rst, 10) : 0;
+
+  if (res.status === 429) {
+    const retryAfterMs = Math.max(1000, resetAt * 1000 - Date.now() + 500);
+    throw new RateLimitError(retryAfterMs);
+  }
+
+  if (!res.ok) {
+    throw new Error(`IdleMMO API /v1/item/search?type=${normalizedType} returned ${res.status}`);
+  }
+
+  const data = await res.json() as {
+    items: ItemSearchResult[];
+    pagination: { current_page: number; last_page: number };
+  };
+  return { ...data, rl: { remaining, resetAt } };
 }
 
 /**

@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
-import { searchItemsByTypePage, IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
+import { searchItemsByTypePage, IDLEMMO_ITEM_TYPES, RateLimitError } from "@/lib/idlemmo";
 
 export const maxDuration = 60;
 
@@ -36,6 +36,9 @@ export async function POST(request: NextRequest) {
   try {
     fetched = await searchItemsByTypePage(type, page, token);
   } catch (e) {
+    if (e instanceof RateLimitError) {
+      return NextResponse.json({ retryAfterMs: e.retryAfterMs }, { status: 429 });
+    }
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: msg }, { status: 502 });
   }
@@ -74,5 +77,7 @@ export async function POST(request: NextRequest) {
     synced:     fetched.items.length,
     page:       fetched.pagination.current_page,
     totalPages: fetched.pagination.last_page,
+    remaining:  fetched.rl.remaining,
+    resetAt:    fetched.rl.resetAt,
   });
 }
