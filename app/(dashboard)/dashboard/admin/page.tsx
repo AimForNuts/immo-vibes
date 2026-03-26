@@ -94,20 +94,51 @@ export default function AdminPage() {
 
   async function syncType(type: string): Promise<boolean> {
     setStatus(type, { state: "syncing" });
-    let page = 1, totalPages = 1, accSynced = 0;
+    const MAX_RETRIES = 10;
+    const rl = { remaining: null as number | null, resetAt: 0 };
+    let page = 1, totalPages = 1, accSynced = 0, retries = 0;
+
     while (page <= totalPages) {
       if (cancelRef.current) { setStatus(type, { state: "idle" }); return false; }
+
+      // Proactive: if we know remaining is low, wait before firing the next request
+      if (rl.remaining !== null && rl.remaining <= 1) {
+        const waitMs = Math.max(1000, rl.resetAt * 1000 - Date.now() + 500);
+        addLog(`⏳ Rate limit low — waiting ${Math.ceil(waitMs / 1000)}s…`);
+        await new Promise<void>((r) => setTimeout(r, waitMs));
+      }
+
       try {
         addLog(`→ Items: ${type}${totalPages > 1 ? ` (${page}/${totalPages})` : ""}`);
         const res  = await fetch(`/api/admin/sync-items?type=${type}&page=${page}`, { method: "POST" });
         const data = await res.json();
+
+        // Reactive: server hit a 429 — wait retryAfterMs then retry the same page
+        if (res.status === 429) {
+          retries++;
+          if (retries > MAX_RETRIES) {
+            setStatus(type, { state: "error", error: "rate limited (max retries)" });
+            addLog(`✗ ${type}: rate limited (max retries)`, "error");
+            return false;
+          }
+          const waitMs = typeof data.retryAfterMs === "number" ? data.retryAfterMs : 60000;
+          addLog(`⏳ Rate limited — waiting ${Math.ceil(waitMs / 1000)}s… (attempt ${retries}/${MAX_RETRIES})`);
+          await new Promise<void>((r) => setTimeout(r, waitMs));
+          continue; // retry same page, do NOT increment
+        }
+
         if (!res.ok) {
           setStatus(type, { state: "error", error: data.error ?? "Failed" });
           addLog(`✗ ${type}: ${data.error ?? "Failed"}`, "error");
           return false;
         }
-        totalPages  = data.totalPages;
-        accSynced  += data.synced;
+
+        // Success: update rl state for proactive throttling on next iteration
+        retries      = 0;
+        rl.remaining = typeof data.remaining === "number" ? data.remaining : null;
+        rl.resetAt   = typeof data.resetAt   === "number" ? data.resetAt   : 0;
+        totalPages   = data.totalPages;
+        accSynced   += data.synced;
         setStatus(type, { state: page < totalPages ? "syncing" : "done", count: accSynced });
         page++;
       } catch {
@@ -116,6 +147,7 @@ export default function AdminPage() {
         return false;
       }
     }
+
     addLog(`✓ ${type}: ${accSynced} items`, "success");
     return true;
   }
