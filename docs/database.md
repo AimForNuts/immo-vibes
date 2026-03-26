@@ -47,6 +47,7 @@ Populated in stages by three separate sync jobs.
 | `image_url` | text | ✓ | sync-items | CDN URL |
 | `vendor_price` | integer | ✓ | sync-items | NPC buy price in gold |
 | `synced_at` | timestamp | — | sync-items | When the catalog row was last written |
+| `first_seen_at` | timestamp | — | sync-items | When this item was first inserted into the database. Set once on insert via DB default; never updated. |
 | `recipe_result_hashed_id` | text | ✓ | sync-recipes | **Deprecated** — use `recipe.result.hashed_item_id` |
 | `last_sold_price` | integer | ✓ | sync-prices | Latest market sale price at tier 1 |
 | `last_sold_at` | timestamp | ✓ | sync-prices | When that sale happened |
