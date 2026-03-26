@@ -306,15 +306,37 @@ export async function searchItemsByTypePage(
   type: string,
   page: number,
   token: string
-): Promise<{ items: ItemSearchResult[]; pagination: { current_page: number; last_page: number } }> {
+): Promise<{
+  items: ItemSearchResult[];
+  pagination: { current_page: number; last_page: number };
+  rl: { remaining: number | null; resetAt: number };
+}> {
   const normalizedType = type.toUpperCase();
   const url = `${BASE}/v1/item/search?type=${encodeURIComponent(normalizedType)}&page=${page}`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`IdleMMO API /v1/item/search?type=${normalizedType} returned ${res.status}`);
-  return res.json() as Promise<{ items: ItemSearchResult[]; pagination: { current_page: number; last_page: number } }>;
+
+  const rem = res.headers.get("x-ratelimit-remaining");
+  const rst = res.headers.get("x-ratelimit-reset");
+  const remaining = rem !== null ? parseInt(rem, 10) : null;
+  const resetAt   = rst !== null ? parseInt(rst, 10) : 0;
+
+  if (res.status === 429) {
+    const retryAfterMs = Math.max(1000, resetAt * 1000 - Date.now() + 500);
+    throw new RateLimitError(retryAfterMs);
+  }
+
+  if (!res.ok) {
+    throw new Error(`IdleMMO API /v1/item/search?type=${normalizedType} returned ${res.status}`);
+  }
+
+  const data = await res.json() as {
+    items: ItemSearchResult[];
+    pagination: { current_page: number; last_page: number };
+  };
+  return { ...data, rl: { remaining, resetAt } };
 }
 
 /**
