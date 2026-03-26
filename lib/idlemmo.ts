@@ -321,7 +321,7 @@ export async function searchItemsByTypePage(
   const rem = res.headers.get("x-ratelimit-remaining");
   const rst = res.headers.get("x-ratelimit-reset");
   const remaining = rem !== null ? parseInt(rem, 10) : null;
-  const resetAt   = rst !== null ? parseInt(rst, 10) : 0;
+  const resetAt   = rst !== null && !isNaN(parseInt(rst, 10)) ? parseInt(rst, 10) : 0;
 
   if (res.status === 429) {
     const retryAfterMs = Math.max(1000, resetAt * 1000 - Date.now() + 500);
