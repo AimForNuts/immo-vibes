@@ -1,22 +1,6 @@
 # GET /api/market
 
-Single-page item search proxy to the IdleMMO API. Used by the Market Browser for both category browsing (by type) and name-based search (All tab).
-
-## Quality tiers
-
-Items have a `quality` field with one of 7 tiers, displayed in this order (lowest → highest):
-
-| Quality | Colour |
-|---|---|
-| `STANDARD` | zinc/white |
-| `REFINED` | blue |
-| `PREMIUM` | green |
-| `EPIC` | purple |
-| `LEGENDARY` | orange |
-| `MYTHIC` | fuchsia |
-| `UNIQUE` | violet |
-
-Colours are defined in `lib/game-constants.ts` (`QUALITY_COLORS`, `QUALITY_BORDER_COLORS`). Canonical display order is `QUALITY_ORDER` (same file). Category tabs in the Market Browser group items by quality using this order, with a coloured section header per tier.
+DB-backed item browser used by the Market Browser. Queries the local `items` table — no IdleMMO API call, no rate-limit risk. Items must be synced via the admin sync before they appear here.
 
 > Source: `app/api/market/route.ts`
 
@@ -24,34 +8,62 @@ Colours are defined in `lib/game-constants.ts` (`QUALITY_COLORS`, `QUALITY_BORDE
 
 ## Authentication
 
-Requires a valid session **and** an IdleMMO API token configured in Settings.
+Requires a valid session. No IdleMMO API token needed (reads local DB only).
+
+---
+
+## Modes
+
+Three mutually exclusive modes, selected by query params:
+
+| Mode | Params | Description |
+|---|---|---|
+| Category browse | `?tab=gear&page=1` | All items whose type is in the tab's type list |
+| Name search | `?query=iron&page=1` | Items whose name contains the substring (case-insensitive) |
+| Recently added | `?tab=recently_added&dateRange=latest\|30d\|1y` | Items filtered by `first_seen_at` |
+
+`?query=` can be combined with `?tab=recently_added` to name-filter within that result set.
 
 ---
 
 ## Request
 
-Exactly one of `type` or `query` must be provided.
-
 ```bash
-# Browse by type (category tabs)
-GET /api/market?type=ORE&page=1
-GET /api/market?type=SWORD&page=2
+# Category browse
+GET /api/market?tab=gear&page=1
+GET /api/market?tab=resources&page=2
 
-# Search by name (All tab)
+# Name search (All tab)
 GET /api/market?query=iron&page=1
+
+# Recently added — latest sync batch
+GET /api/market?tab=recently_added
+
+# Recently added — last 30 days
+GET /api/market?tab=recently_added&dateRange=30d
+
+# Recently added — last year, filtered by name
+GET /api/market?tab=recently_added&dateRange=1y&query=sword
 ```
 
 **Query Parameters**
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `type` | string | Conditional | Single item type (case-insensitive). Returns all items of this type for the given page. |
-| `query` | string | Conditional | Name search substring. Returns items whose names contain this string. |
+| `tab` | string | Conditional | Tab ID from `MARKET_TABS` (e.g. `gear`, `resources`, `recently_added`). Required unless `query` is provided. |
+| `query` | string | Conditional | Name search substring. Required if `tab` is omitted or `"all"`. |
 | `page` | integer | No | Page number (default: `1`). |
+| `dateRange` | string | No | Only used with `tab=recently_added`. One of `latest` (default), `30d`, `1y`. |
 
-One of `type` or `query` is required. If both are provided, `type` takes precedence.
+At least one of `tab` (non-`"all"`) or `query` must be provided.
 
-**Valid `type` values:** All 42 IdleMMO item types. See `docs/game-mechanics/item-types.md` for the full list with descriptions.
+**`dateRange` values**
+
+| Value | Behaviour |
+|---|---|
+| `latest` (default) | Items whose `first_seen_at` falls on the same calendar day as the most recent `first_seen_at` in the DB |
+| `30d` | Items where `first_seen_at >= NOW() - INTERVAL '30 days'` |
+| `1y` | Items where `first_seen_at >= NOW() - INTERVAL '1 year'` |
 
 ---
 
@@ -63,53 +75,62 @@ One of `type` or `query` is required. If both are provided, `type` takes precede
     {
       "hashed_id": "abc123def456",
       "name": "Iron Ore",
-      "description": "Raw iron ore extracted from rock.",
-      "image_url": "https://cdn.idle-mmo.com/images/items/iron-ore.png",
       "type": "ORE",
       "quality": "STANDARD",
-      "vendor_price": 25
+      "image_url": "https://cdn.idle-mmo.com/images/items/iron-ore.png",
+      "vendor_price": 25,
+      "last_sold_price": 18,
+      "last_sold_at": "2026-03-25T10:00:00.000Z",
+      "is_tradeable": true
     }
   ],
   "pagination": {
     "current_page": 1,
     "last_page": 3,
-    "per_page": 20,
-    "total": 45,
-    "from": 1,
-    "to": 20
+    "total": 142
   }
 }
 ```
 
-**Fields**
+**Item fields**
 
 | Field | Type | Description |
 |---|---|---|
-| `items` | array | Items for this page |
-| `items[].hashed_id` | string | Item hashed ID — use with `/api/idlemmo/item/[id]` for full stats |
-| `items[].name` | string | Item name |
-| `items[].description` | string\|null | Flavour text |
-| `items[].image_url` | string\|null | Item image URL from IdleMMO CDN |
-| `items[].type` | string | Item type (uppercase) |
-| `items[].quality` | string | Quality tier (`STANDARD`, `REFINED`, `PREMIUM`, `EPIC`, `LEGENDARY`, `MYTHIC`) |
-| `items[].vendor_price` | integer\|null | Gold vendor sell price |
-| `pagination` | object\|null | Pagination metadata |
-| `pagination.current_page` | integer | Current page number |
-| `pagination.last_page` | integer | Last available page |
-| `pagination.per_page` | integer | Items per page (typically 20) |
-| `pagination.total` | integer | Total matching items |
+| `hashed_id` | string | Item identifier — use with `/api/market/item/[id]` for full stats |
+| `name` | string | Item name |
+| `type` | string | Item type (uppercase, e.g. `ORE`, `SWORD`) |
+| `quality` | string | Quality tier (`STANDARD`, `REFINED`, `PREMIUM`, `EPIC`, `LEGENDARY`, `MYTHIC`, `UNIQUE`) |
+| `image_url` | string\|null | Item image URL |
+| `vendor_price` | integer\|null | NPC vendor sell price in gold |
+| `last_sold_price` | integer\|null | Most recent market sale price (from price sync) |
+| `last_sold_at` | string\|null | ISO 8601 timestamp of most recent sale |
+| `is_tradeable` | boolean\|null | Whether the item can be traded on the market |
+
+**Pagination fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `current_page` | integer | Current page number |
+| `last_page` | integer | Last available page |
+| `total` | integer | Total matching items |
+
+Page size is 50 items. Category and recently-added tabs paginate all pages client-side on load.
+
+**Sort order**
+
+- Category tabs: alphabetical by name
+- Name search: alphabetical by name
+- Recently added: `first_seen_at DESC`, then `name ASC`
 
 ---
 
 ## Response — 400 Bad Request
 
 ```json
-{ "error": "type or query is required" }
+{ "error": "query or a category tab is required" }
 ```
 
-```json
-{ "error": "No API token" }
-```
+Returned when neither a valid category `tab` nor a `query` param is provided.
 
 ---
 
@@ -121,30 +142,18 @@ One of `type` or `query` is required. If both are provided, `type` takes precede
 
 ---
 
-## Response — 429 Too Many Requests (from upstream)
+## Quality tiers
 
-```json
-{ "error": "IdleMMO API returned 429" }
-```
+Items have a `quality` field. The canonical display order (lowest → highest):
 
-The Market Browser fetches one type at a time with a 250ms pause between calls. Avoid making rapid sequential requests.
+| Quality | Colour |
+|---|---|
+| `STANDARD` | zinc/white |
+| `REFINED` | blue |
+| `PREMIUM` | green |
+| `EPIC` | purple |
+| `LEGENDARY` | orange |
+| `MYTHIC` | fuchsia |
+| `UNIQUE` | violet |
 
----
-
-## Data Source
-
-Proxies directly to `GET /v1/item/search` on the IdleMMO API. Results are cached for 60 seconds per request (Next.js ISR revalidation).
-
-Unlike `GET /api/items`, this route hits the **live IdleMMO API** — not the local database. Use this for market browsing; use `/api/items` for the gear calculator's item picker (which needs pre-synced equipment data).
-
----
-
-## Difference from /api/items
-
-| | `/api/market` | `/api/items` |
-|---|---|---|
-| **Source** | Live IdleMMO API | Local Postgres DB |
-| **Types** | All 42 item types | Equipment types only (9 types) |
-| **Pagination** | Single page per call | Capped at 30, no pagination |
-| **Use case** | Market browsing | Gear calculator item picker |
-| **Freshness** | 60s cache | Admin sync required |
+Colours are defined in `lib/game-constants.ts` (`QUALITY_COLORS`, `QUALITY_BORDER_COLORS`). Category tabs in the Market Browser group items by quality using `QUALITY_ORDER` from the same file.
