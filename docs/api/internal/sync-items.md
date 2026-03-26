@@ -34,7 +34,7 @@ No request body required.
 ## Response — 200 OK
 
 ```json
-{ "type": "SWORD", "synced": 34 }
+{ "type": "SWORD", "synced": 34, "page": 1, "totalPages": 2, "remaining": 14, "resetAt": 1711490000 }
 ```
 
 **Fields**
@@ -43,6 +43,10 @@ No request body required.
 |---|---|---|
 | `type` | string | Equipment type that was synced (uppercased) |
 | `synced` | integer | Number of items upserted into the local database |
+| `page` | integer | Page number that was synced |
+| `totalPages` | integer | Total pages for this type |
+| `remaining` | integer \| null | IdleMMO API requests remaining in the current window (`null` if header absent) |
+| `resetAt` | integer | Unix timestamp (seconds) when the rate-limit window resets (`0` if header absent) |
 
 ---
 
@@ -63,6 +67,22 @@ No request body required.
 ```json
 { "error": "Forbidden" }
 ```
+
+---
+
+## Response — 429 Too Many Requests
+
+Returned when the IdleMMO API is rate-limiting this request. The client should wait `retryAfterMs` milliseconds before retrying the same page.
+
+```json
+{ "retryAfterMs": 57500 }
+```
+
+**Fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `retryAfterMs` | integer | Milliseconds to wait before retrying. Based on `x-ratelimit-reset` header + 500ms buffer, minimum 1000ms |
 
 ---
 
@@ -87,7 +107,9 @@ No request body required.
 
 ## Rate Limit Sensitivity
 
-This endpoint makes multiple IdleMMO API calls (one per page of results). Each equipment type typically returns 2 pages (34 items × 2 pages). Do not call this endpoint for all 9 types in rapid succession — space calls by at least 2 seconds per type or run them individually from the Admin page.
+The admin UI handles rate limiting automatically: it reads `remaining` and `resetAt` from each response, waits proactively when the limit is low, and retries transparently on 429. No manual spacing is needed when using the Admin page buttons.
+
+Direct API callers should still space calls — see `docs/api/rate-limiting.md` for the rate-limit protocol.
 
 ---
 
