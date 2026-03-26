@@ -75,4 +75,9 @@ export const MARKET_TABS: MarketTab[] = [
     label: "Legacy",
     types: ["GEMSTONE"],
   },
+  {
+    id:    "recently_added",
+    label: "Recently Added",
+    types: [],
+  },
 ];
