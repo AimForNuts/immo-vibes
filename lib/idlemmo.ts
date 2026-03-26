@@ -16,6 +16,19 @@ const BASE = "https://api.idle-mmo.com";
 const MAX_RETRIES = 3;
 
 /**
+ * Thrown by searchItemsByTypePage when the IdleMMO API responds with 429.
+ * Contains retryAfterMs so callers can wait the correct amount before retrying.
+ */
+export class RateLimitError extends Error {
+  readonly retryAfterMs: number;
+  constructor(retryAfterMs: number) {
+    super("IdleMMO API returned 429");
+    this.name = "RateLimitError";
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+/**
  * Internal fetch wrapper — adds auth headers, 60s cache revalidation,
  * and automatic 429 retry per the rate-limiting spec in docs/api/rate-limiting.md.
  */
