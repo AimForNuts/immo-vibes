@@ -71,9 +71,10 @@ export function useMarketItems(): UseMarketItemsReturn {
       return;
     }
 
-    const capturedTab = activeTab;
-    const capturedKey = fetchKey;
-    const controller  = new AbortController();
+    const capturedTab   = activeTab;
+    const capturedKey   = fetchKey;
+    const capturedRange = dateRange;
+    const controller    = new AbortController();
     tabAbortRef.current = controller;
 
     setItems([]);
@@ -88,7 +89,7 @@ export function useMarketItems(): UseMarketItemsReturn {
       while (true) {
         try {
           const url = capturedTab === "recently_added"
-            ? `/api/market?tab=recently_added&dateRange=${dateRange}&page=${page}`
+            ? `/api/market?tab=recently_added&dateRange=${capturedRange}&page=${page}`
             : `/api/market?tab=${encodeURIComponent(capturedTab)}&page=${page}`;
 
           const res  = await fetch(url, { signal: controller.signal });
