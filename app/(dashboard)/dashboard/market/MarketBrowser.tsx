@@ -5,7 +5,7 @@ import {
   Search, Mountain, FlaskConical, Sword, Hammer, Gem,
   Package, Loader2,
   SlidersHorizontal,
-  ShoppingBag, Sparkles, BookOpen, Archive,
+  ShoppingBag, Sparkles, BookOpen, Archive, Clock,
   AlertCircle,
   ChevronDown, ChevronRight,
 } from "lucide-react";
@@ -15,6 +15,7 @@ import { QUALITY_COLORS, QUALITY_ORDER, QUALITY_BORDER_CSS } from "@/lib/game-co
 import type { Filters } from "./types";
 import { DEFAULT_FILTERS } from "./types";
 import { useMarketItems } from "./hooks/useMarketItems";
+import type { DateRange } from "./hooks/useMarketItems";
 import { useItemDetail } from "./hooks/useItemDetail";
 import { ItemCard, SkeletonCard } from "./components/ItemCard";
 import { FilterBar } from "./components/FilterBar";
@@ -23,16 +24,23 @@ import { DetailPanel } from "./components/DetailPanel";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TAB_ICONS: Record<string, React.ElementType> = {
-  all:          Search,
-  resources:    Mountain,
-  alchemy:      FlaskConical,
-  gear:         Sword,
-  tools:        Hammer,
-  collectables: Gem,
-  merchants:    ShoppingBag,
-  event:        Sparkles,
-  recipes:      BookOpen,
-  legacy:       Archive,
+  all:             Search,
+  resources:       Mountain,
+  alchemy:         FlaskConical,
+  gear:            Sword,
+  tools:           Hammer,
+  collectables:    Gem,
+  merchants:       ShoppingBag,
+  event:           Sparkles,
+  recipes:         BookOpen,
+  legacy:          Archive,
+  recently_added:  Clock,
+};
+
+const DATE_RANGE_LABELS: Record<DateRange, string> = {
+  latest: "Latest batch",
+  "30d":  "Last 30 days",
+  "1y":   "Last year",
 };
 
 // ─── Loading status bar ───────────────────────────────────────────────────────
@@ -54,8 +62,8 @@ function LoadingStatus({ loading }: { loading: boolean }) {
 
 export function MarketBrowser() {
   // Filters
-  const [showFilters,       setShowFilters]       = useState(false);
-  const [filters,           setFilters]           = useState<Filters>(DEFAULT_FILTERS);
+  const [showFilters,        setShowFilters]        = useState(false);
+  const [filters,            setFilters]            = useState<Filters>(DEFAULT_FILTERS);
   const [collapsedQualities, setCollapsedQualities] = useState<Set<string>>(new Set());
 
   const {
@@ -65,9 +73,11 @@ export function MarketBrowser() {
     error,
     activeTab,
     searchQuery,
+    dateRange,
     setSearchQuery,
     switchTab,
     handleSearchInput,
+    setDateRange,
   } = useMarketItems();
 
   const {
@@ -86,13 +96,14 @@ export function MarketBrowser() {
 
   // ── Client-side filters ─────────────────────────────────────────────────
 
-  const isAllTab = activeTab === "all";
+  const isAllTab           = activeTab === "all";
+  const isRecentlyAddedTab = activeTab === "recently_added";
 
   const filteredItems = items.filter((item) => {
     if (filters.rarities.size > 0 && !filters.rarities.has(item.quality)) return false;
     if (filters.types.size > 0    && !filters.types.has(item.type))        return false;
 
-    // Name filter applies on category tabs (search bar = client-side filter there)
+    // Name filter applies on category tabs and recently_added (client-side)
     if (!isAllTab && searchQuery && !item.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
 
     const vp = item.vendor_price ?? 0;
@@ -179,6 +190,26 @@ export function MarketBrowser() {
           </div>
         </div>
 
+        {/* Date range pills — only on Recently Added tab */}
+        {isRecentlyAddedTab && (
+          <div className="flex gap-2">
+            {(["latest", "30d", "1y"] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => setDateRange(range)}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-medium transition-colors border",
+                  dateRange === range
+                    ? "bg-amber-400/10 border-amber-400/30 text-amber-400"
+                    : "border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600"
+                )}
+              >
+                {DATE_RANGE_LABELS[range]}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Filter panel */}
         {showFilters && (
           <FilterBar
@@ -195,7 +226,11 @@ export function MarketBrowser() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500 pointer-events-none" />
           <input
             type="text"
-            placeholder={isAllTab ? "Search all items by name…" : `Filter ${tab?.label ?? ""} by name…`}
+            placeholder={
+              isAllTab            ? "Search all items by name…"          :
+              isRecentlyAddedTab  ? "Filter recently added by name…"     :
+                                    `Filter ${tab?.label ?? ""} by name…`
+            }
             value={searchQuery}
             onChange={(e) => isAllTab ? handleSearchInput(e.target.value) : setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-10 py-2.5 rounded-lg bg-zinc-900 border border-zinc-700 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/20 transition-colors"
@@ -239,8 +274,8 @@ export function MarketBrowser() {
           </div>
         ) : filteredItems.length > 0 ? (
           <>
-            {isAllTab ? (
-              // All-tab search: flat grid
+            {isAllTab || isRecentlyAddedTab ? (
+              // All-tab search and Recently Added: flat grid
               <div className={cn(
                 "grid gap-3",
                 selectedItem
