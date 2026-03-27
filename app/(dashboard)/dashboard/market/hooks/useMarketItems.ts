@@ -4,16 +4,20 @@ import { useState, useEffect, useRef } from "react";
 import type React from "react";
 import type { DbItem } from "../types";
 
+export type DateRange = "latest" | "30d" | "1y";
+
 interface UseMarketItemsReturn {
-  items:        DbItem[];
-  loading:      boolean;
-  loadProgress: { current: number; total: number } | null;
-  error:        string | null;
-  activeTab:    string;
-  searchQuery:  string;
+  items:          DbItem[];
+  loading:        boolean;
+  loadProgress:   { current: number; total: number } | null;
+  error:          string | null;
+  activeTab:      string;
+  searchQuery:    string;
+  dateRange:      DateRange;
   setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
-  switchTab:    (tabId: string, extraReset?: () => void) => void;
+  switchTab:      (tabId: string, extraReset?: () => void) => void;
   handleSearchInput: (value: string) => void;
+  setDateRange:   (range: DateRange) => void;
 }
 
 export function useMarketItems(): UseMarketItemsReturn {
@@ -23,12 +27,14 @@ export function useMarketItems(): UseMarketItemsReturn {
   const [loadProgress, setLoadProgress] = useState<{ current: number; total: number } | null>(null);
   const [searchQuery, setSearchQuery]   = useState("");
   const [error, setError]               = useState<string | null>(null);
+  const [dateRange, setDateRange]       = useState<DateRange>("latest");
 
   const tabAbortRef    = useRef<AbortController | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchAbortRef = useRef<AbortController | null>(null);
 
-  // Per-tab item cache so switching back is instant
+  // Per-tab item cache so switching back is instant.
+  // Key is `tabId` for regular tabs, `recently_added:${dateRange}` for the recently_added tab.
   const tabCacheRef  = useRef<Map<string, DbItem[]>>(new Map());
   const tabLoadedRef = useRef<Set<string>>(new Set());
 
@@ -52,16 +58,23 @@ export function useMarketItems(): UseMarketItemsReturn {
       return;
     }
 
+    // Composite key: recently_added tab caches per dateRange so each range is independent
+    const fetchKey = activeTab === "recently_added"
+      ? `recently_added:${dateRange}`
+      : activeTab;
+
     // Restore from cache if already fully loaded
-    if (tabLoadedRef.current.has(activeTab)) {
-      setItems(tabCacheRef.current.get(activeTab) ?? []);
+    if (tabLoadedRef.current.has(fetchKey)) {
+      setItems(tabCacheRef.current.get(fetchKey) ?? []);
       setLoading(false);
       setLoadProgress(null);
       return;
     }
 
-    const capturedTab = activeTab;
-    const controller  = new AbortController();
+    const capturedTab   = activeTab;
+    const capturedKey   = fetchKey;
+    const capturedRange = dateRange;
+    const controller    = new AbortController();
     tabAbortRef.current = controller;
 
     setItems([]);
@@ -75,10 +88,11 @@ export function useMarketItems(): UseMarketItemsReturn {
 
       while (true) {
         try {
-          const res  = await fetch(
-            `/api/market?tab=${encodeURIComponent(capturedTab)}&page=${page}`,
-            { signal: controller.signal }
-          );
+          const url = capturedTab === "recently_added"
+            ? `/api/market?tab=recently_added&dateRange=${capturedRange}&page=${page}`
+            : `/api/market?tab=${encodeURIComponent(capturedTab)}&page=${page}`;
+
+          const res  = await fetch(url, { signal: controller.signal });
           const data = await res.json();
           if (!res.ok) { setError(data.error ?? "Failed to load"); break; }
 
@@ -97,14 +111,14 @@ export function useMarketItems(): UseMarketItemsReturn {
         }
       }
 
-      tabCacheRef.current.set(capturedTab, accumulated);
-      tabLoadedRef.current.add(capturedTab);
+      tabCacheRef.current.set(capturedKey, accumulated);
+      tabLoadedRef.current.add(capturedKey);
       setLoading(false);
       setLoadProgress(null);
     })();
 
     return () => controller.abort();
-  }, [activeTab]);
+  }, [activeTab, dateRange]); // dateRange only matters for recently_added; other tabs hit cache immediately
 
   // ── "All" tab search (DB — no rate limit) ────────────────────────────────
 
@@ -152,6 +166,8 @@ export function useMarketItems(): UseMarketItemsReturn {
     setLoading(tabId !== "all");
     setLoadProgress(null);
     setError(null);
+    // Reset date range to "latest" when entering the recently_added tab
+    if (tabId === "recently_added") setDateRange("latest");
     setActiveTab(tabId);
     if (extraReset) extraReset();
   }
@@ -163,9 +179,11 @@ export function useMarketItems(): UseMarketItemsReturn {
     error,
     activeTab,
     searchQuery,
+    dateRange,
     setSearchQuery,
     switchTab,
     handleSearchInput,
+    setDateRange,
   };
 }
 

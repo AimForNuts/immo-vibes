@@ -15,7 +15,7 @@ export interface MarketTab {
   label: string;
   /**
    * IdleMMO item types included in this tab.
-   * Empty array = "All" tab, which uses name-based search instead.
+   * Empty array = special tab: `"all"` uses name-based search; `"recently_added"` uses the dateRange API mode.
    */
   types: string[];
 }
@@ -74,5 +74,10 @@ export const MARKET_TABS: MarketTab[] = [
     id:    "legacy",
     label: "Legacy",
     types: ["GEMSTONE"],
+  },
+  {
+    id:    "recently_added",
+    label: "Recently Added",
+    types: [],
   },
 ];
