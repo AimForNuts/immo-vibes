@@ -28,11 +28,11 @@ The item browse/search page with detail panel and recipe cost calculator.
 | Component — detail panel | `app/(dashboard)/dashboard/market/components/DetailPanel.tsx` |
 | Hook — tab/search | `app/(dashboard)/dashboard/market/hooks/useMarketItems.ts` |
 | Hook — item detail | `app/(dashboard)/dashboard/market/hooks/useItemDetail.ts` |
-| API — list | `app/api/market/route.ts` |
+| API — list | `app/api/market/route.ts` (tab browse, name search, recently_added dateRange mode) |
 | API — item detail | `app/api/market/item/[id]/route.ts` |
 | API — price | `app/api/market/price/[id]/route.ts` |
 | API — crafted-by | `app/api/market/crafted-by/[id]/route.ts` |
-| Config | `lib/market-config.ts` (tab → item type mapping) |
+| Config | `lib/market-config.ts` (tab → item type mapping; `recently_added` uses dateRange API mode) |
 | Folder docs | `app/(dashboard)/dashboard/market/README.md` |
 
 **DB tables**: `items` (read), `market_price_history` (read/write via price route — per-tier prices)
