@@ -1,33 +1,17 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getCharacterInfo, getCharacterPets, type CharacterPet } from "@/lib/idlemmo";
+import { getCharacterPets, type CharacterPet } from "@/lib/idlemmo";
 import { db } from "@/lib/db";
 import { characterPets } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
-/**
- * Fetches the equipped pet with full stats for a character.
- *
- * Isolated so this can be removed and replaced with a direct API call
- * once the character-info endpoint returns full pet stats.
- *
- * Steps:
- * 1. getCharacterInfo  → equipped_pet.id (integer)
- * 2. getCharacterPets  → find by equipped: true
- */
-async function fetchEquippedPetWithStats(
+async function fetchEquippedPet(
   characterHashedId: string,
   token: string
 ): Promise<CharacterPet | null> {
-  const [char, pets] = await Promise.all([
-    getCharacterInfo(characterHashedId, token),
-    getCharacterPets(characterHashedId, token),
-  ]);
-
-  if (!char.equipped_pet) return null;
-
+  const pets = await getCharacterPets(characterHashedId, token);
   return pets.find((p) => p.equipped) ?? null;
 }
 
@@ -45,7 +29,7 @@ export async function POST(
 
   let pet: CharacterPet | null;
   try {
-    pet = await fetchEquippedPetWithStats(characterHashedId, token);
+    pet = await fetchEquippedPet(characterHashedId, token);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: `Failed to fetch pet: ${msg}` }, { status: 502 });
