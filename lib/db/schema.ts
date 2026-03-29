@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric } from "drizzle-orm/pg-core";
 
 // ─── Shared types for JSONB columns ───────────────────────────────────────────
 
@@ -294,8 +294,7 @@ export const characters = pgTable(
 
 /**
  * Saved equipped-pet stats per character, synced by the user via "Sync Current Pet".
- * One row per (user, character). Raw skill levels are stored; combat values are computed
- * as floor(skill × 2.4) at render time.
+ * One row per (user, character). Direct combat stat values are stored from the API.
  */
 export const characterPets = pgTable(
   "character_pets",
@@ -310,10 +309,16 @@ export const characterPets = pgTable(
     imageUrl:             text("image_url"),
     level:                integer("level").notNull(),
     quality:              text("quality").notNull(),
-    /** Pet skill training levels — contribute ×2.4 to derived combat stats. */
-    strength:             integer("strength").notNull().default(0),
-    defence:              integer("defence").notNull().default(0),
-    speed:                integer("speed").notNull().default(0),
+    /** Direct combat stat values from the IdleMMO pets API (no ×2.4 multiplier). */
+    attackPower:          integer("attack_power").notNull().default(0),
+    protection:           integer("protection").notNull().default(0),
+    agility:              integer("agility").notNull().default(0),
+    /** Manually entered combat stats — null until the user saves them. */
+    accuracy:             integer("accuracy"),
+    maxStamina:           integer("max_stamina"),
+    movementSpeed:        numeric("movement_speed", { precision: 6, scale: 1 }),
+    criticalChance:       integer("critical_chance"),
+    criticalDamage:       integer("critical_damage"),
     evolutionState:       integer("evolution_state").notNull().default(0),
     evolutionMax:         integer("evolution_max").notNull().default(5),
     evolutionBonusPerStage: integer("evolution_bonus_per_stage").notNull().default(5),
