@@ -64,6 +64,13 @@
       "when": 1774527067317,
       "tag": "0008_add_first_seen_at_to_items",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774806490874,
+      "tag": "0009_drop_pet_manual_stats",
+      "breakpoints": true
     }
   ]
 }
