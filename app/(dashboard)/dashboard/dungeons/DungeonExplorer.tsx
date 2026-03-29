@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Skull, User, Swords, Shield, Wind, Crosshair, Zap,
-  Link2, Sparkles, AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, PawPrint, Save,
+  Link2, Sparkles, AlertTriangle, Ban, Clock, ChevronDown, ChevronRight, PawPrint,
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -49,8 +49,6 @@ interface EquippedPet {
   stats: { strength: number; defence: number; speed: number };
 }
 
-type PetCombatStats = { attack_power: number; protection: number; agility: number; accuracy: number };
-
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface DungeonExplorerProps {
@@ -60,8 +58,6 @@ interface DungeonExplorerProps {
   characters: { hashed_id: string; name: string; isMember: boolean | null; isPrimary: boolean }[];
   hasDifficultyData: boolean;
 }
-
-const EMPTY_PET_STATS: PetCombatStats = { attack_power: 0, protection: 0, agility: 0, accuracy: 0 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -74,10 +70,6 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
   const [loading, setLoading] = useState(false);
 
   const [expandedStat, setExpandedStat] = useState<string | null>(null);
-
-  // Pet combat stats — manually entered, pre-filled from DB
-  const [petStats, setPetStats] = useState<PetCombatStats>(EMPTY_PET_STATS);
-  const [petSaving, setPetSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   // Override total combat
   const [overrideEnabled, setOverrideEnabled] = useState(false);
@@ -149,27 +141,6 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
     setEffectsLoading(false);
   }
 
-  // ── Load saved pet combat stats from DB whenever character changes ──────────
-
-  useEffect(() => {
-    if (!characterId) { setPetStats(EMPTY_PET_STATS); return; }
-    fetch(`/api/characters/${characterId}/pet-stats`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.pet) {
-          setPetStats({
-            attack_power: data.pet.attackPower ?? 0,
-            protection:   data.pet.protection  ?? 0,
-            agility:      data.pet.agility      ?? 0,
-            accuracy:     data.pet.accuracy     ?? 0,
-          });
-        } else {
-          setPetStats(EMPTY_PET_STATS);
-        }
-      })
-      .catch(() => setPetStats(EMPTY_PET_STATS));
-  }, [characterId]);
-
   // ── Load effects whenever character changes ──────────────────────────────────
 
   useEffect(() => {
@@ -233,7 +204,6 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
           }
         }
 
-        // Equipped pet — API always returns str/def/spd = 0; manual stats are entered separately
         if (data.equipped_pet) {
           setEquippedPet({ ...data.equipped_pet } as EquippedPet);
         } else {
@@ -289,39 +259,17 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
     return () => { cancelled = true; };
   }, [characterId, presetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Save pet combat stats ───────────────────────────────────────────────────
+  const petContribution: Record<string, number> = equippedPet
+    ? {
+        attack_power: Math.floor(equippedPet.stats.strength * 2.4),
+        protection:   Math.floor(equippedPet.stats.defence  * 2.4),
+        agility:      Math.floor(equippedPet.stats.speed    * 2.4),
+        accuracy:     0,
+      }
+    : { attack_power: 0, protection: 0, agility: 0, accuracy: 0 };
 
-  async function savePetStats() {
-    if (!characterId || !equippedPet) return;
-    setPetSaving("saving");
-    try {
-      const res = await fetch(`/api/characters/${characterId}/pet-stats`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          attackPower: petStats.attack_power,
-          protection:  petStats.protection,
-          agility:     petStats.agility,
-          accuracy:    petStats.accuracy,
-          pet: {
-            id:       equippedPet.id,
-            name:     equippedPet.name,
-            level:    equippedPet.level,
-            quality:  equippedPet.quality,
-            imageUrl: equippedPet.image_url,
-          },
-        }),
-      });
-      setPetSaving(res.ok ? "saved" : "error");
-      setTimeout(() => setPetSaving("idle"), 2000);
-    } catch {
-      setPetSaving("error");
-      setTimeout(() => setPetSaving("idle"), 2000);
-    }
-  }
-
-  const petStatsTotal = petStats.attack_power + petStats.protection + petStats.agility + petStats.accuracy;
-  const computedTotal = combatStats ? totalCombatStats(combatStats) + petStatsTotal : null;
+  const petContributionTotal = Object.values(petContribution).reduce((a, b) => a + b, 0);
+  const computedTotal = combatStats ? totalCombatStats(combatStats) + petContributionTotal : null;
   const combatTotal = overrideEnabled ? overrideValue : computedTotal;
 
   function effectiveDuration(durationSec: number): number {
@@ -507,54 +455,23 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                     </div>
                   </div>
 
-                  {/* Manual combat stat inputs */}
+                  {/* Computed combat contribution */}
                   <div className="ml-[1.625rem] pl-[1.625rem] space-y-2 border-l border-border/30">
                     <p className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-wide">
                       Combat contribution
                     </p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                       {([
-                        { key: "attack_power" as const, label: "Attack Power", icon: Swords },
-                        { key: "protection"   as const, label: "Protection",   icon: Shield },
-                        { key: "agility"      as const, label: "Agility",      icon: Wind },
-                        { key: "accuracy"     as const, label: "Accuracy",     icon: Crosshair },
-                      ]).map(({ key, label, icon: Icon }) => (
+                        { key: "attack_power", label: "Attack Power", icon: Swords, value: Math.floor(equippedPet.stats.strength * 2.4) },
+                        { key: "protection",   label: "Protection",   icon: Shield, value: Math.floor(equippedPet.stats.defence  * 2.4) },
+                        { key: "agility",      label: "Agility",      icon: Wind,   value: Math.floor(equippedPet.stats.speed    * 2.4) },
+                      ] as const).map(({ key, label, icon: Icon, value }) => (
                         <div key={key} className="flex items-center gap-1.5">
                           <Icon className="size-3 text-muted-foreground/40 shrink-0" />
                           <span className="text-[10px] font-mono text-muted-foreground/60 w-[4.5rem] shrink-0">{label}</span>
-                          <input
-                            type="number"
-                            min={0}
-                            value={petStats[key] || ""}
-                            placeholder="0"
-                            onChange={(e) => setPetStats((prev) => ({ ...prev, [key]: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
-                            className="w-14 text-xs bg-background border border-border rounded px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
-                          />
+                          <span className="text-xs font-mono tabular-nums text-foreground/80">+{value}</span>
                         </div>
                       ))}
-                    </div>
-
-                    <div className="flex items-center gap-3 pt-0.5">
-                      <button
-                        onClick={savePetStats}
-                        disabled={petSaving === "saving"}
-                        className={cn(
-                          "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-colors",
-                          petSaving === "saved"
-                            ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-                            : petSaving === "error"
-                            ? "border-destructive/40 text-destructive"
-                            : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
-                        )}
-                      >
-                        <Save className="size-3" />
-                        {petSaving === "saving" ? "Saving…" : petSaving === "saved" ? "Saved" : petSaving === "error" ? "Error" : "Save"}
-                      </button>
-                      {petStatsTotal > 0 && (
-                        <span className="text-[10px] font-mono text-muted-foreground/50">
-                          +{petStatsTotal.toLocaleString()} total
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -574,8 +491,8 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
               {COMBAT_STAT_KEYS.map((key) => {
                 const { label, icon: Icon } = COMBAT_LABELS[key];
                 const baseValue = combatStats?.[key] ?? null;
-                const petManual = petStats[key as keyof typeof petStats];
-                const value = baseValue !== null ? baseValue + petManual : null;
+                const petAdd = petContribution[key] ?? 0;
+                const value = baseValue !== null ? baseValue + petAdd : null;
                 const bk = breakdown?.[key];
                 const expanded = expandedStat === key;
 
@@ -615,10 +532,10 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                             <span className="tabular-nums text-foreground/70 shrink-0 ml-2">+{g.value}</span>
                           </div>
                         ))}
-                        {petManual > 0 && equippedPet && (
+                        {petAdd > 0 && equippedPet && (
                           <div className="flex items-center justify-between text-[11px] font-mono">
                             <span className="text-muted-foreground truncate max-w-[200px]">Pet — {equippedPet.name}</span>
-                            <span className="tabular-nums text-foreground/70 shrink-0 ml-2">+{petManual}</span>
+                            <span className="tabular-nums text-foreground/70 shrink-0 ml-2">+{petAdd}</span>
                           </div>
                         )}
                         <div className="flex items-center justify-between text-[11px] font-mono border-t border-border/30 pt-0.5 mt-0.5">
