@@ -191,7 +191,7 @@ Ordered by `idlemmo_id ASC` for a deterministic, game-consistent order.
 
 Per-user, per-character saved main-pet stats. One row per `(user_id, character_hashed_id)`.
 Upserted each time the user clicks **Sync Current Pet** on the character detail page.
-Stats reflect the `/v1/character/{id}/pets` API values (may be 0 due to a known API bug).
+Raw skill levels (`strength`, `defence`, `speed`) are stored; combat values are computed as `floor(skill × 2.4)` at render time.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|

@@ -183,28 +183,41 @@ export interface CharacterPet {
   pet_id: number;
   image_url: string | null;
   level: number;
+  experience: number;
   quality: string;
   /**
    * Pet skill training levels. Each contributes ×2.4 to the derived combat stat,
    * identical to character skills. See docs/game-mechanics/pets.md.
-   *
-   * ⚠️ Known API bug: these may return 0 even when trained. Use manual inputs as fallback.
    */
   stats: {
     strength: number;  // → Attack Power  (×2.4)
     defence: number;   // → Protection    (×2.4)
     speed: number;     // → Agility       (×2.4)
   };
-  /** True for the currently equipped pet. Reliable — use this to identify the active pet. */
+  health: {
+    current: number;
+    maximum: number;
+    percentage: number;
+  };
   equipped: boolean;
+  /** null when the pet is not in a dungeon */
+  battle: null | unknown;
   evolution: {
     state: number;           // 0–5
     max: number;             // always 5
     bonus_per_stage: number; // always 5 (= 5% per stage)
     current_bonus: number;   // state × bonus_per_stage
+    next_bonus: number;
+    can_evolve: boolean;
     /** All possible combat stat targets for this pet type (not which one was chosen). */
     targets: Array<{ key: string; label: string }>;
   };
+  location: {
+    id: number | null;
+    name: string | null;
+    locked: boolean;
+  };
+  created_at: string;
 }
 
 /**
