@@ -50,6 +50,8 @@ local.db
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 immo_web_suite_logo.png
+docs/superpowers/
+docs/future-developments.md
 
 # playwright
 playwright-report/
