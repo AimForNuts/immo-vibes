@@ -66,17 +66,21 @@ Full stats and evolution info are on this object.
 
 Only the pet with `equipped: true` contributes to combat stats.
 
-Pet skills use the **same ×2.4 multiplier** as character skills:
+The IdleMMO pets API returns final combat values directly in `stats.*` — no multiplier is applied:
 
-| Pet Stat (`stats.*`) | Combat Stat | Formula |
-|---|---|---|
-| `strength` | Attack Power | `floor(strength × 2.4)` |
-| `defence` | Protection | `floor(defence × 2.4)` |
-| `speed` | Agility | `floor(speed × 2.4)` |
+| Pet API field (`stats.*`) | Combat Stat |
+|---|---|
+| `strength` | Attack Power (direct value) |
+| `defence` | Protection (direct value) |
+| `speed` | Agility (direct value) |
 
-> `stats.*` fields return the pet's trained skill levels. Combat contributions are `floor(stat × 2.4)`, identical to character skills.
+> These fields are stored as `attack_power`, `protection`, `agility` in `character_pets`.
 >
-> Pets have no `dexterity` — they do not contribute to Accuracy.
+> Pets have no `dexterity` — they do not contribute to Accuracy via the API.
+> Accuracy and other stats (Max Stamina, Movement Speed, Critical Chance, Critical Damage)
+> are manually entered by the user on the character page.
+>
+> The Dungeon Explorer reads pet contribution from the DB (`GET /api/characters/[id]/pet-stats`) instead of calling the live API.
 
 ---
 
