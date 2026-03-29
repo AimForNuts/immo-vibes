@@ -193,10 +193,11 @@ Character roster and detail pages.
 | API — list | `app/api/characters/route.ts` |
 | API — detail | `app/api/idlemmo/character/[id]/route.ts` |
 | API — sync pet | `app/api/characters/[id]/sync-pet/route.ts` |
+| API — pet stats (GET/PATCH) | `app/api/characters/[id]/pet-stats/route.ts` |
 
-**DB tables**: `character_pets` (read/write via sync-pet route)
+**DB tables**: `character_pets` (read/write via sync-pet and pet-stats routes)
 **External API**: `getCharacterInfo()`, `getAltCharacters()`, `getCharacterPets()`
-**Docs**: `docs/game-mechanics/classes.md`, `docs/game-mechanics/pets.md`, `docs/database.md`
+**Docs**: `docs/game-mechanics/classes.md`, `docs/game-mechanics/pets.md`, `docs/database.md`, `docs/api/internal/pet-stats.md`
 
 ---
 

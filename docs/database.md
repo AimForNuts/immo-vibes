@@ -26,7 +26,7 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | Cron sync progress | `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
 | Saved gear loadouts | `gear_presets` | `user_id`, `slots` (JSONB map of slot → `{hashedId, tier}`) |
 | Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
-| Saved main-pet stats for a character | `character_pets` | `user_id`, `character_hashed_id`, `strength`, `defence`, `speed`, `synced_at` |
+| Saved main-pet stats for a character | `character_pets` | `user_id`, `character_hashed_id`, `attack_power`, `protection`, `agility`, `accuracy`, `max_stamina`, `movement_speed`, `critical_chance`, `critical_damage`, `synced_at` |
 | Dungeon catalog (difficulty, duration, loot) | `dungeons` | `id`, `name`, `difficulty`, `duration_ms`, `loot` |
 
 ---
@@ -191,7 +191,7 @@ Ordered by `idlemmo_id ASC` for a deterministic, game-consistent order.
 
 Per-user, per-character saved main-pet stats. One row per `(user_id, character_hashed_id)`.
 Upserted each time the user clicks **Sync Current Pet** on the character detail page.
-Raw skill levels (`strength`, `defence`, `speed`) are stored; combat values are computed as `floor(skill × 2.4)` at render time.
+Combat stats synced from API are stored directly; optional stats are entered manually by the user.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
@@ -204,17 +204,22 @@ Raw skill levels (`strength`, `defence`, `speed`) are stored; combat values are 
 | `image_url` | text | ✓ | CDN URL |
 | `level` | integer | — | Current level |
 | `quality` | text | — | e.g. `LEGENDARY` |
-| `strength` | integer | — | Pet skill level — contributes `floor(×2.4)` to Attack Power |
-| `defence` | integer | — | Pet skill level — contributes `floor(×2.4)` to Protection |
-| `speed` | integer | — | Pet skill level — contributes `floor(×2.4)` to Agility |
+| `attack_power` | integer | — | Combat stat from API `stats.strength` (direct value) |
+| `protection` | integer | — | Combat stat from API `stats.defence` (direct value) |
+| `agility` | integer | — | Combat stat from API `stats.speed` (direct value) |
+| `accuracy` | integer | ✓ | User-entered accuracy stat |
+| `max_stamina` | integer | ✓ | User-entered max stamina |
+| `movement_speed` | numeric(6,1) | ✓ | User-entered movement speed |
+| `critical_chance` | integer | ✓ | User-entered critical chance |
+| `critical_damage` | integer | ✓ | User-entered critical damage |
 | `evolution_state` | integer | — | 0–5 |
 | `evolution_max` | integer | — | Always 5 |
 | `evolution_bonus_per_stage` | integer | — | Always 5 (= 5% per stage) |
 | `synced_at` | timestamp | — | When the user last synced |
 
 **Unique index**: `(user_id, character_hashed_id)` — one pet per character.
-**API route**: `POST /api/characters/[id]/sync-pet`
-**Docs**: `docs/game-mechanics/pets.md`
+**API routes**: `POST /api/characters/[id]/sync-pet`, `GET /api/characters/[id]/pet-stats`, `PATCH /api/characters/[id]/pet-stats`
+**Docs**: `docs/game-mechanics/pets.md`, `docs/api/internal/pet-stats.md`
 
 ---
 

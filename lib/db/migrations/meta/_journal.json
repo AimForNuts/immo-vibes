@@ -71,6 +71,13 @@
       "when": 1774806490874,
       "tag": "0009_drop_pet_manual_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1743206400000,
+      "tag": "0010_pet_combat_stats",
+      "breakpoints": true
     }
   ]
 }
