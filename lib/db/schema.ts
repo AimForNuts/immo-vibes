@@ -293,9 +293,9 @@ export const characters = pgTable(
 );
 
 /**
- * Saved equipped-pet stats per character, synced manually by the user.
- * One row per (user, character) — upserted each time the user clicks "Sync Current Pet".
- * Stats reflect the pet-skills API values (may be 0 due to a known API bug).
+ * Saved equipped-pet stats per character, synced by the user via "Sync Current Pet".
+ * One row per (user, character). Raw skill levels are stored; combat values are computed
+ * as floor(skill × 2.4) at render time.
  */
 export const characterPets = pgTable(
   "character_pets",
@@ -318,16 +318,6 @@ export const characterPets = pgTable(
     evolutionMax:         integer("evolution_max").notNull().default(5),
     evolutionBonusPerStage: integer("evolution_bonus_per_stage").notNull().default(5),
     syncedAt:             timestamp("synced_at").notNull(),
-    /**
-     * Manually entered pet combat-stat contributions (AP/Prot/Agi/Acc).
-     * The IdleMMO API always returns strength/defence/speed = 0 (known bug),
-     * so these values are entered by the user and saved here.
-     * Null until the user saves them.
-     */
-    attackPower:  integer("attack_power"),
-    protection:   integer("protection"),
-    agility:      integer("agility"),
-    accuracy:     integer("accuracy"),
   },
   (t) => [uniqueIndex("character_pets_user_char_uniq").on(t.userId, t.characterHashedId)]
 );
