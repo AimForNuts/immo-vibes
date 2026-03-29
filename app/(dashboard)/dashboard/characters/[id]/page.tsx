@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, Swords, Users, Zap, PawPrint } from "lucide-react";
 import { STATUS_DOT_COLOR, STATUS_LABEL_KEY, CHAR_STAT_MAP } from "@/lib/game-constants";
 import { SyncPetButton } from "./SyncPetButton";
+import { PetStatsForm } from "./PetStatsForm";
 import { QUALITY_COLORS } from "@/lib/game-constants";
 
 // ─── Skill icon mapping ────────────────────────────────────────────────────────
@@ -383,21 +384,19 @@ export default async function CharacterDetailPage({
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {(
-                  [
-                    { label: "Strength", value: savedPet.strength, combat: `AP +${Math.floor(savedPet.strength * 2.4)}` },
-                    { label: "Defence",  value: savedPet.defence,  combat: `Prot +${Math.floor(savedPet.defence * 2.4)}` },
-                    { label: "Speed",    value: savedPet.speed,    combat: `Agi +${Math.floor(savedPet.speed * 2.4)}` },
-                  ] as const
-                ).map((s) => (
-                  <div key={s.label} className="bg-muted/60 rounded-lg px-3 py-2">
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
-                    <p className="text-xl font-bold tabular-nums">{s.value}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{s.combat}</p>
-                  </div>
-                ))}
-              </div>
+              <PetStatsForm
+                characterId={id}
+                initial={{
+                  attackPower:    savedPet.attackPower,
+                  protection:     savedPet.protection,
+                  agility:        savedPet.agility,
+                  accuracy:       savedPet.accuracy,
+                  maxStamina:     savedPet.maxStamina,
+                  movementSpeed:  savedPet.movementSpeed !== null ? Number(savedPet.movementSpeed) : null,
+                  criticalChance: savedPet.criticalChance,
+                  criticalDamage: savedPet.criticalDamage,
+                }}
+              />
               <p className="text-xs text-muted-foreground">
                 Synced {savedPet.syncedAt.toLocaleDateString()}
               </p>
