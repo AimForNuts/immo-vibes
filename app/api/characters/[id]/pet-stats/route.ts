@@ -77,19 +77,18 @@ export async function PATCH(
     criticalDamage?: number | null;
   };
 
-  const updates: Record<string, any> = {};
-  if (body.attackPower !== undefined) updates.attackPower = body.attackPower;
-  if (body.protection !== undefined) updates.protection = body.protection;
-  if (body.agility !== undefined) updates.agility = body.agility;
-  if (body.accuracy !== undefined) updates.accuracy = body.accuracy;
-  if (body.maxStamina !== undefined) updates.maxStamina = body.maxStamina;
-  if (body.movementSpeed !== undefined) updates.movementSpeed = body.movementSpeed !== null ? String(body.movementSpeed) : null;
-  if (body.criticalChance !== undefined) updates.criticalChance = body.criticalChance;
-  if (body.criticalDamage !== undefined) updates.criticalDamage = body.criticalDamage;
-
   await db
     .update(characterPets)
-    .set(updates)
+    .set({
+      ...(body.attackPower    !== undefined && body.attackPower    !== null && { attackPower:    body.attackPower    }),
+      ...(body.protection     !== undefined && body.protection     !== null && { protection:     body.protection     }),
+      ...(body.agility        !== undefined && body.agility        !== null && { agility:        body.agility        }),
+      ...(body.accuracy       !== undefined && { accuracy:       body.accuracy       }),
+      ...(body.maxStamina     !== undefined && { maxStamina:     body.maxStamina     }),
+      ...(body.movementSpeed  !== undefined && { movementSpeed:  body.movementSpeed !== null ? String(body.movementSpeed) : null }),
+      ...(body.criticalChance !== undefined && { criticalChance: body.criticalChance }),
+      ...(body.criticalDamage !== undefined && { criticalDamage: body.criticalDamage }),
+    })
     .where(
       and(
         eq(characterPets.userId, session.user.id),
