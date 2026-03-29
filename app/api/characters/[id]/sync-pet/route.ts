@@ -4,7 +4,6 @@ import { auth } from "@/lib/auth";
 import { getCharacterPets, type CharacterPet } from "@/lib/idlemmo";
 import { db } from "@/lib/db";
 import { characterPets } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 async function fetchEquippedPet(
@@ -39,36 +38,46 @@ export async function POST(
     return NextResponse.json({ error: "No pet equipped on this character" }, { status: 404 });
   }
 
-  // Upsert: delete existing row for this (user, character) then insert fresh.
-  // Drizzle's onConflictDoUpdate requires a unique constraint target which is a composite index,
-  // so we use delete + insert for clarity.
   await db
-    .delete(characterPets)
-    .where(
-      and(
-        eq(characterPets.userId, session.user.id),
-        eq(characterPets.characterHashedId, characterHashedId)
-      )
-    );
-
-  await db.insert(characterPets).values({
-    id:                     randomUUID(),
-    userId:                 session.user.id,
-    characterHashedId,
-    petId:                  pet.id,
-    name:                   pet.name,
-    customName:             pet.custom_name ?? null,
-    imageUrl:               pet.image_url ?? null,
-    level:                  pet.level,
-    quality:                pet.quality,
-    strength:               pet.stats.strength,
-    defence:                pet.stats.defence,
-    speed:                  pet.stats.speed,
-    evolutionState:         pet.evolution.state,
-    evolutionMax:           pet.evolution.max,
-    evolutionBonusPerStage: pet.evolution.bonus_per_stage,
-    syncedAt:               new Date(),
-  });
+    .insert(characterPets)
+    .values({
+      id:                     randomUUID(),
+      userId:                 session.user.id,
+      characterHashedId,
+      petId:                  pet.id,
+      name:                   pet.name,
+      customName:             pet.custom_name ?? null,
+      imageUrl:               pet.image_url ?? null,
+      level:                  pet.level,
+      quality:                pet.quality,
+      attackPower:            pet.stats.strength,
+      protection:             pet.stats.defence,
+      agility:                pet.stats.speed,
+      evolutionState:         pet.evolution.state,
+      evolutionMax:           pet.evolution.max,
+      evolutionBonusPerStage: pet.evolution.bonus_per_stage,
+      syncedAt:               new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [characterPets.userId, characterPets.characterHashedId],
+      set: {
+        petId:                  pet.id,
+        name:                   pet.name,
+        customName:             pet.custom_name ?? null,
+        imageUrl:               pet.image_url ?? null,
+        level:                  pet.level,
+        quality:                pet.quality,
+        attackPower:            pet.stats.strength,
+        protection:             pet.stats.defence,
+        agility:                pet.stats.speed,
+        evolutionState:         pet.evolution.state,
+        evolutionMax:           pet.evolution.max,
+        evolutionBonusPerStage: pet.evolution.bonus_per_stage,
+        syncedAt:               new Date(),
+        // accuracy, maxStamina, movementSpeed, criticalChance, criticalDamage
+        // are intentionally omitted — manual fields are never overwritten by sync
+      },
+    });
 
   return NextResponse.json({ ok: true, pet: { name: pet.name, level: pet.level, quality: pet.quality } });
 }
