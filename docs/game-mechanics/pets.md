@@ -43,7 +43,7 @@ Full stats and evolution info are on this object.
   "quality": "LEGENDARY",
   "level": 96,
   "equipped": true,
-  "stats": { "strength": 0, "defence": 0, "speed": 0 },
+  "stats": { "strength": 45, "defence": 38, "speed": 52 },
   "evolution": {
     "state": 0,
     "max": 5,
@@ -74,6 +74,8 @@ Pet skills use the **same ×2.4 multiplier** as character skills:
 | `defence` | Protection | `floor(defence × 2.4)` |
 | `speed` | Agility | `floor(speed × 2.4)` |
 
+> `stats.*` fields return the pet's trained skill levels. Combat contributions are `floor(stat × 2.4)`, identical to character skills.
+>
 > Pets have no `dexterity` — they do not contribute to Accuracy.
 
 ---
