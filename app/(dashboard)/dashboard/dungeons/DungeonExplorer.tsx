@@ -40,14 +40,6 @@ interface StatBreakdown {
   gear: Array<{ slotLabel: string; value: number }>;
 }
 
-interface EquippedPet {
-  id: number;
-  name: string;
-  level: number;
-  quality: string;
-  image_url: string | null;
-  stats: { strength: number; defence: number; speed: number };
-}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -66,7 +58,13 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
   const [presetId, setPresetId] = useState(presets[0]?.id ?? NO_GEAR_ID);
   const [combatStats, setCombatStats] = useState<Record<string, number> | null>(null);
   const [breakdown, setBreakdown] = useState<Record<string, StatBreakdown> | null>(null);
-  const [equippedPet, setEquippedPet] = useState<EquippedPet | null>(null);
+  const [petDbStats, setPetDbStats] = useState<{
+    attackPower: number;
+    protection: number;
+    agility: number;
+    accuracy: number | null;
+    petName: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
 
   const [expandedStat, setExpandedStat] = useState<string | null>(null);
@@ -167,7 +165,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
   // ── Compute combat stats whenever character or preset changes ───────────────
 
   useEffect(() => {
-    if (!characterId) { setCombatStats(null); setBreakdown(null); setEquippedPet(null); return; }
+    if (!characterId) { setCombatStats(null); setBreakdown(null); setPetDbStats(null); return; }
     let cancelled = false;
     setLoading(true);
 
@@ -204,10 +202,22 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
           }
         }
 
-        if (data.equipped_pet) {
-          setEquippedPet({ ...data.equipped_pet } as EquippedPet);
-        } else {
-          setEquippedPet(null);
+        try {
+          const petRes = await fetch(`/api/characters/${characterId}/pet-stats`);
+          if (petRes.ok) {
+            const petData = await petRes.json();
+            setPetDbStats({
+              attackPower: petData.attackPower ?? 0,
+              protection:  petData.protection  ?? 0,
+              agility:     petData.agility     ?? 0,
+              accuracy:    petData.accuracy    ?? null,
+              petName:     data.equipped_pet?.name ?? null,
+            });
+          } else {
+            setPetDbStats(null);
+          }
+        } catch {
+          setPetDbStats(null);
         }
       } catch { /* skip */ }
 
@@ -259,12 +269,12 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
     return () => { cancelled = true; };
   }, [characterId, presetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const petContribution: Record<string, number> = equippedPet
+  const petContribution: Record<string, number> = petDbStats
     ? {
-        attack_power: Math.floor(equippedPet.stats.strength * 2.4),
-        protection:   Math.floor(equippedPet.stats.defence  * 2.4),
-        agility:      Math.floor(equippedPet.stats.speed    * 2.4),
-        accuracy:     0,
+        attack_power: petDbStats.attackPower,
+        protection:   petDbStats.protection,
+        agility:      petDbStats.agility,
+        accuracy:     petDbStats.accuracy ?? 0,
       }
     : { attack_power: 0, protection: 0, agility: 0, accuracy: 0 };
 
@@ -424,7 +434,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
               )}
 
               {/* Pet row — inline within gear card */}
-              {equippedPet && !loading && (
+              {petDbStats && !loading && (
                 <div className={cn(
                   "mt-3 pt-3 border-t border-border/40 space-y-3",
                   noGear && "mt-0 pt-0 border-t-0"
@@ -433,24 +443,12 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                   <div className="flex items-center gap-3">
                     <PawPrint className="size-3 text-muted-foreground/50 shrink-0" />
                     <span className="text-xs text-muted-foreground w-20 shrink-0">Pet</span>
-                    {equippedPet.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={equippedPet.image_url}
-                        alt={equippedPet.name}
-                        className="size-8 object-contain shrink-0 rounded-sm bg-muted/40 p-0.5"
-                      />
-                    ) : (
-                      <div className="size-8 rounded-sm bg-muted/40 shrink-0 flex items-center justify-center">
-                        <PawPrint className="size-4 text-muted-foreground/30" />
-                      </div>
-                    )}
+                    <div className="size-8 rounded-sm bg-muted/40 shrink-0 flex items-center justify-center">
+                      <PawPrint className="size-4 text-muted-foreground/30" />
+                    </div>
                     <div className="min-w-0">
-                      <p className={cn("text-sm font-medium leading-tight", QUALITY_COLORS[equippedPet.quality] ?? "")}>
-                        {equippedPet.name}
-                      </p>
-                      <p className="text-[10px] font-mono text-muted-foreground/60 mt-0.5">
-                        L{equippedPet.level} · {equippedPet.quality.charAt(0) + equippedPet.quality.slice(1).toLowerCase()}
+                      <p className="text-sm font-medium leading-tight">
+                        {petDbStats.petName ?? "Pet"}
                       </p>
                     </div>
                   </div>
@@ -475,6 +473,11 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                     </div>
                   </div>
                 </div>
+              )}
+              {!petDbStats && !loading && characterId && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Pet stats not saved — sync on the character page first.
+                </p>
               )}
             </CardContent>
           </Card>
@@ -532,9 +535,9 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                             <span className="tabular-nums text-foreground/70 shrink-0 ml-2">+{g.value}</span>
                           </div>
                         ))}
-                        {petAdd > 0 && equippedPet && (
+                        {petAdd > 0 && petDbStats && (
                           <div className="flex items-center justify-between text-[11px] font-mono">
-                            <span className="text-muted-foreground truncate max-w-[200px]">Pet — {equippedPet.name}</span>
+                            <span className="text-muted-foreground truncate max-w-[200px]">Pet — {petDbStats.petName ?? "Pet"}</span>
                             <span className="tabular-nums text-foreground/70 shrink-0 ml-2">+{petAdd}</span>
                           </div>
                         )}
