@@ -16,11 +16,13 @@ Returns all stored combat stats for the equipped pet of a character.
   "maxStamina": 264,
   "movementSpeed": 20.5,
   "criticalChance": 9,
-  "criticalDamage": 41
+  "criticalDamage": 41,
+  "imageUrl": "https://...",
+  "quality": "RARE"
 }
 ```
 
-Any field may be `null` if the user has not entered it. Returns 404 if no pet has been synced.
+Any combat stat field may be `null` if the user has not entered it. `imageUrl` may be null. Returns 404 if no pet has been synced.
 
 ---
 

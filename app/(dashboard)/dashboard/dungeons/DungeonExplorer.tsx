@@ -64,6 +64,8 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
     agility: number;
     accuracy: number | null;
     petName: string | null;
+    imageUrl: string | null;
+    quality: string | null;
   } | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -212,6 +214,8 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
               agility:     petData.agility     ?? 0,
               accuracy:    petData.accuracy    ?? null,
               petName:     data.equipped_pet?.name ?? null,
+              imageUrl:    petData.imageUrl    ?? null,
+              quality:     petData.quality     ?? null,
             });
           } else {
             setPetDbStats(null);
@@ -443,11 +447,16 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                   <div className="flex items-center gap-3">
                     <PawPrint className="size-3 text-muted-foreground/50 shrink-0" />
                     <span className="text-xs text-muted-foreground w-20 shrink-0">Pet</span>
-                    <div className="size-8 rounded-sm bg-muted/40 shrink-0 flex items-center justify-center">
-                      <PawPrint className="size-4 text-muted-foreground/30" />
+                    <div className="size-8 rounded-sm bg-muted/40 shrink-0 flex items-center justify-center overflow-hidden">
+                      {petDbStats.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={petDbStats.imageUrl} alt={petDbStats.petName ?? "Pet"} className="size-full object-contain p-0.5" />
+                      ) : (
+                        <PawPrint className="size-4 text-muted-foreground/30" />
+                      )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium leading-tight">
+                      <p className={cn("text-sm font-medium leading-tight", QUALITY_COLORS[petDbStats.quality ?? ""] ?? "")}>
                         {petDbStats.petName ?? "Pet"}
                       </p>
                     </div>

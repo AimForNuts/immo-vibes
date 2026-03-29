@@ -36,6 +36,8 @@ export async function GET(
     movementSpeed:  r.movementSpeed !== null ? Number(r.movementSpeed) : null,
     criticalChance: r.criticalChance,
     criticalDamage: r.criticalDamage,
+    imageUrl:       r.imageUrl,
+    quality:        r.quality,
   });
 }
 
