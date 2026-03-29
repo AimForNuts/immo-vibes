@@ -462,9 +462,9 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
                     </p>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                       {([
-                        { key: "attack_power", label: "Attack Power", icon: Swords, value: Math.floor(equippedPet.stats.strength * 2.4) },
-                        { key: "protection",   label: "Protection",   icon: Shield, value: Math.floor(equippedPet.stats.defence  * 2.4) },
-                        { key: "agility",      label: "Agility",      icon: Wind,   value: Math.floor(equippedPet.stats.speed    * 2.4) },
+                        { key: "attack_power", label: "Attack Power", icon: Swords, value: petContribution.attack_power },
+                        { key: "protection",   label: "Protection",   icon: Shield, value: petContribution.protection   },
+                        { key: "agility",      label: "Agility",      icon: Wind,   value: petContribution.agility      },
                       ] as const).map(({ key, label, icon: Icon, value }) => (
                         <div key={key} className="flex items-center gap-1.5">
                           <Icon className="size-3 text-muted-foreground/40 shrink-0" />
