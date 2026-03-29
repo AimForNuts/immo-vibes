@@ -186,13 +186,13 @@ export interface CharacterPet {
   experience: number;
   quality: string;
   /**
-   * Pet skill training levels. Each contributes ×2.4 to the derived combat stat,
-   * identical to character skills. See docs/game-mechanics/pets.md.
+   * Pet combat stats — direct values as returned by the IdleMMO API.
+   * No multiplier is applied; these are the final contributions to combat stats.
    */
   stats: {
-    strength: number;  // → Attack Power  (×2.4)
-    defence: number;   // → Protection    (×2.4)
-    speed: number;     // → Agility       (×2.4)
+    strength: number;  // → Attack Power
+    defence: number;   // → Protection
+    speed: number;     // → Agility
   };
   health: {
     current: number;
