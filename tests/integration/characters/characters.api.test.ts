@@ -51,7 +51,7 @@ describe("getAltCharacters", () => {
 });
 
 describe("getCharacterPets", () => {
-  it("returns all pets and identifies the equipped one", async () => {
+  it("returns all pets and identifies the equipped one with non-zero stats", async () => {
     await delay(RATE_DELAY);
     const pets = await getCharacterPets(CHAR_ID, TOKEN);
     console.log(`\n=== PETS: ${pets.length} total ===`);
@@ -67,13 +67,20 @@ describe("getCharacterPets", () => {
       console.log(`    attack_power from strength: ${Math.floor(equipped.stats.strength * 2.4)}`);
       console.log(`    protection   from defence:  ${Math.floor(equipped.stats.defence * 2.4)}`);
       console.log(`    agility      from speed:    ${Math.floor(equipped.stats.speed * 2.4)}`);
-    } else {
-      console.log("\n  No pet currently equipped.");
+
+      // API bug is fixed — stats must be non-zero for a trained pet
+      expect(equipped.stats.strength).toBeGreaterThan(0);
+      expect(equipped.stats.defence).toBeGreaterThan(0);
+      expect(equipped.stats.speed).toBeGreaterThan(0);
     }
 
     expect(Array.isArray(pets)).toBe(true);
     expect(pets.every((p) => typeof p.id === "number")).toBe(true);
     expect(pets.every((p) => typeof p.evolution?.state === "number")).toBe(true);
+    // New fields
+    expect(pets.every((p) => typeof p.experience === "number")).toBe(true);
+    expect(pets.every((p) => typeof p.health?.current === "number")).toBe(true);
+    expect(pets.every((p) => typeof p.location?.locked === "boolean")).toBe(true);
   });
 });
 
