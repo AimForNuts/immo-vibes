@@ -38,7 +38,7 @@ export const MARKET_TABS: MarketTab[] = [
   {
     id:    "alchemy",
     label: "Alchemy",
-    types: ["POTION"],
+    types: ["POTION", "ESSENCE_CRYSTAL"],
   },
   {
     id:    "gear",
@@ -58,7 +58,7 @@ export const MARKET_TABS: MarketTab[] = [
   {
     id:    "merchants",
     label: "Merchants",
-    types: ["BAIT", "BLANK_SCROLL", "EMPTY_CRYSTAL", "ESSENCE_CRYSTAL", "METAMORPHITE", "NAMESTONE", "SKIN", "VIAL"],
+    types: ["BAIT", "BLANK_SCROLL", "EMPTY_CRYSTAL", "METAMORPHITE", "NAMESTONE", "SKIN", "VIAL"],
   },
   {
     id:    "event",
@@ -81,3 +81,31 @@ export const MARKET_TABS: MarketTab[] = [
     types: [],
   },
 ];
+
+/**
+ * Category grouping for the Resources tab.
+ * Each category maps to a set of IdleMMO item types.
+ * Order determines display order in the UI.
+ */
+export const RESOURCE_CATEGORIES: Array<{ label: string; types: string[] }> = [
+  { label: "Gathering",   types: ["LOG", "FISH", "ORE", "METAL_BAR"] },
+  { label: "Food",        types: ["FOOD"] },
+  { label: "Consumables", types: ["CAKE", "GUIDANCE_SCROLL", "TELEPORTATION_STONE", "UPGRADE_STONE", "MEMBERSHIP"] },
+  { label: "Crafting",    types: ["CRAFTING_MATERIAL", "CONSTRUCTION_MATERIAL"] },
+  { label: "Pet Eggs",    types: ["PET_EGG"] },
+  { label: "Other",       types: ["RELIC", "CHEST", "TOKEN"] },
+];
+
+/**
+ * Display label for each item type on the Merchants tab.
+ * Used to group Merchants items by type instead of quality.
+ */
+export const MERCHANT_TYPE_LABELS: Record<string, string> = {
+  BAIT:          "Bait",
+  BLANK_SCROLL:  "Scrolls",
+  EMPTY_CRYSTAL: "Crystals",
+  METAMORPHITE:  "Upgrade Materials",
+  NAMESTONE:     "Name Stones",
+  SKIN:          "Skins",
+  VIAL:          "Vials",
+};
