@@ -10,8 +10,9 @@ import {
   ChevronDown, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MARKET_TABS } from "@/lib/market-config";
+import { MARKET_TABS, RESOURCE_CATEGORIES, MERCHANT_TYPE_LABELS } from "@/lib/market-config";
 import { QUALITY_COLORS, QUALITY_ORDER, QUALITY_BORDER_CSS } from "@/lib/game-constants";
+import { useSession } from "@/lib/auth-client";
 import type { Filters } from "./types";
 import { DEFAULT_FILTERS } from "./types";
 import { useMarketItems } from "./hooks/useMarketItems";
@@ -65,6 +66,10 @@ export function MarketBrowser() {
   const [showFilters,        setShowFilters]        = useState(false);
   const [filters,            setFilters]            = useState<Filters>(DEFAULT_FILTERS);
   const [collapsedQualities, setCollapsedQualities] = useState<Set<string>>(new Set());
+  const [recipeSkill,        setRecipeSkill]        = useState<"Alchemy" | "Forge" | null>(null);
+
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
 
   const {
     items,
@@ -89,6 +94,7 @@ export function MarketBrowser() {
     craftedByDetail,
     craftedByItemData,
     resultItemData,
+    zones,
     handleItemClick,
     handleTierChange,
     clearSelection,
@@ -100,6 +106,8 @@ export function MarketBrowser() {
   const isRecentlyAddedTab = activeTab === "recently_added";
 
   const filteredItems = items.filter((item) => {
+    if (filters.tradeable === "tradeable" && item.is_tradeable === false) return false;
+    if (activeTab === "recipes" && recipeSkill !== null && item.recipe_skill !== recipeSkill) return false;
     if (filters.rarities.size > 0 && !filters.rarities.has(item.quality)) return false;
     if (filters.types.size > 0    && !filters.types.has(item.type))        return false;
 
@@ -118,6 +126,7 @@ export function MarketBrowser() {
   });
 
   const activeFilterCount = [
+    filters.tradeable !== "tradeable",
     filters.rarities.size > 0,
     filters.types.size > 0,
     filters.vendorMin !== "" || filters.vendorMax !== "",
@@ -174,6 +183,7 @@ export function MarketBrowser() {
                     setFilters(DEFAULT_FILTERS);
                     clearSelection();
                     setCollapsedQualities(new Set());
+                    setRecipeSkill(null);
                   })}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors",
@@ -205,6 +215,26 @@ export function MarketBrowser() {
                 )}
               >
                 {DATE_RANGE_LABELS[range]}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Recipe sub-tab pills — Brewing / Forging */}
+        {activeTab === "recipes" && (
+          <div className="flex gap-2">
+            {([null, "Alchemy", "Forge"] as const).map((skill) => (
+              <button
+                key={skill ?? "all"}
+                onClick={() => setRecipeSkill(skill)}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-medium transition-colors border",
+                  recipeSkill === skill
+                    ? "bg-amber-400/10 border-amber-400/30 text-amber-400"
+                    : "border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600"
+                )}
+              >
+                {skill === null ? "All Recipes" : skill === "Alchemy" ? "Brewing" : "Forging"}
               </button>
             ))}
           </div>
@@ -291,8 +321,68 @@ export function MarketBrowser() {
                   />
                 ))}
               </div>
+            ) : activeTab === "resources" ? (
+              // Resources: group by category
+              <div className="space-y-8">
+                {RESOURCE_CATEGORIES
+                  .map(({ label, types }) => ({
+                    label,
+                    catItems: filteredItems.filter((i) => types.includes(i.type)),
+                  }))
+                  .filter(({ catItems }) => catItems.length > 0)
+                  .map(({ label, catItems }) => (
+                    <div key={label}>
+                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-3">{label}</p>
+                      <div className={cn(
+                        "grid gap-3",
+                        selectedItem
+                          ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
+                          : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
+                      )}>
+                        {catItems.map((item) => (
+                          <ItemCard
+                            key={item.hashed_id}
+                            item={item}
+                            selected={selectedItem?.hashed_id === item.hashed_id}
+                            onClick={() => handleItemClick(item)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : activeTab === "merchants" ? (
+              // Merchants: group by item type
+              <div className="space-y-8">
+                {Object.entries(MERCHANT_TYPE_LABELS)
+                  .map(([type, typeLabel]) => ({
+                    typeLabel,
+                    typeItems: filteredItems.filter((i) => i.type === type),
+                  }))
+                  .filter(({ typeItems }) => typeItems.length > 0)
+                  .map(({ typeLabel, typeItems }) => (
+                    <div key={typeLabel}>
+                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-3">{typeLabel}</p>
+                      <div className={cn(
+                        "grid gap-3",
+                        selectedItem
+                          ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
+                          : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
+                      )}>
+                        {typeItems.map((item) => (
+                          <ItemCard
+                            key={item.hashed_id}
+                            item={item}
+                            selected={selectedItem?.hashed_id === item.hashed_id}
+                            onClick={() => handleItemClick(item)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
             ) : (
-              // Category tabs: group by quality tier
+              // All other category tabs: group by quality tier
               <div className="space-y-8">
                 {QUALITY_ORDER
                   .map((q) => ({ quality: q, qItems: filteredItems.filter((i) => i.quality === q) }))
@@ -428,8 +518,8 @@ export function MarketBrowser() {
             craftedByDetail={craftedByDetail}
             craftedByItemData={craftedByItemData}
             resultItemData={resultItemData}
-            zones={null}
-            isAdmin={false}
+            zones={zones}
+            isAdmin={isAdmin}
             onClose={clearSelection}
             onTierChange={handleTierChange}
           />
