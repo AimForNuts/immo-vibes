@@ -135,6 +135,13 @@ export function MarketBrowser() {
 
   const tab = MARKET_TABS.find((t) => t.id === activeTab);
 
+  const gridClass = cn(
+    "grid gap-3",
+    selectedItem
+      ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
+      : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
+  );
+
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -306,12 +313,7 @@ export function MarketBrowser() {
           <>
             {isAllTab || isRecentlyAddedTab ? (
               // All-tab search and Recently Added: flat grid
-              <div className={cn(
-                "grid gap-3",
-                selectedItem
-                  ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
-                  : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
-              )}>
+              <div className={gridClass}>
                 {filteredItems.map((item) => (
                   <ItemCard
                     key={item.hashed_id}
@@ -333,12 +335,7 @@ export function MarketBrowser() {
                   .map(({ label, catItems }) => (
                     <div key={label}>
                       <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-3">{label}</p>
-                      <div className={cn(
-                        "grid gap-3",
-                        selectedItem
-                          ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
-                          : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
-                      )}>
+                      <div className={gridClass}>
                         {catItems.map((item) => (
                           <ItemCard
                             key={item.hashed_id}
@@ -363,12 +360,7 @@ export function MarketBrowser() {
                   .map(({ typeLabel, typeItems }) => (
                     <div key={typeLabel}>
                       <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-3">{typeLabel}</p>
-                      <div className={cn(
-                        "grid gap-3",
-                        selectedItem
-                          ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
-                          : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
-                      )}>
+                      <div className={gridClass}>
                         {typeItems.map((item) => (
                           <ItemCard
                             key={item.hashed_id}
@@ -398,13 +390,6 @@ export function MarketBrowser() {
                         if (b.vendor_price == null) return -1;
                         return a.vendor_price - b.vendor_price;
                       });
-
-                    const gridClass = cn(
-                      "grid gap-3",
-                      selectedItem
-                        ? "grid-cols-[repeat(auto-fill,minmax(110px,1fr))]"
-                        : "grid-cols-[repeat(auto-fill,minmax(130px,1fr))]"
-                    );
 
                     const isCollapsed = collapsedQualities.has(quality);
 
