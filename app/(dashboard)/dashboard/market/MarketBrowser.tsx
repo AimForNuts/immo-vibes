@@ -428,6 +428,8 @@ export function MarketBrowser() {
             craftedByDetail={craftedByDetail}
             craftedByItemData={craftedByItemData}
             resultItemData={resultItemData}
+            zones={null}
+            isAdmin={false}
             onClose={clearSelection}
             onTierChange={handleTierChange}
           />
