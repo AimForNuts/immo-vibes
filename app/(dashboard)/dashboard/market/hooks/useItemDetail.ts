@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { DbItem, FullItem, MarketPrice } from "../types";
+import type { DbItem, FullItem, MarketPrice, ZoneResult } from "../types";
 
 interface UseItemDetailReturn {
   selectedItem:      DbItem | null;
@@ -12,6 +12,7 @@ interface UseItemDetailReturn {
   craftedByDetail:   FullItem | null | "loading" | undefined;
   craftedByItemData: DbItem | null | undefined;
   resultItemData:    DbItem | null | undefined;
+  zones:             ZoneResult[] | null | "loading";
   handleItemClick:   (item: DbItem) => void;
   handleTierChange:  (tier: number) => void;
   clearSelection:    () => void;
@@ -30,6 +31,7 @@ export function useItemDetail(): UseItemDetailReturn {
   const [craftedByItemData, setCraftedByItemData] = useState<DbItem | null | undefined>(undefined);
   // For recipe items: the produced item's DB data (prices, name)
   const [resultItemData, setResultItemData]       = useState<DbItem | null | undefined>(undefined);
+  const [zones, setZones]                         = useState<ZoneResult[] | null | "loading">(null);
 
   const handleItemClick = useCallback((item: DbItem) => {
     setSelectedItem(item);
@@ -37,10 +39,17 @@ export function useItemDetail(): UseItemDetailReturn {
     // Seed tier-1 price immediately from the DB item — no extra fetch needed
     setTierMarketPrice({ price: item.last_sold_price, sold_at: item.last_sold_at, quantity: null });
     setItemDetail("loading");
+    setZones("loading");
     setMaterialPrices({});
     setCraftedByDetail(undefined);
     setCraftedByItemData(undefined);
     setResultItemData(undefined);
+
+    // Fetch zones in parallel with item detail
+    fetch(`/api/market/zones?itemId=${item.hashed_id}`)
+      .then((r) => r.json())
+      .then((data) => setZones(data.zones ?? []))
+      .catch(() => setZones(null));
 
     // Fetch full item data from DB (stats, recipe, effects — all stored)
     fetch(`/api/market/item/${item.hashed_id}`)
@@ -141,6 +150,7 @@ export function useItemDetail(): UseItemDetailReturn {
     setSelectedItem(null);
     setSelectedTier(1);
     setTierMarketPrice(undefined);
+    setZones(null);
   }, []);
 
   return {
@@ -152,6 +162,7 @@ export function useItemDetail(): UseItemDetailReturn {
     craftedByDetail,
     craftedByItemData,
     resultItemData,
+    zones,
     handleItemClick,
     handleTierChange,
     clearSelection,
