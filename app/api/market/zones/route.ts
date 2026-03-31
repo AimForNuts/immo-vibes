@@ -4,20 +4,16 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { zones } from "@/lib/db/schema";
 
-/**
- * GET /api/market/zones?itemId=<hashed_id>
- *
- * Returns all zones in which the given item can be found.
- * A zone matches if the item appears in any of:
- *   - skillItems  (gatherable resource)
- *   - enemies[].drops  (enemy loot)
- *   - dungeons[].drops  (dungeon loot)
- *   - worldBosses[].drops  (world-boss loot)
- *
- * A zone can match multiple arrays; all matches are merged into one ZoneResult.
- *
- * Response: { zones: ZoneResult[] }
- */
+type ZoneResult = {
+  id:             number;
+  name:           string;
+  level_required: number;
+  skill?:         "woodcutting" | "fishing" | "mining";
+  enemies?:       Array<{ name: string; level: number }>;
+  dungeons?:      Array<{ name: string }>;
+  world_bosses?:  Array<{ name: string }>;
+};
+
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,27 +27,9 @@ export async function GET(request: NextRequest) {
 
   const allZones = await db.select().from(zones);
 
-  const results = allZones.reduce<
-    Array<{
-      id:             number;
-      name:           string;
-      level_required: number;
-      skill?:         "woodcutting" | "fishing" | "mining";
-      enemies?:       Array<{ name: string; level: number }>;
-      dungeons?:      Array<{ name: string }>;
-      world_bosses?:  Array<{ name: string }>;
-    }>
-  >((acc, zone) => {
+  const results = allZones.reduce<ZoneResult[]>((acc, zone) => {
     let matched = false;
-    const result: {
-      id:             number;
-      name:           string;
-      level_required: number;
-      skill?:         "woodcutting" | "fishing" | "mining";
-      enemies?:       Array<{ name: string; level: number }>;
-      dungeons?:      Array<{ name: string }>;
-      world_bosses?:  Array<{ name: string }>;
-    } = {
+    const result: ZoneResult = {
       id:             zone.id,
       name:           zone.name,
       level_required: zone.levelRequired,

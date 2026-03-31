@@ -475,8 +475,8 @@ export function DetailPanel({
                         {zone.dungeons && zone.dungeons.length > 0 && (
                           <div className="space-y-0.5">
                             <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Dungeons</p>
-                            {zone.dungeons.map((d, i) => (
-                              <div key={i} className="text-xs text-zinc-300">{d.name}</div>
+                            {zone.dungeons.map((dungeon, i) => (
+                              <div key={i} className="text-xs text-zinc-300">{dungeon.name}</div>
                             ))}
                           </div>
                         )}
