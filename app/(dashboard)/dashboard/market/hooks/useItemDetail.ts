@@ -36,7 +36,6 @@ export function useItemDetail(): UseItemDetailReturn {
   const handleItemClick = useCallback((item: DbItem) => {
     setSelectedItem(item);
     setSelectedTier(1);
-    // Seed tier-1 price immediately from the DB item — no extra fetch needed
     setTierMarketPrice({ price: item.last_sold_price, sold_at: item.last_sold_at, quantity: null });
     setItemDetail("loading");
     setZones("loading");
@@ -45,13 +44,11 @@ export function useItemDetail(): UseItemDetailReturn {
     setCraftedByItemData(undefined);
     setResultItemData(undefined);
 
-    // Fetch zones in parallel with item detail
     fetch(`/api/market/zones?itemId=${item.hashed_id}`)
       .then((r) => r.json())
       .then((data) => setZones(data.zones ?? []))
       .catch(() => setZones(null));
 
-    // Fetch full item data from DB (stats, recipe, effects — all stored)
     fetch(`/api/market/item/${item.hashed_id}`)
       .then((r) => r.json())
       .then((data) => {
