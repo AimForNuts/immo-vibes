@@ -11,14 +11,15 @@ export interface DbItem {
   last_sold_price: number | null;
   last_sold_at:    string | null;
   is_tradeable:    boolean | null;
-  recipe_skill:    string | null;  // populated for RECIPE-type items; null otherwise
-  store_price:     number | null;  // NPC merchant buy price; null until populated
+  /** Populated by /api/market route (Task 5). RECIPE-type items only; null otherwise. */
+  recipe_skill:    string | null;
+  /** Populated by /api/market route (Task 5). NPC merchant buy price; null until admin sets it. */
+  store_price:     number | null;
 }
 
 /** Full item from GET /api/market/item/[id] — includes inspect fields. */
 export interface FullItem extends DbItem {
   description:    string | null;
-  is_tradeable:   boolean | null;
   max_tier:       number | null;
   requirements:   Record<string, number> | null;
   base_stats:     Record<string, number> | null;
@@ -50,7 +51,7 @@ export interface MarketPrice {
 }
 
 export interface Filters {
-  tradeable: "all" | "tradable";
+  tradeable: "all" | "tradeable";
   rarities:  Set<string>;
   types:     Set<string>;
   vendorMin: string;
@@ -60,7 +61,7 @@ export interface Filters {
 }
 
 export const DEFAULT_FILTERS: Filters = {
-  tradeable: "tradable",  // default: show tradable items only
+  tradeable: "tradeable",  // default: show tradeable items only
   rarities:  new Set(),
   types:     new Set(),
   vendorMin: "",
