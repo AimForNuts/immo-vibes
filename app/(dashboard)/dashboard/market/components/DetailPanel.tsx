@@ -5,6 +5,7 @@ import { X, Package, BookOpen, ChevronRight, Coins, Pencil } from "lucide-react"
 import { QUALITY_HEX, QUALITY_BORDER_CSS } from "@/lib/game-constants";
 import { cn } from "@/lib/utils";
 import type { DbItem, FullItem, MarketPrice, ZoneResult } from "../types";
+import { formatDuration } from "@/app/(dashboard)/dashboard/dungeons/difficulty";
 
 interface DetailPanelProps {
   item:              DbItem;
@@ -21,14 +22,6 @@ interface DetailPanelProps {
   onTierChange:      (tier: number) => void;
 }
 
-function formatDuration(ms: number): string {
-  const totalSeconds = Math.round(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (minutes === 0) return `${seconds}s`;
-  if (seconds === 0) return `${minutes}m`;
-  return `${minutes}m ${seconds}s`;
-}
 
 export function DetailPanel({
   item, detail, selectedTier, tierMarketPrice, materialPrices,
@@ -332,7 +325,7 @@ export function DetailPanel({
                         {statLabel(eff.attribute)} ({eff.target})
                         {eff.duration_ms != null && eff.duration_ms > 0 && (
                           <span className="text-zinc-600 ml-1">
-                            · {formatDuration(eff.duration_ms)}
+                            · {formatDuration(Math.round(eff.duration_ms / 1000))}
                           </span>
                         )}
                       </span>
