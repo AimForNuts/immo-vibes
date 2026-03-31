@@ -1,4 +1,4 @@
-import type { ItemEffect, ItemRecipe, ItemWhereToFind } from "@/lib/db/schema";
+import type { ItemEffect, ItemRecipe } from "@/lib/db/schema";
 
 /** Item shape returned by the DB-backed GET /api/market route. */
 export interface DbItem {
@@ -11,6 +11,8 @@ export interface DbItem {
   last_sold_price: number | null;
   last_sold_at:    string | null;
   is_tradeable:    boolean | null;
+  recipe_skill:    string | null;  // populated for RECIPE-type items; null otherwise
+  store_price:     number | null;  // NPC merchant buy price; null until populated
 }
 
 /** Full item from GET /api/market/item/[id] — includes inspect fields. */
@@ -23,7 +25,22 @@ export interface FullItem extends DbItem {
   tier_modifiers: Record<string, number> | null;
   effects:        ItemEffect[] | null;
   recipe:         ItemRecipe | null;
-  where_to_find:  ItemWhereToFind | null;
+  // where_to_find removed — location data lives in the zones table
+}
+
+/** Single zone entry returned by GET /api/market/zones. */
+export interface ZoneResult {
+  id:             number;
+  name:           string;
+  level_required: number;
+  /** Enemies in this zone that drop the queried item. */
+  enemies?:       Array<{ name: string; level: number }>;
+  /** The gathering skill type. Present when item is gatherable here. */
+  skill?:         "woodcutting" | "fishing" | "mining";
+  /** Dungeons in this zone that yield the queried item. */
+  dungeons?:      Array<{ name: string }>;
+  /** World bosses in this zone that yield the queried item. */
+  world_bosses?:  Array<{ name: string }>;
 }
 
 export interface MarketPrice {
@@ -33,6 +50,7 @@ export interface MarketPrice {
 }
 
 export interface Filters {
+  tradeable: "all" | "tradable";
   rarities:  Set<string>;
   types:     Set<string>;
   vendorMin: string;
@@ -42,6 +60,7 @@ export interface Filters {
 }
 
 export const DEFAULT_FILTERS: Filters = {
+  tradeable: "tradable",  // default: show tradable items only
   rarities:  new Set(),
   types:     new Set(),
   vendorMin: "",
