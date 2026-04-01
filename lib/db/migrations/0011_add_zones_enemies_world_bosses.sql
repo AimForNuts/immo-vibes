@@ -29,8 +29,8 @@ CREATE TABLE "zones" (
 	"name" text NOT NULL,
 	"level_min" integer NOT NULL,
 	"level_max" integer NOT NULL,
-	"created_at" timestamp NOT NULL,
-	"updated_at" timestamp NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "dungeons" ADD COLUMN "zone_id" integer;--> statement-breakpoint

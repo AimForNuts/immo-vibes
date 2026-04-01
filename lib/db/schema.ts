@@ -349,8 +349,8 @@ export const zones = pgTable("zones", {
   name:      text("name").notNull(),
   levelMin:  integer("level_min").notNull(),
   levelMax:  integer("level_max").notNull(),
-  createdAt: timestamp("created_at").notNull(),
-  updatedAt: timestamp("updated_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 /**
