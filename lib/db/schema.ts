@@ -349,8 +349,8 @@ export const zones = pgTable("zones", {
   name:      text("name").notNull(),
   levelMin:  integer("level_min").notNull(),
   levelMax:  integer("level_max").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
 });
 
 /**
@@ -373,8 +373,8 @@ export const dungeons = pgTable("dungeons", {
   shards:        integer("shards").notNull().default(0),
   /** Full loot array from the API */
   loot:          jsonb("loot").$type<DungeonLootItem[]>(),
-  syncedAt:      timestamp("synced_at").notNull(),
   zoneId:        integer("zone_id").references(() => zones.id, { onDelete: "set null" }),
+  syncedAt:      timestamp("synced_at").notNull(),
 });
 
 export const enemies = pgTable("enemies", {
