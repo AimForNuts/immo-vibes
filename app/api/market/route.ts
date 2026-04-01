@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { ilike, inArray, and, gte, asc, desc, sql } from "drizzle-orm";
+import { ilike, inArray, and, not, or, eq, gte, asc, desc, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
@@ -76,14 +76,17 @@ export async function GET(request: NextRequest) {
         last_sold_price: r.lastSoldPrice ?? null,
         last_sold_at:    r.lastSoldAt    ? r.lastSoldAt.toISOString() : null,
         is_tradeable:    r.isTradeable   ?? null,
+        recipe_skill:    null,
+        store_price:     r.storePrice    ?? null,
       })),
       pagination: { current_page: page, last_page: lastPage, total: count },
     });
   }
 
   // ── Standard tab / search mode ────────────────────────────────────────────
-  const tab      = MARKET_TABS.find((t) => t.id === tabId);
-  const typeList = tab && tab.types.length > 0 ? tab.types : null;
+  const tab        = MARKET_TABS.find((t) => t.id === tabId);
+  const typeList   = tab && tab.types.length > 0 ? tab.types : null;
+  const recipeSkill = searchParams.get("recipeSkill")?.trim() ?? "";
 
   // Must have a name query OR be on a category tab (not "all" or "recently_added")
   if (!query && !typeList) {
@@ -91,8 +94,30 @@ export async function GET(request: NextRequest) {
   }
 
   const conditions = [];
-  if (query)    conditions.push(ilike(items.name, `%${query}%`));
-  if (typeList) conditions.push(inArray(items.type, typeList));
+  if (query) conditions.push(ilike(items.name, `%${query}%`));
+
+  if (tabId === "legacy") {
+    // Legacy: GEMSTONE OR year-named CAMPAIGN_ITEMs
+    conditions.push(
+      or(
+        eq(items.type, "GEMSTONE"),
+        and(eq(items.type, "CAMPAIGN_ITEM"), sql`${items.name} ~ '\\d{4}'`),
+      )!,
+    );
+  } else if (typeList) {
+    conditions.push(inArray(items.type, typeList));
+    if (tabId === "resources") {
+      // Exclude year-named CAMPAIGN_ITEMs from resources
+      conditions.push(
+        not(and(eq(items.type, "CAMPAIGN_ITEM"), sql`${items.name} ~ '\\d{4}'`)!),
+      );
+    }
+    if (tabId === "recipes" && recipeSkill) {
+      // Filter by recipe skill sub-tab
+      conditions.push(sql`${items.recipe}->>'skill' = ${recipeSkill}`);
+    }
+  }
+
   const where = conditions.length > 1 ? and(...conditions) : conditions[0];
 
   const [{ count }] = await db
@@ -101,7 +126,19 @@ export async function GET(request: NextRequest) {
     .where(where);
 
   const rows = await db
-    .select()
+    .select({
+      hashedId:      items.hashedId,
+      name:          items.name,
+      type:          items.type,
+      quality:       items.quality,
+      imageUrl:      items.imageUrl,
+      vendorPrice:   items.vendorPrice,
+      lastSoldPrice: items.lastSoldPrice,
+      lastSoldAt:    items.lastSoldAt,
+      isTradeable:   items.isTradeable,
+      recipe_skill:  sql<string | null>`${items.recipe}->>'skill'`.as("recipe_skill"),
+      store_price:   items.storePrice,
+    })
     .from(items)
     .where(where)
     .orderBy(items.name)
@@ -121,6 +158,8 @@ export async function GET(request: NextRequest) {
       last_sold_price: r.lastSoldPrice ?? null,
       last_sold_at:    r.lastSoldAt    ? r.lastSoldAt.toISOString() : null,
       is_tradeable:    r.isTradeable   ?? null,
+      recipe_skill:    r.recipe_skill  ?? null,
+      store_price:     r.store_price   ?? null,
     })),
     pagination: { current_page: page, last_page: lastPage, total: count },
   });

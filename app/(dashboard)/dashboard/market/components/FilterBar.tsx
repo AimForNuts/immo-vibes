@@ -34,6 +34,27 @@ export function FilterBar({ filters, setFilters, availableTypes, hasActiveFilter
 
   return (
     <div className="bg-zinc-950/80 border border-zinc-800 rounded-lg p-4 space-y-4">
+      {/* Tradeable */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Tradeable</p>
+        <div className="flex gap-1.5">
+          {(["all", "tradeable"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setFilters((p) => ({ ...p, tradeable: v }))}
+              className={cn(
+                "px-2 py-0.5 rounded text-[11px] font-mono border transition-all",
+                filters.tradeable === v
+                  ? "border-amber-400/60 text-amber-400 bg-amber-400/10"
+                  : "text-zinc-600 border-zinc-800 hover:text-zinc-400 hover:border-zinc-600"
+              )}
+            >
+              {v === "all" ? "All" : "Tradeable"}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Rarity */}
       <div className="space-y-2">
         <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Rarity</p>
