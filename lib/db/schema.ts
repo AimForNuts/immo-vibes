@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric, primaryKey } from "drizzle-orm/pg-core";
 
 // ─── Shared types for JSONB columns ───────────────────────────────────────────
 
@@ -342,6 +342,17 @@ export const gearPresets = pgTable("gear_presets", {
   updatedAt: timestamp("updated_at").notNull(),
 });
 
+// ─── Zones ────────────────────────────────────────────────────────────────────
+
+export const zones = pgTable("zones", {
+  id:        serial("id").primaryKey(),
+  name:      text("name").notNull(),
+  levelMin:  integer("level_min").notNull(),
+  levelMax:  integer("level_max").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 /**
  * Cached dungeon catalog from the IdleMMO API.
  * Populated by the admin "Sync Dungeons" action.
@@ -363,4 +374,34 @@ export const dungeons = pgTable("dungeons", {
   /** Full loot array from the API */
   loot:          jsonb("loot").$type<DungeonLootItem[]>(),
   syncedAt:      timestamp("synced_at").notNull(),
+  zoneId:        integer("zone_id").references(() => zones.id, { onDelete: "set null" }),
 });
+
+export const enemies = pgTable("enemies", {
+  id:        serial("id").primaryKey(),
+  name:      text("name").notNull(),
+  level:     integer("level").notNull(),
+  zoneId:    integer("zone_id").references(() => zones.id, { onDelete: "set null" }),
+  imageUrl:  text("image_url"),
+  loot:      jsonb("loot").$type<Array<{ item_hashed_id: string; chance: number }>>(),
+  syncedAt:  timestamp("synced_at"),
+});
+
+export const worldBosses = pgTable("world_bosses", {
+  id:        serial("id").primaryKey(),
+  name:      text("name").notNull(),
+  level:     integer("level").notNull(),
+  zoneId:    integer("zone_id").references(() => zones.id, { onDelete: "set null" }),
+  imageUrl:  text("image_url"),
+  loot:      jsonb("loot").$type<Array<{ item_hashed_id: string; chance: number }>>(),
+  syncedAt:  timestamp("synced_at"),
+});
+
+export const zoneResources = pgTable(
+  "zone_resources",
+  {
+    zoneId:        integer("zone_id").notNull().references(() => zones.id, { onDelete: "cascade" }),
+    itemHashedId:  text("item_hashed_id").notNull().references(() => items.hashedId, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.zoneId, t.itemHashedId] })]
+);
