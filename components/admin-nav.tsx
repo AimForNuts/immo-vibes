@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, ChevronDown, ChevronRight, Package, Skull, Globe, Users, Lock } from "lucide-react";
+import { ShieldCheck, ChevronDown, ChevronRight, Package, Skull, Sword, Globe, Users, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 
@@ -21,7 +21,7 @@ const GROUPS: SubGroup[] = [
   {
     label: "World",
     items: [
-      { href: "/dashboard/admin/world/dungeons",    label: "Dungeons",     icon: Skull },
+      { href: "/dashboard/admin/world/dungeons",    label: "Dungeons",     icon: Sword },
       { href: "/dashboard/admin/world/zones",       label: "Zones",        icon: Globe },
       { href: "/dashboard/admin/world/world-bosses", label: "World Bosses", icon: Skull, disabled: true },
       { href: "/dashboard/admin/world/enemies",     label: "Enemies",      icon: Skull, disabled: true },
