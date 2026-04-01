@@ -243,6 +243,8 @@ Admin panel is organized into section pages. The root `/dashboard/admin` redirec
 | | `app/api/admin/sync-inspect/route.ts` |
 | | `app/api/admin/market-type-check/route.ts` |
 | | `app/api/admin/sync-dungeons/route.ts` |
+| API — items list | `app/api/admin/items/route.ts` (`GET` — paginated, filterable by name/type/quality) |
+| Service | `lib/services/admin/items.service.ts` → `getAdminItems()` |
 
 **DB tables**: `items`, `market_price_history`, `sync_state`, `dungeons`
 **External API**: All IdleMMO sync endpoints
