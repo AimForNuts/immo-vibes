@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -152,9 +152,8 @@ export function AdminTable<T extends Record<string, unknown>>({
                 const rowKey = expandedKey ? String(row[expandedKey]) : String(i);
                 const isExpanded = expandedRows.has(rowKey);
                 return (
-                  <>
+                  <React.Fragment key={rowKey}>
                     <tr
-                      key={rowKey}
                       className={cn(
                         "border-t border-border/50 transition-colors",
                         expandedKey && "cursor-pointer hover:bg-muted/30",
@@ -183,7 +182,7 @@ export function AdminTable<T extends Record<string, unknown>>({
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })
             )}
