@@ -9,8 +9,10 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = request.nextUrl;
-  const page     = Math.max(1, Number(searchParams.get("page") ?? 1));
-  const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? 50)));
+  const rawPage     = Number(searchParams.get("page") ?? 1);
+  const rawPageSize = Number(searchParams.get("pageSize") ?? 50);
+  const page        = isNaN(rawPage)     ? 1  : Math.max(1, rawPage);
+  const pageSize    = isNaN(rawPageSize) ? 50 : Math.min(100, Math.max(1, rawPageSize));
   const name     = searchParams.get("name")    ?? undefined;
   const type     = searchParams.get("type")    ?? undefined;
   const quality  = searchParams.get("quality") ?? undefined;

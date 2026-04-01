@@ -9,10 +9,13 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = request.nextUrl;
-  const page     = Math.max(1, Number(searchParams.get("page") ?? 1));
-  const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? 25)));
-  const name     = searchParams.get("name")     ?? undefined;
-  const minLevel = searchParams.get("minLevel") ? Number(searchParams.get("minLevel")) : undefined;
+  const rawPage     = Number(searchParams.get("page") ?? 1);
+  const rawPageSize = Number(searchParams.get("pageSize") ?? 25);
+  const page        = isNaN(rawPage)     ? 1  : Math.max(1, rawPage);
+  const pageSize    = isNaN(rawPageSize) ? 25 : Math.min(100, Math.max(1, rawPageSize));
+  const name        = searchParams.get("name") ?? undefined;
+  const rawMinLevel = searchParams.get("minLevel");
+  const minLevel    = rawMinLevel && !isNaN(Number(rawMinLevel)) ? Number(rawMinLevel) : undefined;
 
   const result = await getAdminDungeons({ page, pageSize, name, minLevel });
   return NextResponse.json(result);
