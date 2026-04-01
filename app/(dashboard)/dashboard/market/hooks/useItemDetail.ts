@@ -13,8 +13,10 @@ interface UseItemDetailReturn {
   craftedByItemData: DbItem | null | undefined;
   resultItemData:    DbItem | null | undefined;
   zones:             ZoneResult[] | null | "loading";
+  displayStorePrice: number | null | undefined;
   handleItemClick:   (item: DbItem) => void;
   handleTierChange:  (tier: number) => void;
+  handleStorePriceSave: (hashedId: string, value: number | null) => Promise<boolean>;
   clearSelection:    () => void;
 }
 
@@ -32,6 +34,8 @@ export function useItemDetail(): UseItemDetailReturn {
   // For recipe items: the produced item's DB data (prices, name)
   const [resultItemData, setResultItemData]       = useState<DbItem | null | undefined>(undefined);
   const [zones, setZones]                         = useState<ZoneResult[] | null | "loading">(null);
+  // undefined = not yet set (use item.store_price from DbItem), null/number = admin override after save
+  const [displayStorePrice, setDisplayStorePrice] = useState<number | null | undefined>(undefined);
 
   const handleItemClick = useCallback((item: DbItem) => {
     setSelectedItem(item);
@@ -43,6 +47,7 @@ export function useItemDetail(): UseItemDetailReturn {
     setCraftedByDetail(undefined);
     setCraftedByItemData(undefined);
     setResultItemData(undefined);
+    setDisplayStorePrice(undefined);
 
     fetch(`/api/market/zones?itemId=${item.hashed_id}`)
       .then((r) => r.json())
@@ -148,6 +153,18 @@ export function useItemDetail(): UseItemDetailReturn {
     setSelectedTier(1);
     setTierMarketPrice(undefined);
     setZones(null);
+    setDisplayStorePrice(undefined);
+  }, []);
+
+  const handleStorePriceSave = useCallback(async (hashedId: string, value: number | null): Promise<boolean> => {
+    const res = await fetch(`/api/admin/items/${hashedId}/store-price`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store_price: value }),
+    });
+    if (!res.ok) return false;
+    setDisplayStorePrice(value);
+    return true;
   }, []);
 
   return {
@@ -160,8 +177,10 @@ export function useItemDetail(): UseItemDetailReturn {
     craftedByItemData,
     resultItemData,
     zones,
+    displayStorePrice,
     handleItemClick,
     handleTierChange,
+    handleStorePriceSave,
     clearSelection,
   };
 }

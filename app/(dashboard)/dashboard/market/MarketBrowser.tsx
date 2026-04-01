@@ -95,8 +95,10 @@ export function MarketBrowser() {
     craftedByItemData,
     resultItemData,
     zones,
+    displayStorePrice,
     handleItemClick,
     handleTierChange,
+    handleStorePriceSave,
     clearSelection,
   } = useItemDetail();
 
@@ -505,6 +507,8 @@ export function MarketBrowser() {
             resultItemData={resultItemData}
             zones={zones}
             isAdmin={isAdmin}
+            displayStorePrice={displayStorePrice}
+            onStorePriceSave={handleStorePriceSave}
             onClose={clearSelection}
             onTierChange={handleTierChange}
           />

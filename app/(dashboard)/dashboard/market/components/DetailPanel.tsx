@@ -18,14 +18,19 @@ interface DetailPanelProps {
   resultItemData:    DbItem | null | undefined;
   zones:             ZoneResult[] | null | "loading";
   isAdmin:           boolean;
+  /** Optimistic store price overrides item.store_price after an admin save. undefined = use item value. */
+  displayStorePrice: number | null | undefined;
   onClose:           () => void;
   onTierChange:      (tier: number) => void;
+  /** Returns true on success, false on error. */
+  onStorePriceSave:  (hashedId: string, value: number | null) => Promise<boolean>;
 }
 
 
 export function DetailPanel({
   item, detail, selectedTier, tierMarketPrice, materialPrices,
-  craftedByDetail, craftedByItemData, resultItemData, zones, isAdmin, onClose, onTierChange,
+  craftedByDetail, craftedByItemData, resultItemData, zones, isAdmin,
+  displayStorePrice, onClose, onTierChange, onStorePriceSave,
 }: DetailPanelProps) {
   const qualityColor = QUALITY_HEX[item.quality]        ?? "#a1a1aa";
   const borderColor  = QUALITY_BORDER_CSS[item.quality] ?? "rgba(113,113,122,0.4)";
@@ -38,6 +43,9 @@ export function DetailPanel({
   const [editingStorePrice, setEditingStorePrice] = useState(false);
   const [storePriceDraft,   setStorePriceDraft]   = useState<string>("");
   const [storePriceSaving,  setStorePriceSaving]  = useState(false);
+  const [storePriceError,   setStorePriceError]   = useState(false);
+
+  const currentStorePrice = displayStorePrice !== undefined ? displayStorePrice : item.store_price;
 
   function statLabel(key: string) {
     return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -116,7 +124,7 @@ export function DetailPanel({
             )}
 
             {/* Prices */}
-            <div className={cn("grid gap-2", (item.store_price != null || isAdmin) ? "grid-cols-3" : "grid-cols-2")}>
+            <div className={cn("grid gap-2", (currentStorePrice != null || isAdmin) ? "grid-cols-3" : "grid-cols-2")}>
               {/* Vendor */}
               <div className="bg-zinc-900 rounded-md p-3 border border-zinc-800">
                 <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mb-1">Vendor</p>
@@ -147,13 +155,13 @@ export function DetailPanel({
                 )}
               </div>
               {/* Store — always shown if admin, only shown otherwise if store_price is set */}
-              {(item.store_price != null || isAdmin) && (
+              {(currentStorePrice != null || isAdmin) && (
                 <div className="bg-zinc-900 rounded-md p-3 border border-zinc-800">
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">Store</p>
                     {isAdmin && !editingStorePrice && (
                       <button
-                        onClick={() => { setStorePriceDraft(item.store_price?.toString() ?? ""); setEditingStorePrice(true); }}
+                        onClick={() => { setStorePriceDraft(currentStorePrice?.toString() ?? ""); setEditingStorePrice(true); setStorePriceError(false); }}
                         className="text-zinc-600 hover:text-amber-400 transition-colors"
                         title="Edit store price"
                       >
@@ -166,24 +174,27 @@ export function DetailPanel({
                       <input
                         type="number"
                         value={storePriceDraft}
-                        onChange={(e) => setStorePriceDraft(e.target.value)}
-                        className="w-full px-1.5 py-1 text-xs bg-zinc-800 border border-zinc-700 rounded focus:outline-none focus:border-amber-400/50 text-zinc-200"
+                        onChange={(e) => { setStorePriceDraft(e.target.value); setStorePriceError(false); }}
+                        className={cn("w-full px-1.5 py-1 text-xs bg-zinc-800 border rounded focus:outline-none text-zinc-200",
+                          storePriceError ? "border-red-500/60 focus:border-red-500/60" : "border-zinc-700 focus:border-amber-400/50")}
                         placeholder="0"
                         min="0"
                         autoFocus
                       />
+                      {storePriceError && <p className="text-[9px] text-red-400">Failed to save</p>}
                       <div className="flex gap-1">
                         <button
                           disabled={storePriceSaving}
                           onClick={async () => {
                             setStorePriceSaving(true);
+                            setStorePriceError(false);
                             const val = storePriceDraft === "" ? null : Number(storePriceDraft);
-                            await fetch(`/api/admin/items/${item.hashed_id}/store-price`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ store_price: val }),
-                            });
-                            setEditingStorePrice(false);
+                            const ok = await onStorePriceSave(item.hashed_id, val);
+                            if (ok) {
+                              setEditingStorePrice(false);
+                            } else {
+                              setStorePriceError(true);
+                            }
                             setStorePriceSaving(false);
                           }}
                           className="flex-1 px-1.5 py-0.5 text-[10px] bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded hover:bg-amber-400/20 transition-colors disabled:opacity-50"
@@ -191,15 +202,15 @@ export function DetailPanel({
                           {storePriceSaving ? "…" : "Save"}
                         </button>
                         <button
-                          onClick={() => setEditingStorePrice(false)}
+                          onClick={() => { setEditingStorePrice(false); setStorePriceError(false); }}
                           className="px-1.5 py-0.5 text-[10px] border border-zinc-700 text-zinc-500 rounded hover:text-zinc-300 transition-colors"
                         >
                           ✕
                         </button>
                       </div>
                     </div>
-                  ) : item.store_price != null ? (
-                    <p className="text-sm font-mono text-sky-400">{item.store_price.toLocaleString()}g</p>
+                  ) : currentStorePrice != null ? (
+                    <p className="text-sm font-mono text-sky-400">{currentStorePrice.toLocaleString()}g</p>
                   ) : (
                     <p className="text-xs text-zinc-700">—</p>
                   )}
