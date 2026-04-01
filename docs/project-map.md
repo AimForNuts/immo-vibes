@@ -230,11 +230,13 @@ Account settings and IdleMMO API key configuration.
 ---
 
 ### Admin Panel
-Manual sync triggers with live activity log and per-type status.
+Admin panel is organized into section pages. The root `/dashboard/admin` redirects to `/dashboard/admin/economy/items`.
 
 | Layer | Files |
 |---|---|
-| Page | `app/(dashboard)/dashboard/admin/page.tsx` |
+| Root (redirect) | `app/(dashboard)/dashboard/admin/page.tsx` → redirects to economy/items |
+| World Bosses (placeholder) | `app/(dashboard)/dashboard/admin/world/world-bosses/page.tsx` |
+| Enemies (placeholder) | `app/(dashboard)/dashboard/admin/world/enemies/page.tsx` |
 | Admin routes | `app/api/admin/sync-items/route.ts` |
 | | `app/api/admin/sync-prices/route.ts` |
 | | `app/api/admin/sync-recipes/route.ts` |
