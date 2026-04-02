@@ -8,7 +8,6 @@ type ZoneResult = {
   id:             number;
   name:           string;
   level_required: number;
-  skill?:         "woodcutting" | "fishing" | "mining";
   enemies?:       Array<{ name: string; level: number }>;
   dungeons?:      Array<{ name: string }>;
   world_bosses?:  Array<{ name: string }>;
@@ -34,15 +33,6 @@ export async function GET(request: NextRequest) {
       name:           zone.name,
       level_required: zone.levelRequired,
     };
-
-    // Check skillItems
-    const skillMatch = (zone.skillItems ?? []).find(
-      (si) => si.item_hashed_id === itemId
-    );
-    if (skillMatch) {
-      matched = true;
-      result.skill = skillMatch.skill;
-    }
 
     // Check enemies
     const matchedEnemies = (zone.enemies ?? []).filter((e) =>

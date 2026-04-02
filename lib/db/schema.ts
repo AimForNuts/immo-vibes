@@ -32,11 +32,6 @@ export interface ItemRecipe {
   result: { hashed_item_id: string; item_name: string } | null;
 }
 
-export interface ZoneSkillItem {
-  item_hashed_id: string;
-  skill: "woodcutting" | "fishing" | "mining";
-}
-
 export interface ZoneEnemy {
   id:     number;
   name:   string;
@@ -398,8 +393,6 @@ export const zones = pgTable("zones", {
   name:          text("name").notNull(),
   /** Combat and pet-battle level requirement for this zone. */
   levelRequired: integer("level_required").notNull().default(0),
-  /** Gatherable resources (LOG, FISH, ORE) available in this zone. */
-  skillItems:    jsonb("skill_items").$type<ZoneSkillItem[]>().default(sql`'[]'::jsonb`),
   /** Enemies in this zone; each carries the items they drop. */
   enemies:       jsonb("enemies").$type<ZoneEnemy[]>().default(sql`'[]'::jsonb`),
   /** Dungeons located in this zone. */
