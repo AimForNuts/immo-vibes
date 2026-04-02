@@ -1,5 +1,5 @@
 {
-  "id": "9079d765-406a-4af5-830d-c5dbde309691",
+  "id": "f1a2b3c4-d5e6-7890-abcd-ef1234567890",
   "prevId": "c3e1f8a2-9d5b-4c7e-a123-5f8e2b4d6c90",
   "version": "7",
   "dialect": "postgresql",
@@ -488,12 +488,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "zone_id": {
-          "name": "zone_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "synced_at": {
           "name": "synced_at",
           "type": "timestamp",
@@ -502,90 +496,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "dungeons_zone_id_zones_id_fk": {
-          "name": "dungeons_zone_id_zones_id_fk",
-          "tableFrom": "dungeons",
-          "tableTo": "zones",
-          "columnsFrom": [
-            "zone_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.enemies": {
-      "name": "enemies",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "level": {
-          "name": "level",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "zone_id": {
-          "name": "zone_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "image_url": {
-          "name": "image_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "loot": {
-          "name": "loot",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "synced_at": {
-          "name": "synced_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "enemies_zone_id_zones_id_fk": {
-          "name": "enemies_zone_id_zones_id_fk",
-          "tableFrom": "enemies",
-          "tableTo": "zones",
-          "columnsFrom": [
-            "zone_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -774,12 +685,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "where_to_find": {
-          "name": "where_to_find",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "recipe_result_hashed_id": {
           "name": "recipe_result_hashed_id",
           "type": "text",
@@ -803,6 +708,13 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
+        },
+        "store_price": {
+          "name": "store_price",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -1319,135 +1231,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.world_bosses": {
-      "name": "world_bosses",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "level": {
-          "name": "level",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "zone_id": {
-          "name": "zone_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "image_url": {
-          "name": "image_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "loot": {
-          "name": "loot",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "synced_at": {
-          "name": "synced_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "world_bosses_zone_id_zones_id_fk": {
-          "name": "world_bosses_zone_id_zones_id_fk",
-          "tableFrom": "world_bosses",
-          "tableTo": "zones",
-          "columnsFrom": [
-            "zone_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.zone_resources": {
-      "name": "zone_resources",
-      "schema": "",
-      "columns": {
-        "zone_id": {
-          "name": "zone_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "item_hashed_id": {
-          "name": "item_hashed_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "zone_resources_zone_id_zones_id_fk": {
-          "name": "zone_resources_zone_id_zones_id_fk",
-          "tableFrom": "zone_resources",
-          "tableTo": "zones",
-          "columnsFrom": [
-            "zone_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "zone_resources_item_hashed_id_items_hashed_id_fk": {
-          "name": "zone_resources_item_hashed_id_items_hashed_id_fk",
-          "tableFrom": "zone_resources",
-          "tableTo": "items",
-          "columnsFrom": [
-            "item_hashed_id"
-          ],
-          "columnsTo": [
-            "hashed_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "zone_resources_zone_id_item_hashed_id_pk": {
-          "name": "zone_resources_zone_id_item_hashed_id_pk",
-          "columns": [
-            "zone_id",
-            "item_hashed_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.zones": {
       "name": "zones",
       "schema": "",
@@ -1456,48 +1239,62 @@
           "name": "id",
           "type": "serial",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "autoincrement": false
         },
         "name": {
           "name": "name",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "autoincrement": false
         },
-        "level_min": {
-          "name": "level_min",
+        "level_required": {
+          "name": "level_required",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
-        },
-        "level_max": {
-          "name": "level_max",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
           "notNull": true,
-          "default": "now()"
+          "autoincrement": false,
+          "default": 0
         },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
+        "skill_items": {
+          "name": "skill_items",
+          "type": "jsonb",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'[]'::jsonb"
+        },
+        "enemies": {
+          "name": "enemies",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'[]'::jsonb"
+        },
+        "dungeons": {
+          "name": "dungeons",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'[]'::jsonb"
+        },
+        "world_bosses": {
+          "name": "world_bosses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'[]'::jsonb"
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "checkConstraints": {}
     }
   },
   "enums": {},
@@ -1507,7 +1304,11 @@
   "policies": {},
   "views": {},
   "_meta": {
-    "columns": {},
+    "columns": {
+      "public.character_pets.attack_power": "public.character_pets.strength",
+      "public.character_pets.protection": "public.character_pets.defence",
+      "public.character_pets.agility": "public.character_pets.speed"
+    },
     "schemas": {},
     "tables": {}
   }

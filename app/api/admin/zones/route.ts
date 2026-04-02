@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const rawPage     = Number(searchParams.get("page") ?? 1);
   const rawPageSize = Number(searchParams.get("pageSize") ?? 25);
-  const page     = isNaN(rawPage)     ? 1   : Math.max(1, rawPage);
-  const pageSize = isNaN(rawPageSize) ? 25  : Math.min(100, Math.max(1, rawPageSize));
+  const page     = isNaN(rawPage)     ? 1  : Math.max(1, rawPage);
+  const pageSize = isNaN(rawPageSize) ? 25 : Math.min(100, Math.max(1, rawPageSize));
   const name     = searchParams.get("name") ?? undefined;
 
   return NextResponse.json(await getAdminZones({ page, pageSize, name }));
@@ -24,12 +24,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   if (!await requireAdmin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const body = await request.json() as { name?: string; levelMin?: unknown; levelMax?: unknown };
-  const { name, levelMin, levelMax } = body;
-  if (!name || levelMin == null || levelMax == null) {
-    return NextResponse.json({ error: "name, levelMin, levelMax required" }, { status: 400 });
+  const body = await request.json() as { name?: string; levelRequired?: unknown };
+  const { name, levelRequired } = body;
+  if (!name || levelRequired == null) {
+    return NextResponse.json({ error: "name and levelRequired are required" }, { status: 400 });
   }
 
-  const zone = await createZone({ name, levelMin: Number(levelMin), levelMax: Number(levelMax) });
+  const zone = await createZone({ name, levelRequired: Number(levelRequired) });
   return NextResponse.json(zone, { status: 201 });
 }

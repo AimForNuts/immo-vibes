@@ -1,6 +1,6 @@
 "use client";
 
-import { Package, Coins } from "lucide-react";
+import { Package, Coins, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QUALITY_HEX, QUALITY_BORDER_CSS, QUALITY_GLOW_CSS } from "@/lib/game-constants";
 import type { DbItem } from "../types";
@@ -91,6 +91,13 @@ export function ItemCard({ item, selected, onClick }: ItemCardProps) {
         ) : (
           <div className="text-[10px] text-zinc-700">no listings</div>
         )}
+
+        {item.store_price != null && item.store_price > 0 ? (
+          <div className="flex items-center gap-1 text-[10px] text-sky-400/70">
+            <ShoppingBag className="size-2.5 shrink-0" />
+            <span>{item.store_price.toLocaleString()}g</span>
+          </div>
+        ) : null}
       </div>
     </div>
   );

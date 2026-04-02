@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getZoneDetail, updateZone, deleteZone } from "@/lib/services/admin/zones.service";
+import type { ZoneEnemy, ZoneDungeon, ZoneWorldBoss, ZoneSkillItem } from "@/lib/services/admin/zones.service";
 
 async function requireAdmin(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -18,8 +19,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!await requireAdmin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
-  const { name, levelMin, levelMax } = await request.json() as { name: string; levelMin: number; levelMax: number };
-  const zone = await updateZone(Number(id), { name, levelMin: Number(levelMin), levelMax: Number(levelMax) });
+  const body = await request.json() as {
+    name?: string;
+    levelRequired?: number;
+    enemies?: ZoneEnemy[];
+    dungeons?: ZoneDungeon[];
+    worldBosses?: ZoneWorldBoss[];
+    skillItems?: ZoneSkillItem[];
+  };
+  const zone = await updateZone(Number(id), body);
   return NextResponse.json(zone);
 }
 
