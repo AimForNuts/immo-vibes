@@ -47,6 +47,22 @@ The item browse/search page with detail panel and recipe cost calculator.
 
 ---
 
+### Zone Associations (Gathering Items)
+
+Admin-only UI in the market detail panel to associate ORE, LOG, and FISH items with zones.
+
+| Layer | Files |
+|---|---|
+| Modal component | `app/(dashboard)/dashboard/market/components/ZonePickerModal.tsx` |
+| API — slim zone list | `app/api/admin/zones/route.ts` (`?slim=true` query param) |
+| API — item zones | `app/api/items/[id]/zones/route.ts` |
+| Service | `lib/services/admin/zones.service.ts` (`getAllZones`, `getItemZoneIds`, `replaceItemZones`) |
+
+**DB tables**: `zones` (read), `item_zones` (read/write)
+**Requires**: `session.user.role === "admin"`
+
+---
+
 ### Item Sync (Catalog)
 Weekly cron that refreshes the item catalog from the IdleMMO API.
 
@@ -321,6 +337,8 @@ Email/password auth via better-auth.
 | `characters` | character-cache service | dashboard, characters list |
 | `character_pets` | sync-pet API route (user action) | character detail page |
 | `dungeons` | admin sync-dungeons route | dungeons page |
+| `zones` | manually (DB) | zone associations feature |
+| `item_zones` | zone associations admin UI | zone associations feature |
 | `user` / `session` / `account` / `verification` | better-auth | auth middleware |
 
 ---
