@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Swords, Settings, ShieldCheck, Skull, Sword } from "lucide-react";
+import { LayoutDashboard, Swords, Settings, Skull, Sword } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { useTranslations } from "next-intl";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -11,6 +11,7 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { SignOutButton } from "@/components/sign-out-button";
 import { CharactersNav } from "@/components/characters-nav";
 import { EconomyNav } from "@/components/economy-nav";
+import { AdminNav } from "@/components/admin-nav";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
@@ -78,20 +79,7 @@ export default function DashboardLayout({
           {/* Economy section with Market + Investments sub-nav */}
           <EconomyNav />
 
-          {isAdmin && (
-            <Link
-              href="/dashboard/admin"
-              className={cn(
-                "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors mt-2",
-                pathname === "/dashboard/admin"
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              )}
-            >
-              <ShieldCheck className="size-4 shrink-0" />
-              {t("admin")}
-            </Link>
-          )}
+          {isAdmin && <AdminNav />}
         </nav>
       </aside>
 

@@ -19,7 +19,10 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | Item effects, requirements | `items` | `effects`, `requirements` |
 | Recipe materials for a RECIPE item | `items` | `recipe` (full JSONB) |
 | Which recipe produces a given item | `items` | `recipe_result_hashed_id` (deprecated → join on `recipe.result.hashed_item_id`) |
-| Item drop locations (enemies, dungeons, world bosses) | `items` | `where_to_find` |
+| Item store price (NPC shop cost) | `items` | `store_price` |
+| Item drop locations (enemies, dungeons, world bosses) | `zones` | `enemies`, `dungeons`, `world_bosses` |
+| Zone name and level requirement | `zones` | `id`, `name`, `level_required` |
+| Items obtainable from skill nodes in a zone | `zones` | `skill_items` |
 | User settings / dashboard layout | `user_preferences` | `user_id`, `dashboard_layout` |
 | User's tracked price alerts | `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
@@ -46,6 +49,7 @@ Populated in stages by three separate sync jobs.
 | `quality` | text | — | sync-items | Uppercase: `STANDARD` `REFINED` `PREMIUM` `EPIC` `LEGENDARY` `MYTHIC` `UNIQUE` |
 | `image_url` | text | ✓ | sync-items | CDN URL |
 | `vendor_price` | integer | ✓ | sync-items | NPC buy price in gold |
+| `store_price` | integer | ✓ | sync-items | NPC store purchase price in gold (null if not sold in shops) |
 | `synced_at` | timestamp | — | sync-items | When the catalog row was last written |
 | `first_seen_at` | timestamp | — | sync-items | When this item was first inserted into the database. Set once on insert via DB default; never updated. |
 | `recipe_result_hashed_id` | text | ✓ | sync-recipes | **Deprecated** — use `recipe.result.hashed_item_id` |
@@ -60,7 +64,8 @@ Populated in stages by three separate sync jobs.
 | `effects` | jsonb | ✓ | sync-inspect | Passive bonuses (see `ItemEffect` type in schema) |
 | `recipe` | jsonb | ✓ | sync-inspect | Full recipe: skill, level, materials, result (see `ItemRecipe` type) |
 | `inspected_at` | timestamp | ✓ | sync-inspect | When inspect data was last synced |
-| `where_to_find` | jsonb | ✓ | sync-inspect | Drop locations: `{ enemies: [{id, name, level}], dungeons: [{id, name}], world_bosses: [{id, name}] }` |
+
+**Drop location data** (enemies, dungeons, world bosses, skill nodes) was previously stored as `where_to_find` on this table. It now lives in the `zones` table — see below.
 
 **Tier stat formula** (client-side):
 ```
@@ -68,6 +73,25 @@ effectiveStat = base_stats[stat] + (tier - 1) × tier_modifiers[stat]
 ```
 
 **Sync order matters**: `sync-items` must run before `sync-inspect` and `sync-prices`, because those jobs look up `hashed_id` from this table.
+
+---
+
+### `zones`
+
+One row per in-game zone (map location). Stores which enemies, dungeons, world bosses, and skill-node items can be found there.
+Replaces the deprecated `items.where_to_find` column — location data is now normalised into this table and referenced by zone rather than embedded per item.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | text PK | — | Stable zone identifier (e.g. `"lumbridge"`) |
+| `name` | text | — | Display name |
+| `level_required` | integer | — | Minimum character level to access this zone. Default 0. |
+| `skill_items` | jsonb | ✓ | Array of `{ hashed_item_id, name, image_url, quality }` — items obtainable from skill nodes in this zone |
+| `enemies` | jsonb | ✓ | Array of `{ id, name, level }` — enemies that spawn in this zone |
+| `dungeons` | jsonb | ✓ | Array of `{ id, name }` — dungeon entrances located in this zone |
+| `world_bosses` | jsonb | ✓ | Array of `{ id, name }` — world bosses that appear in this zone |
+
+**Relationship to `items`**: items do not reference zones directly. To find which zones contain a given item, query `zones` where any of the JSONB arrays include the item's `hashed_item_id`.
 
 ---
 
@@ -251,6 +275,76 @@ Not per-user — dungeon data is the same for everyone.
 **Admin route**: `POST /api/admin/sync-dungeons`
 **Docs**: `docs/api/internal/dungeons-sync.md`
 
+**New column (migration 0011)**: `zone_id` (integer FK → `zones.id`, nullable, `ON DELETE SET NULL`) — links a dungeon to a zone for the admin panel.
+
+---
+
+### `zones`
+
+Admin-managed zone definitions. Not synced from IdleMMO — created and edited via the admin panel.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | serial PK | — | Auto-increment |
+| `name` | text | — | Display name |
+| `level_min` | integer | — | Minimum character level for the zone |
+| `level_max` | integer | — | Maximum character level for the zone |
+| `created_at` | timestamp | — | DB default `now()` |
+| `updated_at` | timestamp | — | DB default `now()`; set to `new Date()` on every update |
+
+**Admin routes**: `GET/POST /api/admin/zones`, `GET/PATCH/DELETE /api/admin/zones/[id]`
+
+---
+
+### `enemies`
+
+Enemy definitions. Currently empty until a future sync feature is implemented.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | serial PK | — | Auto-increment |
+| `name` | text | — | Display name |
+| `level` | integer | — | Enemy level |
+| `zone_id` | integer FK → `zones.id` | ✓ | `ON DELETE SET NULL` |
+| `image_url` | text | ✓ | CDN URL |
+| `loot` | jsonb | ✓ | Array of `{ item_hashed_id, chance }` |
+| `synced_at` | timestamp | ✓ | When last synced (future use) |
+
+**Admin route**: `GET /api/admin/enemies` (picker/search)
+
+---
+
+### `world_bosses`
+
+World boss definitions. Same shape as `enemies`.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | serial PK | — | Auto-increment |
+| `name` | text | — | Display name |
+| `level` | integer | — | Boss level |
+| `zone_id` | integer FK → `zones.id` | ✓ | `ON DELETE SET NULL` |
+| `image_url` | text | ✓ | CDN URL |
+| `loot` | jsonb | ✓ | Array of `{ item_hashed_id, chance }` |
+| `synced_at` | timestamp | ✓ | When last synced (future use) |
+
+**Admin route**: `GET /api/admin/world-bosses` (picker/search)
+
+---
+
+### `zone_resources`
+
+Junction table linking zones to item resources (drop locations).
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `zone_id` | integer FK → `zones.id` | — | `ON DELETE CASCADE` |
+| `item_hashed_id` | text FK → `items.hashed_id` | — | `ON DELETE CASCADE` |
+
+Composite PK: `(zone_id, item_hashed_id)`
+
+**Admin routes**: `POST/DELETE /api/admin/zones/[id]/resources`
+
 ---
 
 ### Auth tables (`user`, `session`, `account`, `verification`)
@@ -266,12 +360,14 @@ sync-items   →  sync-inspect  →  sync-prices
    ↓                 ↓                ↓
 items.*          items.base_stats  items.last_sold_price
 (catalog)        items.recipe      market_price_history
-                 items.effects     (per tier)
+items.store_price items.effects    (per tier)
                  …
+
+zones.*  (populated separately — not part of the item sync pipeline)
 ```
 
-- **sync-items**: catalog only (name, type, quality, image, vendor price)
-- **sync-inspect**: inspect API — stats, tiers, recipe, effects. Must run after sync-items.
+- **sync-items**: catalog only (name, type, quality, image, vendor price, store price)
+- **sync-inspect**: inspect API — stats, tiers, recipe, effects. Must run after sync-items. Does **not** write `where_to_find` — location data now lives in `zones`.
 - **sync-prices**: market-history API — last sold price per tier. Must run after sync-items.
 
 Cron order is enforced via `sync_state`: each job checks the upstream job's status before starting.

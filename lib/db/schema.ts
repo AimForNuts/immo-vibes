@@ -13,10 +13,11 @@ export interface DungeonLootItem {
 }
 
 export interface ItemEffect {
-  attribute:  string;
-  target:     string;
-  value:      number;
-  value_type: string;
+  attribute:    string;
+  target:       string;
+  value:        number;
+  value_type:   string;
+  duration_ms?: number | null;  // null or absent = permanent/passive
 }
 
 export interface ItemRecipe {
@@ -31,10 +32,28 @@ export interface ItemRecipe {
   result: { hashed_item_id: string; item_name: string } | null;
 }
 
-export interface ItemWhereToFind {
-  enemies:      Array<{ id: number; name: string; level: number }>;
-  dungeons:     Array<{ id: number; name: string }>;
-  world_bosses: Array<{ id: number; name: string }>;
+export interface ZoneSkillItem {
+  item_hashed_id: string;
+  skill: "woodcutting" | "fishing" | "mining";
+}
+
+export interface ZoneEnemy {
+  id:     number;
+  name:   string;
+  level:  number;
+  drops:  string[];  // hashed item ids this enemy drops
+}
+
+export interface ZoneDungeon {
+  id:     number;
+  name:   string;
+  drops?: string[];  // hashed item ids obtainable here
+}
+
+export interface ZoneWorldBoss {
+  id:     number;
+  name:   string;
+  drops?: string[];  // hashed item ids obtainable here
 }
 
 export const user = pgTable("user", {
@@ -104,6 +123,12 @@ export const items = pgTable("items", {
   firstSeenAt:          timestamp("first_seen_at").notNull().default(sql`now()`),
   /** NPC buy price — stable, set by the game. Populated during catalog sync. */
   vendorPrice:          integer("vendor_price"),
+  /**
+   * NPC merchant sell price — what a player pays to buy this item from an NPC shop.
+   * Distinct from vendorPrice (which is what the NPC pays the player).
+   * Null until populated via admin script or inline edit.
+   */
+  storePrice:           integer("store_price"),
 
   // ── Inspect fields (populated by sync-inspect) ──────────────────────────
   description:          text("description"),
@@ -134,8 +159,6 @@ export const items = pgTable("items", {
   recipe:               jsonb("recipe").$type<ItemRecipe>(),
   /** When inspect data was last synced from the IdleMMO API. */
   inspectedAt:          timestamp("inspected_at"),
-  /** Drop locations from the IdleMMO API inspect response. Null if not available or item has no drops. */
-  whereToFind:          jsonb("where_to_find").$type<ItemWhereToFind>(),
 
   // ── Price fields (populated by sync-prices) ─────────────────────────────
   /**
@@ -363,4 +386,24 @@ export const dungeons = pgTable("dungeons", {
   /** Full loot array from the API */
   loot:          jsonb("loot").$type<DungeonLootItem[]>(),
   syncedAt:      timestamp("synced_at").notNull(),
+});
+
+/**
+ * Geographic zones — manually curated.
+ * Each zone groups enemies, dungeons, world bosses, and gatherable resources.
+ * Replaces the per-item `where_to_find` JSONB column as the location source of truth.
+ */
+export const zones = pgTable("zones", {
+  id:            serial("id").primaryKey(),
+  name:          text("name").notNull(),
+  /** Combat and pet-battle level requirement for this zone. */
+  levelRequired: integer("level_required").notNull().default(0),
+  /** Gatherable resources (LOG, FISH, ORE) available in this zone. */
+  skillItems:    jsonb("skill_items").$type<ZoneSkillItem[]>().default(sql`'[]'::jsonb`),
+  /** Enemies in this zone; each carries the items they drop. */
+  enemies:       jsonb("enemies").$type<ZoneEnemy[]>().default(sql`'[]'::jsonb`),
+  /** Dungeons located in this zone. */
+  dungeons:      jsonb("dungeons").$type<ZoneDungeon[]>().default(sql`'[]'::jsonb`),
+  /** World bosses in this zone. */
+  worldBosses:   jsonb("world_bosses").$type<ZoneWorldBoss[]>().default(sql`'[]'::jsonb`),
 });
