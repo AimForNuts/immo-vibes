@@ -12,11 +12,12 @@ interface ZonePickerModalProps {
 }
 
 export function ZonePickerModal({ item, onClose }: ZonePickerModalProps) {
-  const [zones,    setZones]    = useState<Zone[]>([]);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [loading,  setLoading]  = useState(true);
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const [zones,     setZones]     = useState<Zone[]>([]);
+  const [selected,  setSelected]  = useState<Set<number>>(new Set());
+  const [loading,   setLoading]   = useState(true);
+  const [saving,    setSaving]    = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -30,6 +31,7 @@ export function ZonePickerModal({ item, onClose }: ZonePickerModalProps) {
       })
       .catch(() => {
         setError("Failed to load zones.");
+        setLoadError(true);
         setLoading(false);
       });
   }, [item.hashed_id]);
@@ -61,11 +63,20 @@ export function ZonePickerModal({ item, onClose }: ZonePickerModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-80 p-4 flex flex-col gap-3">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
+      tabIndex={-1}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="zone-picker-title"
+        className="bg-zinc-900 border border-zinc-700 rounded-xl w-80 p-4 flex flex-col gap-3"
+      >
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-zinc-100">Zone Availability</p>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+          <p id="zone-picker-title" className="text-sm font-semibold text-zinc-100">Zone Availability</p>
+          <button onClick={onClose} aria-label="Close" className="text-zinc-500 hover:text-zinc-300 transition-colors">
             <X className="size-4" />
           </button>
         </div>
@@ -106,7 +117,7 @@ export function ZonePickerModal({ item, onClose }: ZonePickerModalProps) {
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || loading}
+            disabled={saving || loading || loadError}
             className="flex-1 px-3 py-1.5 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
           >
             {saving ? "Saving…" : "Save"}
