@@ -51,6 +51,7 @@ local.db
 .claude/scheduled_tasks.lock
 immo_web_suite_logo.png
 docs/superpowers/
+.superpowers/
 docs/future-developments.md
 
 # playwright
