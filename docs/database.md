@@ -21,8 +21,8 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | Which recipe produces a given item | `items` | `recipe_result_hashed_id` (deprecated → join on `recipe.result.hashed_item_id`) |
 | Item store price (NPC shop cost) | `items` | `store_price` |
 | Item drop locations (enemies, dungeons, world bosses) | `zones` | `enemies`, `dungeons`, `world_bosses` |
-| Zone name and level requirement | `zones` | `id`, `name`, `level_required` |
-| Items obtainable from skill nodes in a zone | `zones` | `skill_items` |
+| Zone catalog (name, level requirement) | `zones` | `id`, `name`, `level_required` |
+| Gathering item → zone associations | `item_zones` | `item_hashed_id`, `zone_id` |
 | User settings / dashboard layout | `user_preferences` | `user_id`, `dashboard_layout` |
 | User's tracked price alerts | `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
@@ -73,25 +73,6 @@ effectiveStat = base_stats[stat] + (tier - 1) × tier_modifiers[stat]
 ```
 
 **Sync order matters**: `sync-items` must run before `sync-inspect` and `sync-prices`, because those jobs look up `hashed_id` from this table.
-
----
-
-### `zones`
-
-One row per in-game zone (map location). Stores which enemies, dungeons, world bosses, and skill-node items can be found there.
-Replaces the deprecated `items.where_to_find` column — location data is now normalised into this table and referenced by zone rather than embedded per item.
-
-| Column | Type | Nullable | Notes |
-|---|---|---|---|
-| `id` | text PK | — | Stable zone identifier (e.g. `"lumbridge"`) |
-| `name` | text | — | Display name |
-| `level_required` | integer | — | Minimum character level to access this zone. Default 0. |
-| `skill_items` | jsonb | ✓ | Array of `{ hashed_item_id, name, image_url, quality }` — items obtainable from skill nodes in this zone |
-| `enemies` | jsonb | ✓ | Array of `{ id, name, level }` — enemies that spawn in this zone |
-| `dungeons` | jsonb | ✓ | Array of `{ id, name }` — dungeon entrances located in this zone |
-| `world_bosses` | jsonb | ✓ | Array of `{ id, name }` — world bosses that appear in this zone |
-
-**Relationship to `items`**: items do not reference zones directly. To find which zones contain a given item, query `zones` where any of the JSONB arrays include the item's `hashed_item_id`.
 
 ---
 
@@ -281,18 +262,31 @@ Not per-user — dungeon data is the same for everyone.
 
 ### `zones`
 
-Admin-managed zone definitions. Not synced from IdleMMO — created and edited via the admin panel.
+Global zone catalog. One row per game location. Manually maintained — `level_required` is set by admins.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
 | `id` | serial PK | — | Auto-increment |
-| `name` | text | — | Display name |
-| `level_min` | integer | — | Minimum character level for the zone |
-| `level_max` | integer | — | Maximum character level for the zone |
-| `created_at` | timestamp | — | DB default `now()` |
-| `updated_at` | timestamp | — | DB default `now()`; set to `new Date()` on every update |
+| `name` | text | — | Display name (e.g. "Bluebell Hollow") |
+| `level_required` | integer | — | Minimum level to access. Default 0. |
+| `enemies` | jsonb | ✓ | Reserved — typed `ZoneEnemy[]` (populated by future sync). Default `[]`. |
+| `dungeons` | jsonb | ✓ | Reserved — typed `ZoneDungeon[]` (populated by future sync). Default `[]`. |
+| `world_bosses` | jsonb | ✓ | Reserved — typed `ZoneWorldBoss[]` (populated by future sync). Default `[]`. |
 
 **Admin routes**: `GET/POST /api/admin/zones`, `GET/PATCH/DELETE /api/admin/zones/[id]`
+
+---
+
+### `item_zones`
+
+Many-to-many join table between gathering items and zones. Admin-managed via the market detail panel.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `item_hashed_id` | text PK (part) | — | FK → `items.hashed_id` (cascade delete) |
+| `zone_id` | integer PK (part) | — | FK → `zones.id` (cascade delete) |
+
+**Admin routes**: `GET /api/items/[id]/zones`, `PUT /api/items/[id]/zones`
 
 ---
 
