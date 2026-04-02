@@ -13,7 +13,6 @@ type DungeonRow = {
   location: string | null;
   levelRequired: number;
   difficulty: number;
-  zoneName: string | null;
   syncedAt: string;
 };
 
@@ -22,7 +21,6 @@ const COLUMNS: ColumnDef<DungeonRow>[] = [
   { key: "location",      label: "Location",   render: (r) => <span className="text-muted-foreground text-xs">{r.location ?? "—"}</span> },
   { key: "levelRequired", label: "Level req.", render: (r) => <span className="text-xs">{r.levelRequired}</span> },
   { key: "difficulty",    label: "Difficulty", render: (r) => <span className="text-xs">{r.difficulty}</span> },
-  { key: "zoneName",      label: "Zone",       render: (r) => <span className="text-muted-foreground text-xs">{r.zoneName ?? "—"}</span> },
 ];
 
 const FILTERS: FilterDef[] = [

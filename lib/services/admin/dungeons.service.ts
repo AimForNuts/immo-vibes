@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { dungeons, zones } from "@/lib/db/schema";
-import { ilike, gte, and, count, eq, SQL } from "drizzle-orm";
+import { dungeons } from "@/lib/db/schema";
+import { ilike, gte, and, count, SQL } from "drizzle-orm";
 
 export type AdminDungeonRow = {
   id: number;
@@ -8,7 +8,6 @@ export type AdminDungeonRow = {
   location: string | null;
   levelRequired: number;
   difficulty: number;
-  zoneName: string | null;
   syncedAt: Date;
 };
 
@@ -35,11 +34,9 @@ export async function getAdminDungeons(params: {
         location:      dungeons.location,
         levelRequired: dungeons.levelRequired,
         difficulty:    dungeons.difficulty,
-        zoneName:      zones.name,
         syncedAt:      dungeons.syncedAt,
       })
       .from(dungeons)
-      .leftJoin(zones, eq(dungeons.zoneId, zones.id))
       .where(where)
       .orderBy(dungeons.levelRequired)
       .limit(pageSize)
