@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AdminTable, type ColumnDef, type FilterDef } from "@/components/admin/AdminTable";
 import { Plus, X } from "lucide-react";
-import type { ZoneEnemy, ZoneDungeon, ZoneWorldBoss, ZoneSkillItem } from "@/lib/services/admin/zones.service";
+import type { ZoneEnemy, ZoneDungeon, ZoneWorldBoss } from "@/lib/services/admin/zones.service";
 
 type ZoneRow = {
   id: number;
@@ -16,7 +16,6 @@ type ZoneRow = {
   enemyCount: number;
   dungeonCount: number;
   worldBossCount: number;
-  skillItemCount: number;
 };
 
 type ZoneDetail = {
@@ -26,7 +25,6 @@ type ZoneDetail = {
   enemies: ZoneEnemy[];
   dungeons: ZoneDungeon[];
   worldBosses: ZoneWorldBoss[];
-  skillItems: ZoneSkillItem[];
 };
 
 const COLUMNS: ColumnDef<ZoneRow>[] = [
@@ -35,14 +33,11 @@ const COLUMNS: ColumnDef<ZoneRow>[] = [
   { key: "enemies",       label: "Enemies",      render: (r) => <span className="text-xs">{r.enemyCount}</span> },
   { key: "bosses",        label: "World Bosses", render: (r) => <span className="text-xs">{r.worldBossCount}</span> },
   { key: "dungeons",      label: "Dungeons",     render: (r) => <span className="text-xs">{r.dungeonCount}</span> },
-  { key: "skillItems",    label: "Resources",    render: (r) => <span className="text-xs">{r.skillItemCount}</span> },
 ];
 
 const FILTERS: FilterDef[] = [
   { key: "name", label: "Search zone…", type: "search" },
 ];
-
-const SKILL_OPTIONS = ["woodcutting", "fishing", "mining"] as const;
 
 export default function ZonesPage() {
   const [refreshKey, setRefreshKey]     = useState(0);
@@ -56,7 +51,6 @@ export default function ZonesPage() {
   const [newEnemy,   setNewEnemy]   = useState({ id: "", name: "", level: "" });
   const [newBoss,    setNewBoss]    = useState({ id: "", name: "" });
   const [newDungeon, setNewDungeon] = useState({ id: "", name: "" });
-  const [newSkill,   setNewSkill]   = useState({ item_hashed_id: "", skill: "woodcutting" as typeof SKILL_OPTIONS[number] });
 
   function openCreate() {
     setFormName(""); setFormLevel("");
@@ -167,22 +161,6 @@ export default function ZonesPage() {
     setEditZone((z) => z ? { ...z, dungeons: updated } : null);
   }
 
-  function addSkillItem() {
-    if (!editZone || !newSkill.item_hashed_id) return;
-    const entry: ZoneSkillItem = { item_hashed_id: newSkill.item_hashed_id, skill: newSkill.skill };
-    const updated = [...(editZone.skillItems ?? []), entry];
-    patchZone({ skillItems: updated });
-    setEditZone((z) => z ? { ...z, skillItems: updated } : null);
-    setNewSkill({ item_hashed_id: "", skill: "woodcutting" });
-  }
-
-  function removeSkillItem(idx: number) {
-    if (!editZone) return;
-    const updated = editZone.skillItems.filter((_, i) => i !== idx);
-    patchZone({ skillItems: updated });
-    setEditZone((z) => z ? { ...z, skillItems: updated } : null);
-  }
-
   const headerContent = (
     <Button size="sm" className="h-8 gap-1.5" onClick={openCreate}>
       <Plus className="size-3.5" /> New Zone
@@ -273,24 +251,6 @@ export default function ZonesPage() {
                     <Input placeholder="ID" value={newDungeon.id} onChange={(ev) => setNewDungeon((p) => ({ ...p, id: ev.target.value }))} className="h-7 text-xs w-16" />
                     <Input placeholder="Name" value={newDungeon.name} onChange={(ev) => setNewDungeon((p) => ({ ...p, name: ev.target.value }))} className="h-7 text-xs" />
                     <Button size="sm" variant="outline" className="h-7 px-2" onClick={addDungeon}><Plus className="size-3" /></Button>
-                  </div>
-                </ArrayPanel>
-
-                {/* Skill Items */}
-                <ArrayPanel label="Skill Resources" count={editZone.skillItems.length}>
-                  {editZone.skillItems.map((s, i) => (
-                    <ArrayRow key={i} label={`${s.item_hashed_id} (${s.skill})`} onRemove={() => removeSkillItem(i)} />
-                  ))}
-                  <div className="flex gap-1 mt-2">
-                    <Input placeholder="hashed_id" value={newSkill.item_hashed_id} onChange={(ev) => setNewSkill((p) => ({ ...p, item_hashed_id: ev.target.value }))} className="h-7 text-xs" />
-                    <select
-                      value={newSkill.skill}
-                      onChange={(ev) => setNewSkill((p) => ({ ...p, skill: ev.target.value as typeof SKILL_OPTIONS[number] }))}
-                      className="h-7 rounded-md border border-input bg-background px-2 text-xs text-foreground"
-                    >
-                      {SKILL_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={addSkillItem}><Plus className="size-3" /></Button>
                   </div>
                 </ArrayPanel>
               </div>

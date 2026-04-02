@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric, primaryKey } from "drizzle-orm/pg-core";
 
 // ─── Shared types for JSONB columns ───────────────────────────────────────────
 
@@ -30,11 +30,6 @@ export interface ItemRecipe {
     quantity:       number;
   }>;
   result: { hashed_item_id: string; item_name: string } | null;
-}
-
-export interface ZoneSkillItem {
-  item_hashed_id: string;
-  skill: "woodcutting" | "fishing" | "mining";
 }
 
 export interface ZoneEnemy {
@@ -398,8 +393,6 @@ export const zones = pgTable("zones", {
   name:          text("name").notNull(),
   /** Combat and pet-battle level requirement for this zone. */
   levelRequired: integer("level_required").notNull().default(0),
-  /** Gatherable resources (LOG, FISH, ORE) available in this zone. */
-  skillItems:    jsonb("skill_items").$type<ZoneSkillItem[]>().default(sql`'[]'::jsonb`),
   /** Enemies in this zone; each carries the items they drop. */
   enemies:       jsonb("enemies").$type<ZoneEnemy[]>().default(sql`'[]'::jsonb`),
   /** Dungeons located in this zone. */
@@ -407,3 +400,20 @@ export const zones = pgTable("zones", {
   /** World bosses in this zone. */
   worldBosses:   jsonb("world_bosses").$type<ZoneWorldBoss[]>().default(sql`'[]'::jsonb`),
 });
+
+/**
+ * Many-to-many between gathering items (ORE, LOG, FISH) and zones.
+ * Managed by admins via the market detail panel.
+ */
+export const itemZones = pgTable(
+  "item_zones",
+  {
+    itemHashedId: text("item_hashed_id")
+      .notNull()
+      .references(() => items.hashedId, { onDelete: "cascade" }),
+    zoneId: integer("zone_id")
+      .notNull()
+      .references(() => zones.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.itemHashedId, t.zoneId] })]
+);

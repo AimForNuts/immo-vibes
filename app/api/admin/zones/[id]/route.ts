@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getZoneDetail, updateZone, deleteZone } from "@/lib/services/admin/zones.service";
-import type { ZoneEnemy, ZoneDungeon, ZoneWorldBoss, ZoneSkillItem } from "@/lib/services/admin/zones.service";
+import type { ZoneEnemy, ZoneDungeon, ZoneWorldBoss } from "@/lib/services/admin/zones.service";
 
 async function requireAdmin(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -25,7 +25,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     enemies?: ZoneEnemy[];
     dungeons?: ZoneDungeon[];
     worldBosses?: ZoneWorldBoss[];
-    skillItems?: ZoneSkillItem[];
   };
   const zone = await updateZone(Number(id), body);
   return NextResponse.json(zone);
