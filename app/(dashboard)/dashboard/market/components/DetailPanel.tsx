@@ -461,11 +461,6 @@ export function DetailPanel({
                             <span className="text-[10px] font-mono text-zinc-600">Lv.{zone.level_required}+</span>
                           )}
                         </div>
-                        {zone.skill && (
-                          <p className="text-[10px] text-sky-400/70 capitalize">
-                            {zone.skill} gathering
-                          </p>
-                        )}
                         {zone.enemies && zone.enemies.length > 0 && (
                           <div className="space-y-0.5">
                             <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Enemies</p>
