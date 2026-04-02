@@ -230,19 +230,45 @@ Account settings and IdleMMO API key configuration.
 ---
 
 ### Admin Panel
-Manual sync triggers with live activity log and per-type status.
+Admin panel is organized into section pages under a collapsible sidebar nav (Economy / World / Users). The root `/dashboard/admin` redirects to `/dashboard/admin/economy/items`.
 
 | Layer | Files |
 |---|---|
-| Page | `app/(dashboard)/dashboard/admin/page.tsx` |
-| Admin routes | `app/api/admin/sync-items/route.ts` |
+| Sidebar nav | `components/admin-nav.tsx` |
+| Shared components | `components/admin/AdminTable.tsx` — generic paginated table |
+| | `components/admin/SyncLog.tsx` — live sync log |
+| Root (redirect) | `app/(dashboard)/dashboard/admin/page.tsx` → redirects to economy/items |
+| Items page | `app/(dashboard)/dashboard/admin/economy/items/page.tsx` |
+| Dungeons page | `app/(dashboard)/dashboard/admin/world/dungeons/page.tsx` |
+| Zones page | `app/(dashboard)/dashboard/admin/world/zones/page.tsx` |
+| World Bosses (placeholder) | `app/(dashboard)/dashboard/admin/world/world-bosses/page.tsx` |
+| Enemies (placeholder) | `app/(dashboard)/dashboard/admin/world/enemies/page.tsx` |
+| Users page | `app/(dashboard)/dashboard/admin/users/page.tsx` |
+| Sync routes | `app/api/admin/sync-items/route.ts` |
 | | `app/api/admin/sync-prices/route.ts` |
 | | `app/api/admin/sync-recipes/route.ts` |
 | | `app/api/admin/sync-inspect/route.ts` |
-| | `app/api/admin/market-type-check/route.ts` |
 | | `app/api/admin/sync-dungeons/route.ts` |
+| | `app/api/admin/market-type-check/route.ts` |
+| API — items | `app/api/admin/items/route.ts` (`GET` — paginated, filterable by name/type/quality) |
+| API — dungeons | `app/api/admin/dungeons/route.ts` (`GET` — paginated, filterable by name/minLevel) |
+| API — zones | `app/api/admin/zones/route.ts` (`GET`, `POST`) |
+| | `app/api/admin/zones/[id]/route.ts` (`GET`, `PATCH`, `DELETE`) |
+| | `app/api/admin/zones/[id]/enemies/route.ts` (`POST`, `DELETE`) |
+| | `app/api/admin/zones/[id]/world-bosses/route.ts` (`POST`, `DELETE`) |
+| | `app/api/admin/zones/[id]/dungeons/route.ts` (`POST`, `DELETE`) |
+| | `app/api/admin/zones/[id]/resources/route.ts` (`POST`, `DELETE`) |
+| API — pickers | `app/api/admin/enemies/route.ts` (`GET` — name search) |
+| | `app/api/admin/world-bosses/route.ts` (`GET` — name search) |
+| API — users | `app/api/admin/users/route.ts` (`GET` — paginated with characters) |
+| | `app/api/admin/users/[id]/route.ts` (`PATCH` email/password, `DELETE`) |
+| | `app/api/admin/users/[id]/characters/[charId]/route.ts` (`DELETE` — dissociate) |
+| Services | `lib/services/admin/items.service.ts` → `getAdminItems()` |
+| | `lib/services/admin/dungeons.service.ts` → `getAdminDungeons()` |
+| | `lib/services/admin/zones.service.ts` → `getAdminZones()`, `getZoneDetail()`, CRUD, associations |
+| | `lib/services/admin/users.service.ts` → `getAdminUsers()`, `updateUserEmail()`, `deleteUser()`, `dissociateCharacter()` |
 
-**DB tables**: `items`, `market_price_history`, `sync_state`, `dungeons`
+**DB tables**: `items`, `market_price_history`, `sync_state`, `dungeons`, `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, `characters`
 **External API**: All IdleMMO sync endpoints
 **Requires**: `session.user.role === "admin"`
 
