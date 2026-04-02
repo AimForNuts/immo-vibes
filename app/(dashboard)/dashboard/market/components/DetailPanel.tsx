@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { X, Package, BookOpen, ChevronRight, Coins, Pencil } from "lucide-react";
+import { X, Package, BookOpen, ChevronRight, Coins, Pencil, MapPin } from "lucide-react";
+import { ZonePickerModal } from "./ZonePickerModal";
 import { QUALITY_HEX, QUALITY_BORDER_CSS } from "@/lib/game-constants";
 import { cn } from "@/lib/utils";
 import type { DbItem, FullItem, MarketPrice, ZoneResult } from "../types";
@@ -37,6 +38,9 @@ export function DetailPanel({
 
   const isLoading = detail === "loading";
   const d = detail !== "loading" ? detail : null;
+
+  const [zonePickerOpen, setZonePickerOpen] = useState(false);
+  const isGatheringItem = ["ORE", "LOG", "FISH"].includes(item.type);
 
   const maxTier = d?.max_tier ?? 1;
 
@@ -498,9 +502,25 @@ export function DetailPanel({
                 )}
               </div>
             )}
+            {/* Edit Zones — admin only, gathering items only */}
+            {isAdmin && isGatheringItem && (
+              <div className="pt-2 border-t border-zinc-800">
+                <button
+                  onClick={() => setZonePickerOpen(true)}
+                  className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  <MapPin className="size-3" />
+                  Edit Zones
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
+
+      {zonePickerOpen && (
+        <ZonePickerModal item={item} onClose={() => setZonePickerOpen(false)} />
+      )}
     </div>
   );
 }
