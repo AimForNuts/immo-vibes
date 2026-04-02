@@ -1,9 +1,9 @@
 import { db } from "@/lib/db";
-import { zones } from "@/lib/db/schema";
-import type { ZoneEnemy, ZoneDungeon, ZoneWorldBoss, ZoneSkillItem } from "@/lib/db/schema";
+import { zones, itemZones } from "@/lib/db/schema";
+import type { ZoneEnemy, ZoneDungeon, ZoneWorldBoss } from "@/lib/db/schema";
 import { eq, count, ilike } from "drizzle-orm";
 
-export type { ZoneEnemy, ZoneDungeon, ZoneWorldBoss, ZoneSkillItem };
+export type { ZoneEnemy, ZoneDungeon, ZoneWorldBoss };
 
 export type ZoneListRow = {
   id: number;
@@ -12,7 +12,6 @@ export type ZoneListRow = {
   enemyCount: number;
   dungeonCount: number;
   worldBossCount: number;
-  skillItemCount: number;
 };
 
 export type ZoneDetail = {
@@ -22,7 +21,6 @@ export type ZoneDetail = {
   enemies: ZoneEnemy[];
   dungeons: ZoneDungeon[];
   worldBosses: ZoneWorldBoss[];
-  skillItems: ZoneSkillItem[];
 };
 
 // ── List ──────────────────────────────────────────────────────────────────────
@@ -48,7 +46,6 @@ export async function getAdminZones(params: {
     enemyCount:     (z.enemies ?? []).length,
     dungeonCount:   (z.dungeons ?? []).length,
     worldBossCount: (z.worldBosses ?? []).length,
-    skillItemCount: (z.skillItems ?? []).length,
   }));
 
   return { data, total: Number(totals[0].value), page, pageSize };
@@ -66,7 +63,6 @@ export async function getZoneDetail(id: number): Promise<ZoneDetail | null> {
     enemies:       zone.enemies ?? [],
     dungeons:      zone.dungeons ?? [],
     worldBosses:   zone.worldBosses ?? [],
-    skillItems:    zone.skillItems ?? [],
   };
 }
 
@@ -83,7 +79,6 @@ export async function updateZone(id: number, data: {
   enemies?: ZoneEnemy[];
   dungeons?: ZoneDungeon[];
   worldBosses?: ZoneWorldBoss[];
-  skillItems?: ZoneSkillItem[];
 }) {
   const [zone] = await db.update(zones).set(data).where(eq(zones.id, id)).returning();
   return zone;
@@ -91,4 +86,35 @@ export async function updateZone(id: number, data: {
 
 export async function deleteZone(id: number) {
   await db.delete(zones).where(eq(zones.id, id));
+}
+
+// ── Item zone associations ────────────────────────────────────────────────────
+
+export async function getAllZones(): Promise<{ id: number; name: string }[]> {
+  return db
+    .select({ id: zones.id, name: zones.name })
+    .from(zones)
+    .orderBy(zones.levelRequired);
+}
+
+export async function getItemZoneIds(itemHashedId: string): Promise<number[]> {
+  const rows = await db
+    .select({ zoneId: itemZones.zoneId })
+    .from(itemZones)
+    .where(eq(itemZones.itemHashedId, itemHashedId));
+  return rows.map((r) => r.zoneId);
+}
+
+export async function replaceItemZones(
+  itemHashedId: string,
+  zoneIds: number[]
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(itemZones).where(eq(itemZones.itemHashedId, itemHashedId));
+    if (zoneIds.length > 0) {
+      await tx.insert(itemZones).values(
+        zoneIds.map((zoneId) => ({ itemHashedId, zoneId }))
+      );
+    }
+  });
 }

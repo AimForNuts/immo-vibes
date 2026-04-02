@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getAdminZones, createZone } from "@/lib/services/admin/zones.service";
+import { getAdminZones, createZone, getAllZones } from "@/lib/services/admin/zones.service";
 
 async function requireAdmin(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -10,6 +10,12 @@ async function requireAdmin(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!await requireAdmin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // Slim mode: returns all zones as [{id, name}] for dropdowns (e.g. ZonePickerModal)
+  if (request.nextUrl.searchParams.get("slim") === "true") {
+    const allZones = await getAllZones();
+    return NextResponse.json({ zones: allZones });
+  }
 
   const { searchParams } = request.nextUrl;
   const rawPage     = Number(searchParams.get("page") ?? 1);
