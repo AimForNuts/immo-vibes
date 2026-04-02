@@ -33,7 +33,6 @@ const COLUMNS: ColumnDef<ZoneRow>[] = [
   { key: "enemies",       label: "Enemies",      render: (r) => <span className="text-xs">{r.enemyCount}</span> },
   { key: "bosses",        label: "World Bosses", render: (r) => <span className="text-xs">{r.worldBossCount}</span> },
   { key: "dungeons",      label: "Dungeons",     render: (r) => <span className="text-xs">{r.dungeonCount}</span> },
-
 ];
 
 const FILTERS: FilterDef[] = [
@@ -254,7 +253,6 @@ export default function ZonesPage() {
                     <Button size="sm" variant="outline" className="h-7 px-2" onClick={addDungeon}><Plus className="size-3" /></Button>
                   </div>
                 </ArrayPanel>
-
               </div>
             )}
           </div>

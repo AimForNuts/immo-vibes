@@ -273,6 +273,8 @@ Global zone catalog. One row per game location. Manually maintained — `level_r
 | `dungeons` | jsonb | ✓ | Reserved — typed `ZoneDungeon[]` (populated by future sync). Default `[]`. |
 | `world_bosses` | jsonb | ✓ | Reserved — typed `ZoneWorldBoss[]` (populated by future sync). Default `[]`. |
 
+**Admin routes**: `GET/POST /api/admin/zones`, `GET/PATCH/DELETE /api/admin/zones/[id]`
+
 ---
 
 ### `item_zones`
