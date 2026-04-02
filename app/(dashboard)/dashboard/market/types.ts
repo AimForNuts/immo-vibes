@@ -36,8 +36,6 @@ export interface ZoneResult {
   level_required: number;
   /** Enemies in this zone that drop the queried item. */
   enemies?:       Array<{ name: string; level: number }>;
-  /** The gathering skill type. Present when item is gatherable here. */
-  skill?:         "woodcutting" | "fishing" | "mining";
   /** Dungeons in this zone that yield the queried item. */
   dungeons?:      Array<{ name: string }>;
   /** World bosses in this zone that yield the queried item. */
