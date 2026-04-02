@@ -123,7 +123,6 @@ export async function POST(request: NextRequest) {
           tierModifiers: item.tier_modifiers ?? null,
           effects:       item.effects ?? null,
           recipe:        item.recipe ?? null,
-          whereToFind:   item.where_to_find ?? null,
           inspectedAt:   now,
         })
         .where(eq(items.hashedId, hashedId));

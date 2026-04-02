@@ -78,6 +78,13 @@
       "when": 1743206400000,
       "tag": "0010_pet_combat_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1774950360388,
+      "tag": "0011_zones_and_store_price",
+      "breakpoints": true
     }
   ]
 }

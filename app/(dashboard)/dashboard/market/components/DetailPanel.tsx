@@ -1,9 +1,11 @@
 "use client";
 
-import { X, Package, BookOpen, ChevronRight, Coins } from "lucide-react";
+import { useState } from "react";
+import { X, Package, BookOpen, ChevronRight, Coins, Pencil } from "lucide-react";
 import { QUALITY_HEX, QUALITY_BORDER_CSS } from "@/lib/game-constants";
 import { cn } from "@/lib/utils";
-import type { DbItem, FullItem, MarketPrice } from "../types";
+import type { DbItem, FullItem, MarketPrice, ZoneResult } from "../types";
+import { formatDuration } from "@/app/(dashboard)/dashboard/dungeons/difficulty";
 
 interface DetailPanelProps {
   item:              DbItem;
@@ -14,13 +16,21 @@ interface DetailPanelProps {
   craftedByDetail:   FullItem | null | "loading" | undefined;
   craftedByItemData: DbItem | null | undefined;
   resultItemData:    DbItem | null | undefined;
+  zones:             ZoneResult[] | null | "loading";
+  isAdmin:           boolean;
+  /** Optimistic store price overrides item.store_price after an admin save. undefined = use item value. */
+  displayStorePrice: number | null | undefined;
   onClose:           () => void;
   onTierChange:      (tier: number) => void;
+  /** Returns true on success, false on error. */
+  onStorePriceSave:  (hashedId: string, value: number | null) => Promise<boolean>;
 }
+
 
 export function DetailPanel({
   item, detail, selectedTier, tierMarketPrice, materialPrices,
-  craftedByDetail, craftedByItemData, resultItemData, onClose, onTierChange,
+  craftedByDetail, craftedByItemData, resultItemData, zones, isAdmin,
+  displayStorePrice, onClose, onTierChange, onStorePriceSave,
 }: DetailPanelProps) {
   const qualityColor = QUALITY_HEX[item.quality]        ?? "#a1a1aa";
   const borderColor  = QUALITY_BORDER_CSS[item.quality] ?? "rgba(113,113,122,0.4)";
@@ -29,6 +39,13 @@ export function DetailPanel({
   const d = detail !== "loading" ? detail : null;
 
   const maxTier = d?.max_tier ?? 1;
+
+  const [editingStorePrice, setEditingStorePrice] = useState(false);
+  const [storePriceDraft,   setStorePriceDraft]   = useState<string>("");
+  const [storePriceSaving,  setStorePriceSaving]  = useState(false);
+  const [storePriceError,   setStorePriceError]   = useState(false);
+
+  const currentStorePrice = displayStorePrice !== undefined ? displayStorePrice : item.store_price;
 
   function statLabel(key: string) {
     return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -107,7 +124,8 @@ export function DetailPanel({
             )}
 
             {/* Prices */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className={cn("grid gap-2", (currentStorePrice != null || isAdmin) ? "grid-cols-3" : "grid-cols-2")}>
+              {/* Vendor */}
               <div className="bg-zinc-900 rounded-md p-3 border border-zinc-800">
                 <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mb-1">Vendor</p>
                 {item.vendor_price ? (
@@ -116,6 +134,7 @@ export function DetailPanel({
                   <p className="text-xs text-zinc-700">—</p>
                 )}
               </div>
+              {/* Market */}
               <div className="bg-zinc-900 rounded-md p-3 border border-zinc-800">
                 <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mb-1">
                   Market{maxTier > 1 ? ` · T${selectedTier}` : ""}
@@ -135,6 +154,68 @@ export function DetailPanel({
                   <p className="text-xs text-zinc-700">—</p>
                 )}
               </div>
+              {/* Store — always shown if admin, only shown otherwise if store_price is set */}
+              {(currentStorePrice != null || isAdmin) && (
+                <div className="bg-zinc-900 rounded-md p-3 border border-zinc-800">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">Store</p>
+                    {isAdmin && !editingStorePrice && (
+                      <button
+                        onClick={() => { setStorePriceDraft(currentStorePrice?.toString() ?? ""); setEditingStorePrice(true); setStorePriceError(false); }}
+                        className="text-zinc-600 hover:text-amber-400 transition-colors"
+                        title="Edit store price"
+                      >
+                        <Pencil className="size-3" />
+                      </button>
+                    )}
+                  </div>
+                  {editingStorePrice ? (
+                    <div className="space-y-1.5">
+                      <input
+                        type="number"
+                        value={storePriceDraft}
+                        onChange={(e) => { setStorePriceDraft(e.target.value); setStorePriceError(false); }}
+                        className={cn("w-full px-1.5 py-1 text-xs bg-zinc-800 border rounded focus:outline-none text-zinc-200",
+                          storePriceError ? "border-red-500/60 focus:border-red-500/60" : "border-zinc-700 focus:border-amber-400/50")}
+                        placeholder="0"
+                        min="0"
+                        autoFocus
+                      />
+                      {storePriceError && <p className="text-[9px] text-red-400">Failed to save</p>}
+                      <div className="flex gap-1">
+                        <button
+                          disabled={storePriceSaving}
+                          onClick={async () => {
+                            setStorePriceSaving(true);
+                            setStorePriceError(false);
+                            const val = storePriceDraft === "" ? null : Number(storePriceDraft);
+                            const ok = await onStorePriceSave(item.hashed_id, val);
+                            if (ok) {
+                              setEditingStorePrice(false);
+                            } else {
+                              setStorePriceError(true);
+                            }
+                            setStorePriceSaving(false);
+                          }}
+                          className="flex-1 px-1.5 py-0.5 text-[10px] bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded hover:bg-amber-400/20 transition-colors disabled:opacity-50"
+                        >
+                          {storePriceSaving ? "…" : "Save"}
+                        </button>
+                        <button
+                          onClick={() => { setEditingStorePrice(false); setStorePriceError(false); }}
+                          className="px-1.5 py-0.5 text-[10px] border border-zinc-700 text-zinc-500 rounded hover:text-zinc-300 transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ) : currentStorePrice != null ? (
+                    <p className="text-sm font-mono text-sky-400">{currentStorePrice.toLocaleString()}g</p>
+                  ) : (
+                    <p className="text-xs text-zinc-700">—</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Crafted By — shown for non-recipe items that have a recipe producing them */}
@@ -214,40 +295,6 @@ export function DetailPanel({
                         </div>
                       );
                     })()}
-                    {/* Recipe scroll drop locations */}
-                    {craftedByDetail.where_to_find && (
-                      (craftedByDetail.where_to_find.enemies?.length ?? 0) > 0 ||
-                      (craftedByDetail.where_to_find.dungeons?.length ?? 0) > 0 ||
-                      (craftedByDetail.where_to_find.world_bosses?.length ?? 0) > 0
-                    ) && (
-                      <div className="border-t border-zinc-800 pt-2 space-y-1.5">
-                        <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Recipe drops from</p>
-                        {(craftedByDetail.where_to_find!.enemies?.length ?? 0) > 0 && (
-                          <div className="space-y-0.5">
-                            {craftedByDetail.where_to_find!.enemies!.map((e) => (
-                              <div key={e.id} className="flex items-center justify-between text-xs">
-                                <span className="text-zinc-400">{e.name}</span>
-                                <span className="font-mono text-zinc-600">Lv.{e.level}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {(craftedByDetail.where_to_find!.dungeons?.length ?? 0) > 0 && (
-                          <div className="space-y-0.5">
-                            {craftedByDetail.where_to_find!.dungeons!.map((dungeon) => (
-                              <div key={dungeon.id} className="text-xs text-zinc-400">{dungeon.name}</div>
-                            ))}
-                          </div>
-                        )}
-                        {(craftedByDetail.where_to_find!.world_bosses?.length ?? 0) > 0 && (
-                          <div className="space-y-0.5">
-                            {craftedByDetail.where_to_find!.world_bosses!.map((wb) => (
-                              <div key={wb.id} className="text-xs text-zinc-400">{wb.name}</div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -287,6 +334,11 @@ export function DetailPanel({
                       <span>
                         {eff.value_type === "percentage" ? `+${eff.value}%` : `+${eff.value}`}{" "}
                         {statLabel(eff.attribute)} ({eff.target})
+                        {eff.duration_ms != null && eff.duration_ms > 0 && (
+                          <span className="text-zinc-600 ml-1">
+                            · {formatDuration(Math.round(eff.duration_ms / 1000))}
+                          </span>
+                        )}
                       </span>
                     </div>
                   ))}
@@ -386,49 +438,64 @@ export function DetailPanel({
               </div>
             )}
 
-            {/* Where to Find */}
-            {d?.where_to_find && (
-              (d.where_to_find.enemies?.length ?? 0) > 0 ||
-              (d.where_to_find.dungeons?.length ?? 0) > 0 ||
-              (d.where_to_find.world_bosses?.length ?? 0) > 0
-            ) && (
+            {/* Found In — zones */}
+            {(zones === "loading" || (Array.isArray(zones) && zones.length > 0)) && (
               <div>
-                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Where to Find</p>
-                <div className="space-y-2">
-                  {(d.where_to_find.enemies?.length ?? 0) > 0 && (
-                    <div>
-                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">Enemies</p>
-                      <div className="space-y-0.5">
-                        {d.where_to_find.enemies!.map((e) => (
-                          <div key={e.id} className="flex items-center justify-between text-xs">
-                            <span className="text-zinc-300">{e.name}</span>
-                            <span className="font-mono text-zinc-600">Lv.{e.level}</span>
+                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Found In</p>
+                {zones === "loading" ? (
+                  <div className="space-y-2">
+                    <div className="h-3 w-1/2 bg-zinc-800 rounded animate-pulse" />
+                    <div className="h-3 w-2/3 bg-zinc-800 rounded animate-pulse" />
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {zones.map((zone) => (
+                      <div key={zone.id} className="bg-zinc-900 border border-zinc-800 rounded-md p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-zinc-200">{zone.name}</span>
+                          {zone.level_required > 0 && (
+                            <span className="text-[10px] font-mono text-zinc-600">Lv.{zone.level_required}+</span>
+                          )}
+                        </div>
+                        {zone.skill && (
+                          <p className="text-[10px] text-sky-400/70 capitalize">
+                            {zone.skill} gathering
+                          </p>
+                        )}
+                        {zone.enemies && zone.enemies.length > 0 && (
+                          <div className="space-y-0.5">
+                            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Enemies</p>
+                            {zone.enemies
+                              .slice()
+                              .sort((a, b) => a.level - b.level)
+                              .map((e, i) => (
+                                <div key={i} className="flex items-center justify-between text-xs">
+                                  <span className="text-zinc-300">{e.name}</span>
+                                  <span className="font-mono text-zinc-600">Lv.{e.level}</span>
+                                </div>
+                              ))}
                           </div>
-                        ))}
+                        )}
+                        {zone.dungeons && zone.dungeons.length > 0 && (
+                          <div className="space-y-0.5">
+                            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Dungeons</p>
+                            {zone.dungeons.map((dungeon, i) => (
+                              <div key={i} className="text-xs text-zinc-300">{dungeon.name}</div>
+                            ))}
+                          </div>
+                        )}
+                        {zone.world_bosses && zone.world_bosses.length > 0 && (
+                          <div className="space-y-0.5">
+                            <p className="text-[9px] text-zinc-600 uppercase tracking-wider">World Bosses</p>
+                            {zone.world_bosses.map((wb, i) => (
+                              <div key={i} className="text-xs text-zinc-300">{wb.name}</div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
-                  {(d.where_to_find.dungeons?.length ?? 0) > 0 && (
-                    <div>
-                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">Dungeons</p>
-                      <div className="space-y-0.5">
-                        {d.where_to_find.dungeons!.map((dungeon) => (
-                          <div key={dungeon.id} className="text-xs text-zinc-300">{dungeon.name}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {(d.where_to_find.world_bosses?.length ?? 0) > 0 && (
-                    <div>
-                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">World Bosses</p>
-                      <div className="space-y-0.5">
-                        {d.where_to_find.world_bosses!.map((wb) => (
-                          <div key={wb.id} className="text-xs text-zinc-300">{wb.name}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>
