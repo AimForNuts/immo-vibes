@@ -251,6 +251,76 @@ Not per-user — dungeon data is the same for everyone.
 **Admin route**: `POST /api/admin/sync-dungeons`
 **Docs**: `docs/api/internal/dungeons-sync.md`
 
+**New column (migration 0011)**: `zone_id` (integer FK → `zones.id`, nullable, `ON DELETE SET NULL`) — links a dungeon to a zone for the admin panel.
+
+---
+
+### `zones`
+
+Admin-managed zone definitions. Not synced from IdleMMO — created and edited via the admin panel.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | serial PK | — | Auto-increment |
+| `name` | text | — | Display name |
+| `level_min` | integer | — | Minimum character level for the zone |
+| `level_max` | integer | — | Maximum character level for the zone |
+| `created_at` | timestamp | — | DB default `now()` |
+| `updated_at` | timestamp | — | DB default `now()`; set to `new Date()` on every update |
+
+**Admin routes**: `GET/POST /api/admin/zones`, `GET/PATCH/DELETE /api/admin/zones/[id]`
+
+---
+
+### `enemies`
+
+Enemy definitions. Currently empty until a future sync feature is implemented.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | serial PK | — | Auto-increment |
+| `name` | text | — | Display name |
+| `level` | integer | — | Enemy level |
+| `zone_id` | integer FK → `zones.id` | ✓ | `ON DELETE SET NULL` |
+| `image_url` | text | ✓ | CDN URL |
+| `loot` | jsonb | ✓ | Array of `{ item_hashed_id, chance }` |
+| `synced_at` | timestamp | ✓ | When last synced (future use) |
+
+**Admin route**: `GET /api/admin/enemies` (picker/search)
+
+---
+
+### `world_bosses`
+
+World boss definitions. Same shape as `enemies`.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | serial PK | — | Auto-increment |
+| `name` | text | — | Display name |
+| `level` | integer | — | Boss level |
+| `zone_id` | integer FK → `zones.id` | ✓ | `ON DELETE SET NULL` |
+| `image_url` | text | ✓ | CDN URL |
+| `loot` | jsonb | ✓ | Array of `{ item_hashed_id, chance }` |
+| `synced_at` | timestamp | ✓ | When last synced (future use) |
+
+**Admin route**: `GET /api/admin/world-bosses` (picker/search)
+
+---
+
+### `zone_resources`
+
+Junction table linking zones to item resources (drop locations).
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `zone_id` | integer FK → `zones.id` | — | `ON DELETE CASCADE` |
+| `item_hashed_id` | text FK → `items.hashed_id` | — | `ON DELETE CASCADE` |
+
+Composite PK: `(zone_id, item_hashed_id)`
+
+**Admin routes**: `POST/DELETE /api/admin/zones/[id]/resources`
+
 ---
 
 ### Auth tables (`user`, `session`, `account`, `verification`)
