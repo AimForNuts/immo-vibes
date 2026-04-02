@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric, primaryKey } from "drizzle-orm/pg-core";
 
 // ─── Shared types for JSONB columns ───────────────────────────────────────────
 
@@ -407,3 +407,20 @@ export const zones = pgTable("zones", {
   /** World bosses in this zone. */
   worldBosses:   jsonb("world_bosses").$type<ZoneWorldBoss[]>().default(sql`'[]'::jsonb`),
 });
+
+/**
+ * Many-to-many between gathering items (ORE, LOG, FISH) and zones.
+ * Managed by admins via the market detail panel.
+ */
+export const itemZones = pgTable(
+  "item_zones",
+  {
+    itemHashedId: text("item_hashed_id")
+      .notNull()
+      .references(() => items.hashedId, { onDelete: "cascade" }),
+    zoneId: integer("zone_id")
+      .notNull()
+      .references(() => zones.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.itemHashedId, t.zoneId] })]
+);
