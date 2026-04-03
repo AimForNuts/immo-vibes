@@ -1,4 +1,4 @@
--- Migration 0013: add enemies and world_bosses tables; replace dungeons.location with zone_id FK
+-- Migration 0013: add enemies and world_bosses tables, replace dungeons.location with zone_id FK
 
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "enemies" (
