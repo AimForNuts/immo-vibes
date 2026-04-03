@@ -5,7 +5,7 @@ import { ilike, gte, and, count, SQL } from "drizzle-orm";
 export type AdminDungeonRow = {
   id: number;
   name: string;
-  location: string | null;
+  zoneId: number | null;
   levelRequired: number;
   difficulty: number;
   syncedAt: Date;
@@ -31,7 +31,7 @@ export async function getAdminDungeons(params: {
       .select({
         id:            dungeons.id,
         name:          dungeons.name,
-        location:      dungeons.location,
+        zoneId:        dungeons.zoneId,
         levelRequired: dungeons.levelRequired,
         difficulty:    dungeons.difficulty,
         syncedAt:      dungeons.syncedAt,
