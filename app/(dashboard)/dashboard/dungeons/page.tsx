@@ -51,7 +51,7 @@ export default async function DungeonsPage() {
         merged.push({
           name:        d.name,
           minLevel:    d.levelRequired,
-          location:    d.location ?? "",
+          location:    "",
           goldCost:    d.goldCost,
           durationSec: Math.round(d.durationMs / 1000),
           difficulty:  d.difficulty,
