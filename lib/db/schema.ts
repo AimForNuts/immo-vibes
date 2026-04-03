@@ -370,8 +370,8 @@ export const dungeons = pgTable("dungeons", {
   id:            integer("id").primaryKey(),
   name:          text("name").notNull(),
   imageUrl:      text("image_url"),
-  /** location.name from the IdleMMO API */
-  location:      text("location"),
+  /** Zone this dungeon belongs to — set manually by admins. Null until assigned. */
+  zoneId:        integer("zone_id").references((): any => zones.id, { onDelete: "set null" }),
   levelRequired: integer("level_required").notNull().default(0),
   difficulty:    integer("difficulty").notNull().default(0),
   /** Run duration in milliseconds (the "length" field from the API) */
@@ -417,3 +417,35 @@ export const itemZones = pgTable(
   },
   (t) => [primaryKey({ columns: [t.itemHashedId, t.zoneId] })]
 );
+
+/**
+ * Enemy catalog. One row per IdleMMO enemy.
+ * Populated by a future admin sync action.
+ */
+export const enemies = pgTable("enemies", {
+  id:        serial("id").primaryKey(),
+  name:      text("name").notNull(),
+  level:     integer("level").notNull().default(0),
+  /** Zone this enemy appears in. Null until assigned or if zone is deleted. */
+  zoneId:    integer("zone_id").references(() => zones.id, { onDelete: "set null" }),
+  imageUrl:  text("image_url"),
+  /** Array of { item_hashed_id, chance } drop entries. */
+  loot:      jsonb("loot").$type<Array<{ item_hashed_id: string; chance: number }>>(),
+  syncedAt:  timestamp("synced_at"),
+});
+
+/**
+ * World boss catalog. Same shape as enemies — separated because bosses
+ * appear on a different schedule and have distinct game mechanics.
+ */
+export const worldBosses = pgTable("world_bosses", {
+  id:        serial("id").primaryKey(),
+  name:      text("name").notNull(),
+  level:     integer("level").notNull().default(0),
+  /** Zone this world boss spawns in. Null until assigned or if zone is deleted. */
+  zoneId:    integer("zone_id").references(() => zones.id, { onDelete: "set null" }),
+  imageUrl:  text("image_url"),
+  /** Array of { item_hashed_id, chance } drop entries. */
+  loot:      jsonb("loot").$type<Array<{ item_hashed_id: string; chance: number }>>(),
+  syncedAt:  timestamp("synced_at"),
+});

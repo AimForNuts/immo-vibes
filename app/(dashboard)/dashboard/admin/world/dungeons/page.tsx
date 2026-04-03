@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 type DungeonRow = {
   id: number;
   name: string;
-  location: string | null;
+  zoneId: number | null;
   levelRequired: number;
   difficulty: number;
   syncedAt: string;
@@ -18,7 +18,7 @@ type DungeonRow = {
 
 const COLUMNS: ColumnDef<DungeonRow>[] = [
   { key: "name",          label: "Name",       render: (r) => <span className="font-medium">{r.name}</span> },
-  { key: "location",      label: "Location",   render: (r) => <span className="text-muted-foreground text-xs">{r.location ?? "—"}</span> },
+  { key: "zoneId",        label: "Zone",       render: (r) => <span className="text-muted-foreground text-xs">{r.zoneId ?? "—"}</span> },
   { key: "levelRequired", label: "Level req.", render: (r) => <span className="text-xs">{r.levelRequired}</span> },
   { key: "difficulty",    label: "Difficulty", render: (r) => <span className="text-xs">{r.difficulty}</span> },
 ];

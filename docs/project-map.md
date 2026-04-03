@@ -337,6 +337,8 @@ Email/password auth via better-auth.
 | `characters` | character-cache service | dashboard, characters list |
 | `character_pets` | sync-pet API route (user action) | character detail page |
 | `dungeons` | admin sync-dungeons route | dungeons page |
+| `enemies` | future sync (placeholder) | admin enemies picker |
+| `world_bosses` | future sync (placeholder) | admin world-bosses picker |
 | `zones` | manually (DB) | zone associations feature |
 | `item_zones` | zone associations admin UI | zone associations feature |
 | `user` / `session` / `account` / `verification` | better-auth | auth middleware |
