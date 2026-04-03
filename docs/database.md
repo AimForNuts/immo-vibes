@@ -30,7 +30,9 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | Saved gear loadouts | `gear_presets` | `user_id`, `slots` (JSONB map of slot → `{hashedId, tier}`) |
 | Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
 | Saved main-pet stats for a character | `character_pets` | `user_id`, `character_hashed_id`, `attack_power`, `protection`, `agility`, `accuracy`, `max_stamina`, `movement_speed`, `critical_chance`, `critical_damage`, `synced_at` |
-| Dungeon catalog (difficulty, duration, loot) | `dungeons` | `id`, `name`, `difficulty`, `duration_ms`, `loot` |
+| Dungeon catalog (difficulty, duration, loot) | `dungeons` | `id`, `name`, `zone_id`, `difficulty`, `duration_ms`, `loot` |
+| Enemy catalog (name, level, drops) | `enemies` | `id`, `name`, `level`, `zone_id`, `loot` |
+| World boss catalog (name, level, drops) | `world_bosses` | `id`, `name`, `level`, `zone_id`, `loot` |
 
 ---
 
@@ -239,7 +241,7 @@ Not per-user — dungeon data is the same for everyone.
 | `id` | integer PK | — | IdleMMO dungeon integer ID |
 | `name` | text | — | Display name |
 | `image_url` | text | ✓ | CDN URL |
-| `location` | text | ✓ | `location.name` from the IdleMMO API |
+| `zone_id` | integer FK → `zones.id` | ✓ | Zone this dungeon belongs to. `ON DELETE SET NULL`. Set manually by admins. |
 | `level_required` | integer | — | Minimum character level. Default 0. |
 | `difficulty` | integer | — | Difficulty score used in combat ratio. Default 0 (unknown). |
 | `duration_ms` | integer | — | Run duration in milliseconds (`length` field from API). Default 0. |
@@ -255,8 +257,6 @@ Not per-user — dungeon data is the same for everyone.
 
 **Admin route**: `POST /api/admin/sync-dungeons`
 **Docs**: `docs/api/internal/dungeons-sync.md`
-
-**New column (migration 0011)**: `zone_id` (integer FK → `zones.id`, nullable, `ON DELETE SET NULL`) — links a dungeon to a zone for the admin panel.
 
 ---
 
@@ -292,17 +292,17 @@ Many-to-many join table between gathering items and zones. Admin-managed via the
 
 ### `enemies`
 
-Enemy definitions. Currently empty until a future sync feature is implemented.
+Enemy catalog. One row per IdleMMO enemy. Populated by a future admin sync action.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
 | `id` | serial PK | — | Auto-increment |
 | `name` | text | — | Display name |
-| `level` | integer | — | Enemy level |
+| `level` | integer | — | Enemy level. Default 0. |
 | `zone_id` | integer FK → `zones.id` | ✓ | `ON DELETE SET NULL` |
 | `image_url` | text | ✓ | CDN URL |
 | `loot` | jsonb | ✓ | Array of `{ item_hashed_id, chance }` |
-| `synced_at` | timestamp | ✓ | When last synced (future use) |
+| `synced_at` | timestamp | ✓ | When last synced |
 
 **Admin route**: `GET /api/admin/enemies` (picker/search)
 
@@ -310,17 +310,17 @@ Enemy definitions. Currently empty until a future sync feature is implemented.
 
 ### `world_bosses`
 
-World boss definitions. Same shape as `enemies`.
+World boss catalog. Same shape as `enemies` — separated because bosses appear on a different schedule and have distinct game mechanics.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
 | `id` | serial PK | — | Auto-increment |
 | `name` | text | — | Display name |
-| `level` | integer | — | Boss level |
+| `level` | integer | — | Boss level. Default 0. |
 | `zone_id` | integer FK → `zones.id` | ✓ | `ON DELETE SET NULL` |
 | `image_url` | text | ✓ | CDN URL |
 | `loot` | jsonb | ✓ | Array of `{ item_hashed_id, chance }` |
-| `synced_at` | timestamp | ✓ | When last synced (future use) |
+| `synced_at` | timestamp | ✓ | When last synced |
 
 **Admin route**: `GET /api/admin/world-bosses` (picker/search)
 

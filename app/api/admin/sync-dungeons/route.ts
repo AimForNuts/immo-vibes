@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
     id:            d.id,
     name:          d.name,
     imageUrl:      d.image_url ?? null,
-    location:      d.location?.name ?? null,
     levelRequired: d.level_required,
     difficulty:    d.difficulty,
     durationMs:    d.length,
@@ -57,7 +56,6 @@ export async function POST(request: NextRequest) {
         set: {
           name:          sql`excluded.name`,
           imageUrl:      sql`excluded.image_url`,
-          location:      sql`excluded.location`,
           levelRequired: sql`excluded.level_required`,
           difficulty:    sql`excluded.difficulty`,
           durationMs:    sql`excluded.duration_ms`,
