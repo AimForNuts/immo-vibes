@@ -349,74 +349,74 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
                           hasLoot && "cursor-pointer"
                         )}
                       >
-                      {/* Threat dot */}
-                      <span className={cn("size-1.5 rounded-full shrink-0 justify-self-center", threat)} />
+                        {/* Threat dot */}
+                        <span className={cn("size-1.5 rounded-full shrink-0 justify-self-center", threat)} />
 
-                      {/* Name */}
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {hasLoot ? (
-                          isExpanded
-                            ? <ChevronDown  className="size-3 text-muted-foreground/40 shrink-0" />
-                            : <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
-                        ) : (
-                          <span className="size-3 shrink-0" />
-                        )}
-                        {enemy.image_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={enemy.image_url} alt="" className="size-5 object-contain shrink-0 opacity-80" />
-                        )}
-                        <span className="text-sm font-medium truncate">{enemy.name}</span>
+                        {/* Name */}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {hasLoot ? (
+                            isExpanded
+                              ? <ChevronDown  className="size-3 text-muted-foreground/60 shrink-0" />
+                              : <ChevronRight className="size-3 text-muted-foreground/60 shrink-0" />
+                          ) : (
+                            <span className="size-3 shrink-0" />
+                          )}
+                          {enemy.image_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={enemy.image_url} alt="" className="size-5 object-contain shrink-0 opacity-80" />
+                          )}
+                          <span className="text-sm font-medium truncate">{enemy.name}</span>
+                        </div>
+
+                        {/* Level */}
+                        <span className={cn(
+                          "text-xs font-mono tabular-nums text-center",
+                          scaling && scaledLevel !== enemy.level ? "text-primary font-semibold" : "text-muted-foreground"
+                        )}>
+                          {displayLevel}
+                        </span>
+
+                        {/* HP */}
+                        <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/80">
+                          {displayHP.toLocaleString()}
+                        </span>
+
+                        {/* XP/kill */}
+                        <span className="text-xs font-mono tabular-nums text-center text-foreground/70">
+                          {displayXP}
+                        </span>
+
+                        {/* AP — red when above player Protection */}
+                        <span className={cn(
+                          "text-xs font-mono tabular-nums text-center",
+                          displayAP === null ? "text-muted-foreground/25" :
+                          charStats && displayAP > charStats.protection ? "text-red-400" :
+                          charStats && displayAP > charStats.protection * 0.7 ? "text-amber-400" :
+                          "text-muted-foreground/70"
+                        )}>
+                          {displayAP ?? "—"}
+                        </span>
+
+                        {/* Prot */}
+                        <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
+                          {displayProt ?? "—"}
+                        </span>
+
+                        {/* Agi */}
+                        <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
+                          {displayAgi ?? "—"}
+                        </span>
+
+                        {/* Acc */}
+                        <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
+                          {displayAcc ?? "—"}
+                        </span>
+
+                        {/* Loot chance */}
+                        <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/50">
+                          {enemy.chance_of_loot}%
+                        </span>
                       </div>
-
-                      {/* Level */}
-                      <span className={cn(
-                        "text-xs font-mono tabular-nums text-center",
-                        scaling && scaledLevel !== enemy.level ? "text-primary font-semibold" : "text-muted-foreground"
-                      )}>
-                        {displayLevel}
-                      </span>
-
-                      {/* HP */}
-                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/80">
-                        {displayHP.toLocaleString()}
-                      </span>
-
-                      {/* XP/kill */}
-                      <span className="text-xs font-mono tabular-nums text-center text-foreground/70">
-                        {displayXP}
-                      </span>
-
-                      {/* AP — red when above player Protection */}
-                      <span className={cn(
-                        "text-xs font-mono tabular-nums text-center",
-                        displayAP === null ? "text-muted-foreground/25" :
-                        charStats && displayAP > charStats.protection ? "text-red-400" :
-                        charStats && displayAP > charStats.protection * 0.7 ? "text-amber-400" :
-                        "text-muted-foreground/70"
-                      )}>
-                        {displayAP ?? "—"}
-                      </span>
-
-                      {/* Prot */}
-                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
-                        {displayProt ?? "—"}
-                      </span>
-
-                      {/* Agi */}
-                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
-                        {displayAgi ?? "—"}
-                      </span>
-
-                      {/* Acc */}
-                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
-                        {displayAcc ?? "—"}
-                      </span>
-
-                      {/* Loot chance */}
-                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/50">
-                        {enemy.chance_of_loot}%
-                      </span>
-                    </div>
                   </div>
                   );
                 })}
