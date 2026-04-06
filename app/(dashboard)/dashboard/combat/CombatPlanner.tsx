@@ -331,19 +331,36 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
 
                   const threat = threatColor(displayAP, charStats?.protection ?? 0);
 
+                  const isExpanded = expandedEnemies.has(enemy.id);
+                  const hasLoot = enemy.loot.length > 0;
+
                   return (
                     <div
                       key={enemy.id}
                       className={cn(
-                        "grid grid-cols-[1.5rem_1fr_3.5rem_4rem_4.5rem_4rem_4rem_4rem_4rem_4rem] items-center gap-2 px-4 py-2.5 border-b border-border/30 last:border-b-0 hover:bg-muted/10 transition-colors",
+                        "border-b border-border/30 last:border-b-0",
                         i % 2 === 0 ? "bg-background" : "bg-muted/5"
                       )}
                     >
+                      <div
+                        onClick={() => hasLoot && toggleEnemy(enemy.id)}
+                        className={cn(
+                          "grid grid-cols-[1.5rem_1fr_3.5rem_4rem_4.5rem_4rem_4rem_4rem_4rem_4rem] items-center gap-2 px-4 py-2.5 hover:bg-muted/10 transition-colors",
+                          hasLoot && "cursor-pointer"
+                        )}
+                      >
                       {/* Threat dot */}
                       <span className={cn("size-1.5 rounded-full shrink-0 justify-self-center", threat)} />
 
                       {/* Name */}
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {hasLoot ? (
+                          isExpanded
+                            ? <ChevronDown  className="size-3 text-muted-foreground/40 shrink-0" />
+                            : <ChevronRight className="size-3 text-muted-foreground/40 shrink-0" />
+                        ) : (
+                          <span className="size-3 shrink-0" />
+                        )}
                         {enemy.image_url && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={enemy.image_url} alt="" className="size-5 object-contain shrink-0 opacity-80" />
@@ -400,6 +417,7 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
                         {enemy.chance_of_loot}%
                       </span>
                     </div>
+                  </div>
                   );
                 })}
 
