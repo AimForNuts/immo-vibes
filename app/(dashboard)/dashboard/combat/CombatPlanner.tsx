@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronRight, Flame, Coffee, Activity, Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { QUALITY_COLORS } from "@/lib/game-constants";
 import type { EnemyInfo } from "@/lib/idlemmo";
 import type { EnemyCombatStats } from "@/data/enemy-combat-stats";
 
@@ -84,6 +85,16 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
   const [expandedZones, setExpandedZones] = useState<Set<string>>(
     () => new Set(zones.keys())
   );
+
+  const [expandedEnemies, setExpandedEnemies] = useState<Set<number>>(new Set());
+
+  function toggleEnemy(id: number) {
+    setExpandedEnemies((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   // Fetch character stats when selection changes
   useEffect(() => {
@@ -304,7 +315,7 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
                   <span className="text-center">Prot</span>
                   <span className="text-center">Agi</span>
                   <span className="text-center">Acc</span>
-                  <span className="text-center">Loot%</span>
+                  <span className="text-center">Loot</span>
                 </div>
 
                 {/* Enemy rows */}
@@ -320,75 +331,138 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
 
                   const threat = threatColor(displayAP, charStats?.protection ?? 0);
 
+                  const isExpanded = expandedEnemies.has(enemy.id);
+                  const hasLoot = enemy.loot.length > 0;
+
                   return (
                     <div
                       key={enemy.id}
                       className={cn(
-                        "grid grid-cols-[1.5rem_1fr_3.5rem_4rem_4.5rem_4rem_4rem_4rem_4rem_4rem] items-center gap-2 px-4 py-2.5 border-b border-border/30 last:border-b-0 hover:bg-muted/10 transition-colors",
+                        "border-b border-border/30 last:border-b-0",
                         i % 2 === 0 ? "bg-background" : "bg-muted/5"
                       )}
                     >
-                      {/* Threat dot */}
-                      <span className={cn("size-1.5 rounded-full shrink-0 justify-self-center", threat)} />
-
-                      {/* Name */}
-                      <div className="flex items-center gap-2 min-w-0">
-                        {enemy.image_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={enemy.image_url} alt="" className="size-5 object-contain shrink-0 opacity-80" />
+                      <div
+                        onClick={() => hasLoot && toggleEnemy(enemy.id)}
+                        className={cn(
+                          "grid grid-cols-[1.5rem_1fr_3.5rem_4rem_4.5rem_4rem_4rem_4rem_4rem_4rem] items-center gap-2 px-4 py-2.5 hover:bg-muted/10 transition-colors",
+                          hasLoot && "cursor-pointer"
                         )}
-                        <span className="text-sm font-medium truncate">{enemy.name}</span>
+                      >
+                        {/* Threat dot */}
+                        <span className={cn("size-1.5 rounded-full shrink-0 justify-self-center", threat)} />
+
+                        {/* Name */}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {hasLoot ? (
+                            isExpanded
+                              ? <ChevronDown  className="size-3 text-muted-foreground/60 shrink-0" />
+                              : <ChevronRight className="size-3 text-muted-foreground/60 shrink-0" />
+                          ) : (
+                            <span className="size-3 shrink-0" />
+                          )}
+                          {enemy.image_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={enemy.image_url} alt="" className="size-5 object-contain shrink-0 opacity-80" />
+                          )}
+                          <span className="text-sm font-medium truncate">{enemy.name}</span>
+                        </div>
+
+                        {/* Level */}
+                        <span className={cn(
+                          "text-xs font-mono tabular-nums text-center",
+                          scaling && scaledLevel !== enemy.level ? "text-primary font-semibold" : "text-muted-foreground"
+                        )}>
+                          {displayLevel}
+                        </span>
+
+                        {/* HP */}
+                        <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/80">
+                          {displayHP.toLocaleString()}
+                        </span>
+
+                        {/* XP/kill */}
+                        <span className="text-xs font-mono tabular-nums text-center text-foreground/70">
+                          {displayXP}
+                        </span>
+
+                        {/* AP — red when above player Protection */}
+                        <span className={cn(
+                          "text-xs font-mono tabular-nums text-center",
+                          displayAP === null ? "text-muted-foreground/25" :
+                          charStats && displayAP > charStats.protection ? "text-red-400" :
+                          charStats && displayAP > charStats.protection * 0.7 ? "text-amber-400" :
+                          "text-muted-foreground/70"
+                        )}>
+                          {displayAP ?? "—"}
+                        </span>
+
+                        {/* Prot */}
+                        <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
+                          {displayProt ?? "—"}
+                        </span>
+
+                        {/* Agi */}
+                        <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
+                          {displayAgi ?? "—"}
+                        </span>
+
+                        {/* Acc */}
+                        <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
+                          {displayAcc ?? "—"}
+                        </span>
+
+                        {/* Loot chance */}
+                        <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/50">
+                          {enemy.chance_of_loot}%
+                        </span>
                       </div>
-
-                      {/* Level */}
-                      <span className={cn(
-                        "text-xs font-mono tabular-nums text-center",
-                        scaling && scaledLevel !== enemy.level ? "text-primary font-semibold" : "text-muted-foreground"
-                      )}>
-                        {displayLevel}
-                      </span>
-
-                      {/* HP */}
-                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/80">
-                        {displayHP.toLocaleString()}
-                      </span>
-
-                      {/* XP/kill */}
-                      <span className="text-xs font-mono tabular-nums text-center text-foreground/70">
-                        {displayXP}
-                      </span>
-
-                      {/* AP — red when above player Protection */}
-                      <span className={cn(
-                        "text-xs font-mono tabular-nums text-center",
-                        displayAP === null ? "text-muted-foreground/25" :
-                        charStats && displayAP > charStats.protection ? "text-red-400" :
-                        charStats && displayAP > charStats.protection * 0.7 ? "text-amber-400" :
-                        "text-muted-foreground/70"
-                      )}>
-                        {displayAP ?? "—"}
-                      </span>
-
-                      {/* Prot */}
-                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
-                        {displayProt ?? "—"}
-                      </span>
-
-                      {/* Agi */}
-                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
-                        {displayAgi ?? "—"}
-                      </span>
-
-                      {/* Acc */}
-                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/70">
-                        {displayAcc ?? "—"}
-                      </span>
-
-                      {/* Loot chance */}
-                      <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/50">
-                        {enemy.chance_of_loot}%
-                      </span>
-                    </div>
+                      {isExpanded && hasLoot && (
+                        <div className="border-t border-border/20 bg-muted/5">
+                          {/* Sub-row header */}
+                          <div className="grid grid-cols-[3.5rem_1fr_3rem_5rem_5.5rem] gap-2 px-4 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40">
+                            <span />
+                            <span>Item</span>
+                            <span className="text-center">Qty</span>
+                            <span className="text-center">Roll%</span>
+                            <span className="text-center">Per Kill</span>
+                          </div>
+                          {enemy.loot.map((item) => {
+                            const effective = ((enemy.chance_of_loot * item.chance) / 100).toFixed(2);
+                            return (
+                              <div
+                                key={item.hashed_item_id}
+                                className="grid grid-cols-[3.5rem_1fr_3rem_5rem_5.5rem] gap-2 px-4 py-1.5 items-center last:pb-2.5"
+                              >
+                                <span />
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {item.image_url && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={item.image_url} alt="" className="size-4 object-contain shrink-0 opacity-70" />
+                                  )}
+                                  <span className="text-xs truncate">{item.name}</span>
+                                  <span className={cn(
+                                    "text-[10px] font-mono shrink-0",
+                                    QUALITY_COLORS[item.quality] ?? "text-muted-foreground"
+                                  )}>
+                                    {item.quality[0]}
+                                  </span>
+                                </div>
+                                <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/60">
+                                  {item.quantity}
+                                </span>
+                                <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/60">
+                                  {item.chance}%
+                                </span>
+                                <span className="text-xs font-mono tabular-nums text-center text-foreground/80 font-medium">
+                                  {effective}%
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                  </div>
                   );
                 })}
 
