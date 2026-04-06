@@ -315,7 +315,7 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
                   <span className="text-center">Prot</span>
                   <span className="text-center">Agi</span>
                   <span className="text-center">Acc</span>
-                  <span className="text-center">Loot%</span>
+                  <span className="text-center">Loot</span>
                 </div>
 
                 {/* Enemy rows */}
