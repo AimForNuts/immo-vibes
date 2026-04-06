@@ -12,15 +12,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { id } = await params;
   const { email, newPassword } = await request.json() as { email?: string; newPassword?: string };
 
-  if (email) {
-    await updateUserEmail(id, email);
-  }
+  try {
+    if (email) {
+      await updateUserEmail(id, email);
+    }
 
-  if (newPassword) {
-    await auth.api.setUserPassword({
-      body: { userId: id, newPassword },
-      headers: request.headers,
-    });
+    if (newPassword) {
+      await auth.api.setUserPassword({
+        body: { userId: id, newPassword },
+        headers: request.headers,
+      });
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true });
