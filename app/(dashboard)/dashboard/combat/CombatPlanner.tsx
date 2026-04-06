@@ -109,9 +109,10 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
+        const skills = data.skills as Record<string, { level: number }> | undefined;
         const stats = data.stats as Record<string, { level: number }> | undefined;
         if (!stats) return;
-        const combatLevel = stats.combat?.level ?? 0;
+        const combatLevel = skills?.combat?.level ?? 0;
         setCharStats({
           combatLevel,
           attack_power: Math.floor((stats.strength?.level  ?? 0) * 2.4),
