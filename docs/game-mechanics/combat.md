@@ -60,6 +60,24 @@ Base HP is not level-scaled by a documented formula — treat it as fixed at 100
 - MF bonus applies to **loot rates per item**, not drop chance
 - Food/HP consumption increases with scaled enemies (magnitude undocumented — needs empirical data)
 
+### Magic Find (MF) Formula
+
+Scaling enemies above their base level grants a Magic Find bonus (0–40%) that increases individual item roll rates:
+
+```
+mfBonus = min(40, (gap / 149) × 40)
+gap     = max(0, scaledLevel − enemyBaseLevel)
+```
+
+Where 149 is the maximum possible gap (L1 enemy scaled to L150 = +40%).
+
+**Important constraints (wiki):**
+- MF applies to **item roll %** only — `chance_of_loot` (the drop trigger) is unaffected
+- If adjusted item chances sum to > 100%, the game trims from the most common items first
+- The game UI does not display MF-adjusted rates; ImmoWeb Suite shows the calculated values
+
+Source: https://wiki.idle-mmo.com/combat/battling#magic-find-calculation
+
 ---
 
 ## Hunting Speed Formula
@@ -149,6 +167,7 @@ scaled_xp   = round(base_xp   × (scaled_level / base_level))
 | Combat stats formula (×2.4) | ✅ Implemented in gear calc + dungeon planner |
 | Class L70 talent bonuses | ✅ Implemented in dungeon planner |
 | Enemy zone table (static data) | 🔲 Data to be populated by user |
-| Scaling toggle/slider | 🔲 Planned in combat planner |
+| Scaling toggle/slider | ✅ Implemented — debounced slider with reset button (L80+) |
+| MF loot rate calculation | ✅ Implemented — Per Kill% shows MF-adjusted rates in loot view |
 | XP/hour estimate | 🔲 Planned — needs base XP per enemy |
 | Food consumption estimate | 🔲 Planned — needs damage formula confirmation |
