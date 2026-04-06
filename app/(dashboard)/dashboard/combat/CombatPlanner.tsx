@@ -439,7 +439,8 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
                                 )}
                               </span>
                             </div>
-                            {adjustedLoot.map((item) => {
+                            {adjustedLoot.map((item, lootIdx) => {
+                              const rawChance = enemy.loot[lootIdx]?.chance ?? item.chance;
                               const effective = ((enemy.chance_of_loot * item.chance) / 100).toFixed(2);
                               return (
                                 <div
@@ -464,7 +465,7 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
                                     {item.quantity}
                                   </span>
                                   <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/60">
-                                    {item.chance}%
+                                    {rawChance}%
                                   </span>
                                   <span className={cn(
                                     "text-xs font-mono tabular-nums text-center font-medium",
