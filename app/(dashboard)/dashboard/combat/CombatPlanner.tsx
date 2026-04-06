@@ -417,6 +417,51 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
                           {enemy.chance_of_loot}%
                         </span>
                       </div>
+                      {isExpanded && hasLoot && (
+                        <div className="border-t border-border/20 bg-muted/5">
+                          {/* Sub-row header */}
+                          <div className="grid grid-cols-[3.5rem_1fr_3rem_5rem_5.5rem] gap-2 px-4 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40">
+                            <span />
+                            <span>Item</span>
+                            <span className="text-center">Qty</span>
+                            <span className="text-center">Roll%</span>
+                            <span className="text-center">Per Kill</span>
+                          </div>
+                          {enemy.loot.map((item) => {
+                            const effective = ((enemy.chance_of_loot * item.chance) / 100).toFixed(2);
+                            return (
+                              <div
+                                key={item.hashed_item_id}
+                                className="grid grid-cols-[3.5rem_1fr_3rem_5rem_5.5rem] gap-2 px-4 py-1.5 items-center last:pb-2.5"
+                              >
+                                <span />
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {item.image_url && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={item.image_url} alt="" className="size-4 object-contain shrink-0 opacity-70" />
+                                  )}
+                                  <span className="text-xs truncate">{item.name}</span>
+                                  <span className={cn(
+                                    "text-[10px] font-mono shrink-0",
+                                    QUALITY_COLORS[item.quality] ?? "text-muted-foreground"
+                                  )}>
+                                    {item.quality[0]}
+                                  </span>
+                                </div>
+                                <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/60">
+                                  {item.quantity}
+                                </span>
+                                <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/60">
+                                  {item.chance}%
+                                </span>
+                                <span className="text-xs font-mono tabular-nums text-center text-foreground/80 font-medium">
+                                  {effective}%
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                   </div>
                   );
                 })}
