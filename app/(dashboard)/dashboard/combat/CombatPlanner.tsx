@@ -4,11 +4,13 @@ import { useState, useEffect, useMemo } from "react";
 import {
   Sword, Shield, Wind, Crosshair, User, Zap, TrendingUp,
   ChevronDown, ChevronRight, Flame, Coffee, Activity, Info,
+  RotateCcw, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QUALITY_COLORS } from "@/lib/game-constants";
 import type { EnemyInfo } from "@/lib/idlemmo";
 import type { EnemyCombatStats } from "@/data/enemy-combat-stats";
+import { useEnemyScaling } from "./hooks/useEnemyScaling";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,9 +67,9 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
   const [loadingChar, setLoadingChar] = useState(false);
   const [movementSpeed, setMovementSpeed] = useState(20);
 
-  // Scaling
-  const [scalingEnabled, setScalingEnabled] = useState(false);
-  const [scaledLevel, setScaledLevel] = useState(80);
+  const canScale = (charStats?.combatLevel ?? 0) >= 80;
+  const { scaledLevel, pendingLevel, isCalculating, isScaling, setLevel, reset } =
+    useEnemyScaling(charStats?.combatLevel ?? null);
 
   // Zone expand state — all expanded by default
   const zones = useMemo(() => {
@@ -116,7 +118,6 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
           agility:      Math.floor((stats.speed?.level     ?? 0) * 2.4),
           accuracy:     Math.floor((stats.dexterity?.level ?? 0) * 2.4),
         });
-        setScaledLevel(Math.min(Math.max(combatLevel, 1), 150));
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingChar(false); });
@@ -125,8 +126,7 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
 
-  const canScale = (charStats?.combatLevel ?? 0) >= 80;
-  const scaling = scalingEnabled && canScale;
+  const scaling = isScaling;
 
   function toggleZone(name: string) {
     setExpandedZones((prev) => {
@@ -196,30 +196,32 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
             {!canScale && charStats && (
               <span className="text-muted-foreground/40 normal-case font-normal ml-1">(L80+ required)</span>
             )}
+            {isCalculating && <Loader2 className="size-3 animate-spin text-muted-foreground/60" />}
           </label>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={scalingEnabled}
-                disabled={!canScale}
-                onChange={(e) => setScalingEnabled(e.target.checked)}
-                className="accent-primary"
-              />
-              <span className="text-sm text-muted-foreground">
-                {scalingEnabled ? `L${scaledLevel}` : "Off"}
-              </span>
-            </label>
-            {scalingEnabled && canScale && (
-              <input
-                type="range"
-                min={charStats?.combatLevel ?? 80}
-                max={(charStats?.combatLevel ?? 100) >= 100 ? 150 : charStats?.combatLevel ?? 80}
-                value={scaledLevel}
-                onChange={(e) => setScaledLevel(parseInt(e.target.value, 10))}
-                className="flex-1 accent-primary"
-              />
-            )}
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "text-sm tabular-nums font-mono w-10 shrink-0",
+              isScaling ? "text-primary font-semibold" : "text-muted-foreground"
+            )}>
+              L{pendingLevel}
+            </span>
+            <input
+              type="range"
+              min={charStats?.combatLevel ?? 1}
+              max={150}
+              value={pendingLevel}
+              disabled={!canScale}
+              onChange={(e) => setLevel(parseInt(e.target.value, 10))}
+              className="flex-1 accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
+            />
+            <button
+              onClick={reset}
+              disabled={!isScaling && !isCalculating}
+              title="Reset to character level"
+              className="p-1 rounded hover:bg-muted/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <RotateCcw className="size-3.5 text-muted-foreground" />
+            </button>
           </div>
         </div>
       </div>
