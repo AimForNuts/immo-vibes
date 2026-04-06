@@ -11,6 +11,7 @@ import { QUALITY_COLORS } from "@/lib/game-constants";
 import type { EnemyInfo } from "@/lib/idlemmo";
 import type { EnemyCombatStats } from "@/data/enemy-combat-stats";
 import { useEnemyScaling } from "./hooks/useEnemyScaling";
+import { computeMfBonus } from "./lib/combat-scaling";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -271,8 +272,7 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
 
         // MF bonus for this zone when scaling
         const avgBaseLevel = zoneEnemies.reduce((s, e) => s + e.level, 0) / zoneEnemies.length;
-        const mfGap = scaling ? Math.max(0, scaledLevel - avgBaseLevel) : 0;
-        const mfBonus = Math.min(40, Math.round((mfGap / 50) * 40));
+        const mfBonus = scaling ? Math.round(computeMfBonus(avgBaseLevel, scaledLevel)) : 0;
 
         return (
           <div key={zoneName} className="rounded-lg border border-border overflow-hidden">
