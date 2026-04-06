@@ -174,6 +174,8 @@ DPS calculator with enemy list and character selector.
 | Page | `app/(dashboard)/dashboard/combat/page.tsx` |
 | Component | `app/(dashboard)/dashboard/combat/CombatPlanner.tsx` |
 | Enemy data | `data/enemy-combat-stats.ts` (static — not in API) |
+| Hook — enemy scaling | `app/(dashboard)/dashboard/combat/hooks/useEnemyScaling.ts` |
+| Lib — MF pure functions | `app/(dashboard)/dashboard/combat/lib/combat-scaling.ts` |
 
 **DB tables**: none
 **External API**: `getCharacterInfo()`, `getAltCharacters()`, `getEnemies()`

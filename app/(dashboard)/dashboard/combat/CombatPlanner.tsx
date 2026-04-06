@@ -4,11 +4,14 @@ import { useState, useEffect, useMemo } from "react";
 import {
   Sword, Shield, Wind, Crosshair, User, Zap, TrendingUp,
   ChevronDown, ChevronRight, Flame, Coffee, Activity, Info,
+  RotateCcw, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QUALITY_COLORS } from "@/lib/game-constants";
 import type { EnemyInfo } from "@/lib/idlemmo";
 import type { EnemyCombatStats } from "@/data/enemy-combat-stats";
+import { useEnemyScaling } from "./hooks/useEnemyScaling";
+import { computeMfBonus, applyMfToLoot } from "./lib/combat-scaling";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,9 +68,9 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
   const [loadingChar, setLoadingChar] = useState(false);
   const [movementSpeed, setMovementSpeed] = useState(20);
 
-  // Scaling
-  const [scalingEnabled, setScalingEnabled] = useState(false);
-  const [scaledLevel, setScaledLevel] = useState(80);
+  const canScale = (charStats?.combatLevel ?? 0) >= 80;
+  const { scaledLevel, pendingLevel, isCalculating, isScaling, setLevel, reset } =
+    useEnemyScaling(charStats?.combatLevel ?? null);
 
   // Zone expand state — all expanded by default
   const zones = useMemo(() => {
@@ -106,9 +109,10 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
+        const skills = data.skills as Record<string, { level: number }> | undefined;
         const stats = data.stats as Record<string, { level: number }> | undefined;
         if (!stats) return;
-        const combatLevel = stats.combat?.level ?? 0;
+        const combatLevel = skills?.combat?.level ?? 0;
         setCharStats({
           combatLevel,
           attack_power: Math.floor((stats.strength?.level  ?? 0) * 2.4),
@@ -116,7 +120,6 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
           agility:      Math.floor((stats.speed?.level     ?? 0) * 2.4),
           accuracy:     Math.floor((stats.dexterity?.level ?? 0) * 2.4),
         });
-        setScaledLevel(Math.min(Math.max(combatLevel, 1), 150));
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingChar(false); });
@@ -125,8 +128,7 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characterId]);
 
-  const canScale = (charStats?.combatLevel ?? 0) >= 80;
-  const scaling = scalingEnabled && canScale;
+  const scaling = isScaling;
 
   function toggleZone(name: string) {
     setExpandedZones((prev) => {
@@ -196,30 +198,32 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
             {!canScale && charStats && (
               <span className="text-muted-foreground/40 normal-case font-normal ml-1">(L80+ required)</span>
             )}
+            {isCalculating && <Loader2 className="size-3 animate-spin text-muted-foreground/60" />}
           </label>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={scalingEnabled}
-                disabled={!canScale}
-                onChange={(e) => setScalingEnabled(e.target.checked)}
-                className="accent-primary"
-              />
-              <span className="text-sm text-muted-foreground">
-                {scalingEnabled ? `L${scaledLevel}` : "Off"}
-              </span>
-            </label>
-            {scalingEnabled && canScale && (
-              <input
-                type="range"
-                min={charStats?.combatLevel ?? 80}
-                max={(charStats?.combatLevel ?? 100) >= 100 ? 150 : charStats?.combatLevel ?? 80}
-                value={scaledLevel}
-                onChange={(e) => setScaledLevel(parseInt(e.target.value, 10))}
-                className="flex-1 accent-primary"
-              />
-            )}
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "text-sm tabular-nums font-mono w-10 shrink-0",
+              isScaling ? "text-primary font-semibold" : "text-muted-foreground"
+            )}>
+              L{pendingLevel}
+            </span>
+            <input
+              type="range"
+              min={charStats?.combatLevel ?? 1}
+              max={150}
+              value={pendingLevel}
+              disabled={!canScale}
+              onChange={(e) => setLevel(parseInt(e.target.value, 10))}
+              className="flex-1 accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
+            />
+            <button
+              onClick={reset}
+              disabled={!isScaling && !isCalculating}
+              title="Reset to character level"
+              className="p-1 rounded hover:bg-muted/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <RotateCcw className="size-3.5 text-muted-foreground" />
+            </button>
           </div>
         </div>
       </div>
@@ -269,8 +273,7 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
 
         // MF bonus for this zone when scaling
         const avgBaseLevel = zoneEnemies.reduce((s, e) => s + e.level, 0) / zoneEnemies.length;
-        const mfGap = scaling ? Math.max(0, scaledLevel - avgBaseLevel) : 0;
-        const mfBonus = Math.min(40, Math.round((mfGap / 50) * 40));
+        const mfBonus = scaling ? Math.round(computeMfBonus(avgBaseLevel, scaledLevel)) : 0;
 
         return (
           <div key={zoneName} className="rounded-lg border border-border overflow-hidden">
@@ -417,51 +420,68 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
                           {enemy.chance_of_loot}%
                         </span>
                       </div>
-                      {isExpanded && hasLoot && (
-                        <div className="border-t border-border/20 bg-muted/5">
-                          {/* Sub-row header */}
-                          <div className="grid grid-cols-[3.5rem_1fr_3rem_5rem_5.5rem] gap-2 px-4 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40">
-                            <span />
-                            <span>Item</span>
-                            <span className="text-center">Qty</span>
-                            <span className="text-center">Roll%</span>
-                            <span className="text-center">Per Kill</span>
-                          </div>
-                          {enemy.loot.map((item) => {
-                            const effective = ((enemy.chance_of_loot * item.chance) / 100).toFixed(2);
-                            return (
-                              <div
-                                key={item.hashed_item_id}
-                                className="grid grid-cols-[3.5rem_1fr_3rem_5rem_5.5rem] gap-2 px-4 py-1.5 items-center last:pb-2.5"
-                              >
-                                <span />
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  {item.image_url && (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={item.image_url} alt="" className="size-4 object-contain shrink-0 opacity-70" />
-                                  )}
-                                  <span className="text-xs truncate">{item.name}</span>
+                      {isExpanded && hasLoot && (() => {
+                        const enemyMfBonus = scaling ? computeMfBonus(enemy.level, scaledLevel) : 0;
+                        const adjustedLoot = applyMfToLoot(enemy.loot, enemyMfBonus);
+                        return (
+                          <div className="border-t border-border/20 bg-muted/5">
+                            {/* Sub-row header */}
+                            <div className="grid grid-cols-[3.5rem_1fr_3rem_5rem_5.5rem] gap-2 px-4 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40">
+                              <span />
+                              <span>Item</span>
+                              <span className="text-center">Qty</span>
+                              <span className="text-center">Roll%</span>
+                              <span className="text-center flex items-center justify-center gap-1">
+                                Per Kill
+                                {enemyMfBonus > 0 && (
+                                  <span className={cn("text-emerald-400", isCalculating && "opacity-40")}>
+                                    +{enemyMfBonus.toFixed(0)}%MF
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                            {adjustedLoot.map((item, lootIdx) => {
+                              // adjustedLoot preserves the same order and length as enemy.loot — see applyMfToLoot contract
+                              const rawChance = enemy.loot[lootIdx].chance;
+                              const effective = ((enemy.chance_of_loot * item.chance) / 100).toFixed(2);
+                              return (
+                                <div
+                                  key={item.hashed_item_id}
+                                  className="grid grid-cols-[3.5rem_1fr_3rem_5rem_5.5rem] gap-2 px-4 py-1.5 items-center last:pb-2.5"
+                                >
+                                  <span />
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    {item.image_url && (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img src={item.image_url} alt="" className="size-4 object-contain shrink-0 opacity-70" />
+                                    )}
+                                    <span className="text-xs truncate">{item.name}</span>
+                                    <span className={cn(
+                                      "text-[10px] font-mono shrink-0",
+                                      QUALITY_COLORS[item.quality] ?? "text-muted-foreground"
+                                    )}>
+                                      {item.quality[0]}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/60">
+                                    {item.quantity}
+                                  </span>
+                                  <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/60">
+                                    {rawChance}%
+                                  </span>
                                   <span className={cn(
-                                    "text-[10px] font-mono shrink-0",
-                                    QUALITY_COLORS[item.quality] ?? "text-muted-foreground"
+                                    "text-xs font-mono tabular-nums text-center font-medium",
+                                    enemyMfBonus > 0 && !isCalculating ? "text-emerald-400" : "text-foreground/80",
+                                    isCalculating && "opacity-40"
                                   )}>
-                                    {item.quality[0]}
+                                    {effective}%
                                   </span>
                                 </div>
-                                <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/60">
-                                  {item.quantity}
-                                </span>
-                                <span className="text-xs font-mono tabular-nums text-center text-muted-foreground/60">
-                                  {item.chance}%
-                                </span>
-                                <span className="text-xs font-mono tabular-nums text-center text-foreground/80 font-medium">
-                                  {effective}%
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                   </div>
                   );
                 })}
