@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronRight, Flame, Coffee, Activity, Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { QUALITY_COLORS } from "@/lib/game-constants";
 import type { EnemyInfo } from "@/lib/idlemmo";
 import type { EnemyCombatStats } from "@/data/enemy-combat-stats";
 
@@ -84,6 +85,16 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
   const [expandedZones, setExpandedZones] = useState<Set<string>>(
     () => new Set(zones.keys())
   );
+
+  const [expandedEnemies, setExpandedEnemies] = useState<Set<number>>(new Set());
+
+  function toggleEnemy(id: number) {
+    setExpandedEnemies((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   // Fetch character stats when selection changes
   useEffect(() => {
