@@ -440,6 +440,7 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
                               </span>
                             </div>
                             {adjustedLoot.map((item, lootIdx) => {
+                              // adjustedLoot preserves the same order and length as enemy.loot — see applyMfToLoot contract
                               const rawChance = enemy.loot[lootIdx].chance;
                               const effective = ((enemy.chance_of_loot * item.chance) / 100).toFixed(2);
                               return (
