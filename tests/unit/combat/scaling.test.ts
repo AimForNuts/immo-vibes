@@ -91,7 +91,7 @@ describe("applyMfToLoot — overflow trimming", () => {
     const total = result.reduce((s, i) => s + i.chance, 0);
     expect(total).toBeCloseTo(100, 0);
     // Most common (A) should be reduced more
-    expect(result.find(i => i.hashed_item_id === "a")!.chance).toBeLessThan(84);
+    expect(result.find(i => i.hashed_item_id === "a")!.chance).toBeCloseTo(58, 0);
     // Less common (B) should be at full adjusted value
     expect(result.find(i => i.hashed_item_id === "b")!.chance).toBeCloseTo(42, 0);
   });
