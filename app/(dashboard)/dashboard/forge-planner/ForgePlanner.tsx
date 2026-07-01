@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Hammer, Package, Plus, Search, Trash2 } from "lucide-react";
+import { Check, Clipboard, Hammer, Package, Plus, Search, Trash2 } from "lucide-react";
 import { calculateForgeMaterials } from "@/lib/domain/forge-planner";
 import { QUALITY_COLORS } from "@/lib/game-constants";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ interface ForgePlannerProps {
 export function ForgePlanner({ recipes }: ForgePlannerProps) {
   const [query, setQuery] = useState("");
   const [selections, setSelections] = useState<ForgePlanSelection[]>([]);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
 
   const selectedIds = new Set(selections.map((selection) => selection.recipeHashedId));
   const selectedRecipes = selections
@@ -56,6 +57,23 @@ export function ForgePlanner({ recipes }: ForgePlannerProps) {
 
   function removeRecipe(recipeHashedId: string) {
     setSelections((current) => current.filter((selection) => selection.recipeHashedId !== recipeHashedId));
+  }
+
+  async function copyMaterials() {
+    if (materialTotals.length === 0) return;
+
+    const text = materialTotals
+      .map((material) => `${material.itemName}: ${material.quantity.toLocaleString()}`)
+      .join("\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+
+    window.setTimeout(() => setCopyState("idle"), 1800);
   }
 
   return (
@@ -190,11 +208,31 @@ export function ForgePlanner({ recipes }: ForgePlannerProps) {
           </div>
 
           <div className="rounded-md border border-zinc-800 bg-zinc-950">
-            <div className="border-b border-zinc-800 p-4">
-              <h2 className="text-sm font-semibold text-zinc-100">Required Materials</h2>
-              <p className="mt-0.5 text-xs text-zinc-500">
-                Totals update as selected quantities change.
-              </p>
+            <div className="flex items-start justify-between gap-3 border-b border-zinc-800 p-4">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-zinc-100">Required Materials</h2>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Totals update as selected quantities change.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={copyMaterials}
+                disabled={materialTotals.length === 0}
+                title="Copy required materials"
+                className={cn(
+                  "flex size-8 shrink-0 items-center justify-center rounded-md border transition-colors",
+                  materialTotals.length === 0
+                    ? "cursor-not-allowed border-zinc-800 text-zinc-700"
+                    : copyState === "copied"
+                      ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-400"
+                      : copyState === "failed"
+                        ? "border-red-400/30 bg-red-400/10 text-red-400"
+                        : "border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900 hover:text-zinc-100",
+                )}
+              >
+                {copyState === "copied" ? <Check className="size-4" /> : <Clipboard className="size-4" />}
+              </button>
             </div>
             <div className="p-4">
               {materialTotals.length > 0 ? (
