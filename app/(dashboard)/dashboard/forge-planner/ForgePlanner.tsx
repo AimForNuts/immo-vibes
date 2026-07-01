@@ -28,8 +28,7 @@ export function ForgePlanner({ recipes }: ForgePlannerProps) {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return recipes;
     return recipes.filter((recipe) => {
-      const resultName = recipe.recipe.result?.item_name ?? "";
-      return recipe.name.toLowerCase().includes(normalized) || resultName.toLowerCase().includes(normalized);
+      return recipe.name.toLowerCase().includes(normalized) || recipe.resultName.toLowerCase().includes(normalized);
     });
   }, [query, recipes]);
 
@@ -106,7 +105,6 @@ export function ForgePlanner({ recipes }: ForgePlannerProps) {
           {filteredRecipes.length > 0 ? (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
               {filteredRecipes.map((recipe) => {
-                const resultName = recipe.recipe.result?.item_name ?? recipe.name;
                 const selected = selectedIds.has(recipe.hashedId);
                 return (
                   <button
@@ -123,10 +121,10 @@ export function ForgePlanner({ recipes }: ForgePlannerProps) {
                   >
                     <div className="flex w-full items-start gap-3">
                       <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-800 bg-zinc-950">
-                        {recipe.imageUrl ? (
+                        {recipe.resultImageUrl ? (
                           <img
-                            src={recipe.imageUrl}
-                            alt={resultName}
+                            src={recipe.resultImageUrl}
+                            alt={recipe.resultName}
                             className="size-10 object-contain"
                             onError={(event) => {
                               event.currentTarget.style.display = "none";
@@ -137,9 +135,9 @@ export function ForgePlanner({ recipes }: ForgePlannerProps) {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-zinc-100">{resultName}</p>
-                        <p className={cn("mt-1 text-[10px] font-mono uppercase", QUALITY_COLORS[recipe.quality] ?? "text-zinc-500")}>
-                          {recipe.quality}
+                        <p className="truncate text-sm font-medium text-zinc-100">{recipe.resultName}</p>
+                        <p className={cn("mt-1 text-[10px] font-mono uppercase", QUALITY_COLORS[recipe.resultQuality] ?? "text-zinc-500")}>
+                          {recipe.resultQuality}
                         </p>
                       </div>
                     </div>
@@ -175,11 +173,10 @@ export function ForgePlanner({ recipes }: ForgePlannerProps) {
               {selectedRecipes.length > 0 ? (
                 <div className="space-y-3">
                   {selectedRecipes.map(({ selection, recipe }) => {
-                    const resultName = recipe.recipe.result?.item_name ?? recipe.name;
                     return (
                       <div key={recipe.hashedId} className="flex items-center gap-3 rounded-md border border-zinc-800 bg-zinc-900 p-2.5">
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm text-zinc-100">{resultName}</p>
+                          <p className="truncate text-sm text-zinc-100">{recipe.resultName}</p>
                           <p className="text-[10px] text-zinc-600">{recipe.recipe.skill} Lv.{recipe.recipe.level_required}</p>
                         </div>
                         <input
@@ -192,7 +189,7 @@ export function ForgePlanner({ recipes }: ForgePlannerProps) {
                         <button
                           type="button"
                           onClick={() => removeRecipe(recipe.hashedId)}
-                          title={`Remove ${resultName}`}
+                          title={`Remove ${recipe.resultName}`}
                           className="flex size-8 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
                         >
                           <Trash2 className="size-4" />
