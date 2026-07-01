@@ -142,6 +142,23 @@ User-tracked items with price history charts.
 
 ---
 
+### Forge Planner
+Batch planner that lets users select Forge recipes and totals the required materials.
+
+| Layer | Files |
+|---|---|
+| Page | `app/(dashboard)/dashboard/forge-planner/page.tsx` |
+| Component | `app/(dashboard)/dashboard/forge-planner/ForgePlanner.tsx` |
+| Types | `app/(dashboard)/dashboard/forge-planner/types.ts` |
+| Pure material totals lib | `lib/domain/forge-planner.ts` |
+| Sidebar nav | `components/economy-nav.tsx` |
+
+**DB tables**: `items` (read `recipe` JSONB for Forge recipes)
+**External API**: none
+**Docs**: `docs/database.md`, `docs/game-mechanics/items.md`
+
+---
+
 ### Gear Calculator
 Gear set builder with combat stat preview and preset save/load.
 
