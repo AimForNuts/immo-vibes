@@ -88,6 +88,10 @@ public/images/      — Static assets (logo.png)
 
 ## Recent Changes
 
+### 2026-07-02 — Forge Planner
+
+- **Forge Planner**: Added `/dashboard/forge-planner` under Economy to select Forge recipes, set quantities, and total required materials from synced recipe data.
+
 ### 2026-03-19 — Navigation, i18n, overview redesign, and logo
 
 - **i18n**: Added next-intl with English and Portuguese. Locale stored in cookie and synced to DB. No URL changes — `localePrefix: "never"`.
