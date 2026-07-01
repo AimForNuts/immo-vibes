@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import { Hammer, Package, Plus, Search, Trash2 } from "lucide-react";
 import { calculateForgeMaterials } from "@/lib/domain/forge-planner";
 import { QUALITY_COLORS } from "@/lib/game-constants";
@@ -41,7 +40,7 @@ export function ForgePlanner({ recipes }: ForgePlannerProps) {
   function addRecipe(recipeHashedId: string) {
     setSelections((current) => {
       if (current.some((selection) => selection.recipeHashedId === recipeHashedId)) return current;
-      return [...current, { recipeHashedId, quantity: 1 }];
+      return [{ recipeHashedId, quantity: 1 }, ...current];
     });
   }
 
@@ -107,12 +106,13 @@ export function ForgePlanner({ recipes }: ForgePlannerProps) {
                     <div className="flex w-full items-start gap-3">
                       <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-800 bg-zinc-950">
                         {recipe.imageUrl ? (
-                          <Image
+                          <img
                             src={recipe.imageUrl}
                             alt={resultName}
-                            width={40}
-                            height={40}
                             className="size-10 object-contain"
+                            onError={(event) => {
+                              event.currentTarget.style.display = "none";
+                            }}
                           />
                         ) : (
                           <Package className="size-6 text-zinc-600" />
