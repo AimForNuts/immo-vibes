@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Coins, ChevronDown, ChevronRight, ShoppingBag, TrendingUp } from "lucide-react";
+import { Coins, ChevronDown, ChevronRight, Hammer, ShoppingBag, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 
 const SUB_ITEMS = [
   { href: "/dashboard/market",      labelKey: "market",      icon: ShoppingBag },
   { href: "/dashboard/investments", labelKey: "investments", icon: TrendingUp },
+  { href: "/dashboard/forge-planner", labelKey: "forgePlanner", icon: Hammer },
 ] as const;
 
 export function EconomyNav() {
