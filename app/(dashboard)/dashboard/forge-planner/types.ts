@@ -5,6 +5,9 @@ export interface ForgeRecipeItem {
   name: string;
   quality: string;
   imageUrl: string | null;
+  resultName: string;
+  resultQuality: string;
+  resultImageUrl: string | null;
   recipe: ItemRecipe;
 }
 
