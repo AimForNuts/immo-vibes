@@ -15,7 +15,8 @@
     "signOut": "Sign out",
     "signIn": "Sign in",
     "getStarted": "Get started",
-    "goToDashboard": "Go to Dashboard"
+    "goToDashboard": "Go to Dashboard",
+    "backHome": "Home"
   },
   "landing": {
     "badge": "Early access",
@@ -23,6 +24,13 @@
     "subheadline": "ImmoWeb Suite connects to the IdleMMO API and turns raw game data into actionable insights — skill planning, economy tracking, and more.",
     "cta": "Create free account",
     "ctaSecondary": "Sign in",
+    "snapshotTitle": "Live planning console",
+    "snapshotStatus": "Server-side API",
+    "snapshotMarket": "Price history",
+    "snapshotCombat": "Dungeon ready",
+    "snapshotForge": "Costed",
+    "featuresTitle": "Tools built around the game loop",
+    "featuresDescription": "Keep market decisions, combat planning, character data, and account setup in one focused place.",
     "footer": "ImmoWeb Suite — not affiliated with IdleMMO."
   },
   "features": {
@@ -54,6 +62,13 @@
   "auth": {
     "signIn": "Sign in",
     "signUp": "Sign up",
+    "signInSubtitle": "Access your dashboard, tools, and saved planning data.",
+    "signUpSubtitle": "Create your account and connect IdleMMO when you are ready.",
+    "panelTitle": "Plan the next run before the game asks for it.",
+    "panelDescription": "Sign in to keep your market watches, forge calculations, gear presets, and dungeon checks close at hand.",
+    "panelMetricMarket": "Prices",
+    "panelMetricCombat": "Checks",
+    "panelMetricGear": "Presets",
     "username": "Username",
     "password": "Password",
     "email": "Email",
@@ -69,6 +84,11 @@
     "passwordTooShort": "Password must be at least 8 characters.",
     "signUpFailed": "Failed to create account.",
     "saveFailed": "Failed to save. Please try again."
+  },
+  "forgotPassword": {
+    "title": "Password recovery is coming soon",
+    "description": "This screen now opens on its own page while account recovery is being finished.",
+    "backToLogin": "Back to sign in"
   },
   "overview": {
     "title": "Overview",

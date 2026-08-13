@@ -15,7 +15,8 @@
     "signOut": "Terminar sessão",
     "signIn": "Entrar",
     "getStarted": "Começar",
-    "goToDashboard": "Ir para o Painel"
+    "goToDashboard": "Ir para o Painel",
+    "backHome": "Início"
   },
   "landing": {
     "badge": "Acesso antecipado",
@@ -23,6 +24,13 @@
     "subheadline": "O ImmoWeb Suite liga-se à API do IdleMMO e transforma dados brutos do jogo em informações úteis — planeamento de skills, economia e muito mais.",
     "cta": "Criar conta gratuita",
     "ctaSecondary": "Entrar",
+    "snapshotTitle": "Consola de planeamento",
+    "snapshotStatus": "API no servidor",
+    "snapshotMarket": "Histórico",
+    "snapshotCombat": "Pronto",
+    "snapshotForge": "Calculado",
+    "featuresTitle": "Ferramentas à volta do ciclo do jogo",
+    "featuresDescription": "Mantenha decisões de mercado, combate, personagens e conta num único sítio focado.",
     "footer": "ImmoWeb Suite — não afiliado com IdleMMO."
   },
   "features": {
@@ -54,6 +62,13 @@
   "auth": {
     "signIn": "Entrar",
     "signUp": "Registar",
+    "signInSubtitle": "Aceda ao painel, ferramentas e dados de planeamento guardados.",
+    "signUpSubtitle": "Crie a sua conta e ligue o IdleMMO quando estiver pronto.",
+    "panelTitle": "Planeie a próxima run antes de o jogo pedir.",
+    "panelDescription": "Entre para manter observações de mercado, cálculos de forja, presets de equipamento e verificações de masmorra por perto.",
+    "panelMetricMarket": "Preços",
+    "panelMetricCombat": "Checks",
+    "panelMetricGear": "Presets",
     "username": "Nome de utilizador",
     "password": "Palavra-passe",
     "email": "Email",
@@ -69,6 +84,11 @@
     "passwordTooShort": "A palavra-passe deve ter pelo menos 8 caracteres.",
     "signUpFailed": "Falha ao criar conta.",
     "saveFailed": "Falha ao guardar. Tente novamente."
+  },
+  "forgotPassword": {
+    "title": "Recuperação de palavra-passe em breve",
+    "description": "Este ecrã agora abre numa página própria enquanto a recuperação de conta é finalizada.",
+    "backToLogin": "Voltar ao início de sessão"
   },
   "overview": {
     "title": "Visão Geral",

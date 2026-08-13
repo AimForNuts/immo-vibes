@@ -319,7 +319,7 @@ Email/password auth via better-auth.
 | API handler | `app/api/auth/[...all]/route.ts` |
 | Login UI | `app/(auth)/login/page.tsx`, `components/login-form.tsx` |
 | Register UI | `app/(auth)/register/page.tsx`, `components/register-form.tsx` |
-| Modal slot | `app/@modal/` |
+| Password recovery placeholder | `app/forgot-password/page.tsx` |
 
 **DB tables**: `user`, `session`, `account`, `verification`
 **Docs**: better-auth — use context7 before modifying
