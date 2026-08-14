@@ -15,8 +15,8 @@ Priority labels:
 | Priority | Area | Improvement | Why It Matters |
 |---|---|---|---|
 | Done | Documentation | Bring `app/api/README.md` up to date with all current admin, cron, item zone, dungeon, pet, and market behavior. | Completed in `feat/project-docs`; route discovery now reflects the current route files and calls out remaining detailed-doc gaps. |
-| P0 | API docs | Add missing internal API docs for admin zones/users/items/dungeons routes and cron routes. | The codebase has many route handlers; complete request/response docs reduce risky route edits. |
-| P0 | Sync jobs | Clarify or retire `app/api/cron/sync-market/route.ts`. | The project map documents `sync-prices`; a similarly named cron route increases maintenance ambiguity. |
+| Done | API docs | Add missing internal API docs for admin zones/users/items/dungeons routes and cron routes. | Completed in `feat/admin-api-docs`; detailed docs now cover admin items, users, zones, existing dungeon sync docs, and cron sync routes. |
+| Done | Sync jobs | Retire `app/api/cron/sync-market/route.ts`. | Completed in `feat/admin-api-docs`; the duplicate unscheduled route was removed in favor of `sync-items`. |
 | P1 | Admin world data | Implement real enemy and world boss sync or clearly mark the pages/routes as manual/picker-only. | Tables and placeholders exist, but the lifecycle is not fully specified. |
 | P1 | Auth | Replace the password recovery placeholder with a working better-auth recovery flow. | It is a visible account-management gap. |
 | P1 | Validation | Audit route handlers for consistent Zod or equivalent boundary validation. | The project convention requires boundary validation, but this is easiest to erode over time. |
@@ -188,10 +188,6 @@ Priority labels:
 | Gap | Suggested File |
 |---|---|
 | Current API route inventory and route groups | `app/api/README.md` |
-| Internal admin item routes | `docs/api/internal/admin-items.md` |
-| Internal admin user routes | `docs/api/internal/admin-users.md` |
-| Internal admin zone routes | `docs/api/internal/admin-zones.md` |
-| Internal cron routes | `docs/api/internal/cron-sync.md` |
 | Dashboard home behavior | `app/(dashboard)/dashboard/README.md` |
 | Settings/account behavior | `app/(dashboard)/dashboard/settings/README.md` |
 | Characters/pets behavior | `app/(dashboard)/dashboard/characters/README.md` |
