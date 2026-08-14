@@ -78,6 +78,21 @@ public/images/      — Static assets (logo.png)
 
 ---
 
+### Documentation Hub
+
+Start with these docs when planning or iterating:
+
+| Need | Document |
+|---|---|
+| Current product and architecture specs | `docs/iteration/project-specs.md` |
+| Improvement backlog | `docs/iteration/improvements.md` |
+| Feature-to-file ownership | `docs/project-map.md` |
+| Database schema reference | `docs/database.md` |
+| Internal and IdleMMO API references | `docs/api/` |
+| IdleMMO mechanics used by calculators | `docs/game-mechanics/` |
+
+---
+
 ## Adding a Language
 
 1. Add the locale code to `i18n/routing.ts` → `locales` array.
@@ -87,6 +102,11 @@ public/images/      — Static assets (logo.png)
 ---
 
 ## Recent Changes
+
+### 2026-08-14 - Iteration documentation hub
+
+- **Docs**: Added `docs/iteration/project-specs.md` with a product, architecture, data, integration, and test overview.
+- **Docs**: Added `docs/iteration/improvements.md` with prioritized product, engineering, documentation, testing, i18n, security, and UI improvement ideas.
 
 ### 2026-07-02 — Forge Planner
 

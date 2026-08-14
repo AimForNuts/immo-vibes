@@ -15,6 +15,16 @@ Use this file to orient yourself before touching any code. It maps every feature
 
 ## Feature Areas
 
+### Iteration Hub
+Dedicated project specs and improvement backlog for planning future work.
+
+| Layer | Files |
+|---|---|
+| Product/architecture specs | `docs/iteration/project-specs.md` |
+| Improvement backlog | `docs/iteration/improvements.md` |
+
+**Use when**: planning feature iterations, onboarding to the product surface, choosing next improvements, or checking which docs need to be expanded.
+
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
 
