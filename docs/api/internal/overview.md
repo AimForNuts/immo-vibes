@@ -15,7 +15,25 @@ All routes require an authenticated session (managed by better-auth) unless stat
 | GET | `/api/idlemmo/character/[id]` | Session + token | Fetch character detail + equipped pet from IdleMMO |
 | GET | `/api/idlemmo/dungeons` | Session + token | Fetch dungeon list from IdleMMO |
 | GET | `/api/idlemmo/item/[id]` | Session + token | Fetch item stats and tier data from IdleMMO |
+| GET | `/api/admin/items` | Admin | List local items for the admin economy table |
+| PATCH | `/api/admin/items/[id]/store-price` | Admin | Update an item's manually maintained NPC store price |
+| GET | `/api/admin/users` | Admin | List users with cached characters |
+| PATCH | `/api/admin/users/[id]` | Admin | Update a user's email and/or password |
+| DELETE | `/api/admin/users/[id]` | Admin | Delete a user |
+| DELETE | `/api/admin/users/[id]/characters/[charId]` | Admin | Dissociate one cached character from a user |
+| GET | `/api/admin/zones` | Admin | List zones or return slim picker options |
+| POST | `/api/admin/zones` | Admin | Create a zone |
+| GET | `/api/admin/zones/[id]` | Admin | Fetch zone detail |
+| PATCH | `/api/admin/zones/[id]` | Admin | Update a zone |
+| DELETE | `/api/admin/zones/[id]` | Admin | Delete a zone |
 | POST | `/api/admin/sync-items` | Admin + token | Sync one equipment type from IdleMMO into the local DB |
+| POST | `/api/admin/sync-inspect` | Admin + token | Sync inspect data for one page of local items |
+| POST | `/api/admin/sync-prices` | Admin + token | Sync latest market prices for one page of local items |
+| POST | `/api/admin/sync-recipes` | Admin + token | Populate recipe result links for recipe items |
+| POST | `/api/admin/sync-dungeons` | Admin + token | Sync the dungeon catalog |
+| POST | `/api/cron/sync-items` | Cron secret | Scheduled item catalog sync |
+| POST | `/api/cron/sync-recipes` | Cron secret | Scheduled recipe result sync |
+| POST | `/api/cron/sync-prices` | Cron secret | Scheduled market price sync |
 
 ---
 
@@ -57,4 +75,9 @@ HTTP status codes:
 - [GET /api/idlemmo/character/[id]](./character-detail.md)
 - [GET /api/idlemmo/dungeons](./dungeons.md)
 - [GET /api/idlemmo/item/[id]](./item-inspect.md)
+- [Admin item routes](./admin-items.md)
+- [Admin user routes](./admin-users.md)
+- [Admin zone routes](./admin-zones.md)
 - [POST /api/admin/sync-items](./sync-items.md)
+- [Admin dungeon sync](./dungeons-sync.md)
+- [Cron sync routes](./cron-sync.md)

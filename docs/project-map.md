@@ -299,12 +299,6 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | API — dungeons | `app/api/admin/dungeons/route.ts` (`GET` — paginated, filterable by name/minLevel) |
 | API — zones | `app/api/admin/zones/route.ts` (`GET`, `POST`) |
 | | `app/api/admin/zones/[id]/route.ts` (`GET`, `PATCH`, `DELETE`) |
-| | `app/api/admin/zones/[id]/enemies/route.ts` (`POST`, `DELETE`) |
-| | `app/api/admin/zones/[id]/world-bosses/route.ts` (`POST`, `DELETE`) |
-| | `app/api/admin/zones/[id]/dungeons/route.ts` (`POST`, `DELETE`) |
-| | `app/api/admin/zones/[id]/resources/route.ts` (`POST`, `DELETE`) |
-| API — pickers | `app/api/admin/enemies/route.ts` (`GET` — name search) |
-| | `app/api/admin/world-bosses/route.ts` (`GET` — name search) |
 | API — users | `app/api/admin/users/route.ts` (`GET` — paginated with characters) |
 | | `app/api/admin/users/[id]/route.ts` (`PATCH` email/password, `DELETE`) |
 | | `app/api/admin/users/[id]/characters/[charId]/route.ts` (`DELETE` — dissociate) |
@@ -316,6 +310,7 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 **DB tables**: `items`, `market_price_history`, `sync_state`, `dungeons`, `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, `characters`
 **External API**: All IdleMMO sync endpoints
 **Requires**: `session.user.role === "admin"`
+**Docs**: `docs/api/internal/admin-items.md`, `docs/api/internal/admin-users.md`, `docs/api/internal/admin-zones.md`, `docs/api/internal/cron-sync.md`
 
 ---
 
