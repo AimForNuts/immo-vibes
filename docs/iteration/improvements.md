@@ -14,7 +14,7 @@ Priority labels:
 
 | Priority | Area | Improvement | Why It Matters |
 |---|---|---|---|
-| P0 | Documentation | Bring `app/api/README.md` up to date with all current admin, cron, item zone, dungeon, pet, and market behavior. | It currently lags behind `docs/project-map.md`, so route discovery can mislead future work. |
+| Done | Documentation | Bring `app/api/README.md` up to date with all current admin, cron, item zone, dungeon, pet, and market behavior. | Completed in `feat/project-docs`; route discovery now reflects the current route files and calls out remaining detailed-doc gaps. |
 | P0 | API docs | Add missing internal API docs for admin zones/users/items/dungeons routes and cron routes. | The codebase has many route handlers; complete request/response docs reduce risky route edits. |
 | P0 | Sync jobs | Clarify or retire `app/api/cron/sync-market/route.ts`. | The project map documents `sync-prices`; a similarly named cron route increases maintenance ambiguity. |
 | P1 | Admin world data | Implement real enemy and world boss sync or clearly mark the pages/routes as manual/picker-only. | Tables and placeholders exist, but the lifecycle is not fully specified. |
