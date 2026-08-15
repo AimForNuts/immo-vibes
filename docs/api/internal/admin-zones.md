@@ -77,7 +77,7 @@ Creates a zone.
 }
 ```
 
-`levelRequired` is coerced with `Number(levelRequired)`.
+`name` must be a non-empty string. `levelRequired` must be a non-negative integer.
 
 ### 201 Created
 
@@ -98,7 +98,11 @@ Returns the inserted `zones` row.
 
 | Status | Body | Cause |
 |---|---|---|
-| 400 | `{ "error": "name and levelRequired are required" }` | Missing `name` or `levelRequired`. |
+| 400 | `{ "error": "Invalid JSON body" }` | Request body could not be parsed as JSON. |
+| 400 | `{ "error": "JSON body must be an object" }` | Request JSON was not an object. |
+| 400 | `{ "error": "name is required" }` | Missing or blank `name`. |
+| 400 | `{ "error": "levelRequired is required" }` | Missing `levelRequired`. |
+| 400 | `{ "error": "levelRequired must be a non-negative integer" }` | `levelRequired` was not a non-negative integer. |
 | 403 | `{ "error": "Forbidden" }` | Missing session or non-admin user. |
 
 ---
@@ -126,6 +130,7 @@ Returns one zone detail record.
 
 | Status | Body | Cause |
 |---|---|---|
+| 400 | `{ "error": "id must be a positive integer" }` | `id` path parameter was not a positive integer. |
 | 403 | `{ "error": "Forbidden" }` | Missing session or non-admin user. |
 | 404 | `{ "error": "Not found" }` | No zone exists for the path `id`. |
 
@@ -149,7 +154,7 @@ Updates a zone.
 }
 ```
 
-All fields are optional. JSON arrays are stored directly in `zones.enemies`, `zones.dungeons`, and `zones.world_bosses`.
+All fields are optional. `name` must be a string when present, `levelRequired` must be a non-negative integer when present, and `enemies`, `dungeons`, and `worldBosses` must be arrays when present. JSON arrays are stored directly in `zones.enemies`, `zones.dungeons`, and `zones.world_bosses`.
 
 ### 200 OK
 
@@ -159,6 +164,11 @@ Returns the updated `zones` row.
 
 | Status | Body | Cause |
 |---|---|---|
+| 400 | `{ "error": "Invalid JSON body" }` | Request body could not be parsed as JSON. |
+| 400 | `{ "error": "JSON body must be an object" }` | Request JSON was not an object. |
+| 400 | `{ "error": "id must be a positive integer" }` | `id` path parameter was not a positive integer. |
+| 400 | `{ "error": "levelRequired must be a non-negative integer" }` | `levelRequired` was not a non-negative integer. |
+| 400 | `{ "error": "<field> must be an array" }` | A zone association list was present but not an array. |
 | 403 | `{ "error": "Forbidden" }` | Missing session or non-admin user. |
 
 ---
@@ -177,6 +187,7 @@ Empty response body.
 
 | Status | Body | Cause |
 |---|---|---|
+| 400 | `{ "error": "id must be a positive integer" }` | `id` path parameter was not a positive integer. |
 | 403 | `{ "error": "Forbidden" }` | Missing session or non-admin user. |
 
 ### Side Effects

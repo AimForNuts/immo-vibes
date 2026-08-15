@@ -29,6 +29,7 @@ Any combat stat field may be `null` if the user has not entered it. `imageUrl` m
 ## PATCH `/api/characters/[id]/pet-stats`
 
 Saves manually entered stats. All fields optional; omitted fields are unchanged.
+Numeric fields must be non-negative numbers. Integer stat fields must be non-negative integers.
 
 **Auth:** Required (session cookie)
 
@@ -49,3 +50,12 @@ Saves manually entered stats. All fields optional; omitted fields are unchanged.
 Returns 404 if no pet row exists (user must sync first via `POST /api/characters/[id]/sync-pet`).
 
 **Response 200:** `{ "ok": true }`
+
+**Errors:**
+
+| Status | Body | Cause |
+|---|---|---|
+| 400 | `{ "error": "Invalid JSON body" }` | Request body could not be parsed as JSON. |
+| 400 | `{ "error": "JSON body must be an object" }` | Request JSON was not an object. |
+| 400 | `{ "error": "<field> must be a non-negative integer" }` | Integer stat field was invalid. |
+| 400 | `{ "error": "movementSpeed must be a non-negative number" }` | Movement speed was invalid. |
