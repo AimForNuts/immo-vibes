@@ -3,7 +3,7 @@
  *
  * Reads all .sql files from lib/db/migrations/, tracks applied migrations in
  * a __migrations table, and applies each pending one statement-by-statement.
- * Safe to run multiple times — already-applied migrations are skipped.
+ * Safe to run multiple times: already-applied migrations are skipped.
  * "Already exists" errors are warned and skipped so re-runs are safe.
  */
 
@@ -20,8 +20,6 @@ const MIGRATIONS_DIR = join(__dir, "../lib/db/migrations");
 
 const sql = neon(process.env.DATABASE_URL);
 
-// ── Ensure tracking table exists ─────────────────────────────────────────────
-
 await sql`
   CREATE TABLE IF NOT EXISTS __migrations (
     name TEXT PRIMARY KEY,
@@ -29,19 +27,13 @@ await sql`
   )
 `;
 
-// ── Load applied migrations ───────────────────────────────────────────────────
-
 const applied = new Set(
   (await sql`SELECT name FROM __migrations`).map((r) => r.name)
 );
 
-// ── Collect .sql files in order ───────────────────────────────────────────────
-
 const files = readdirSync(MIGRATIONS_DIR)
   .filter((f) => f.endsWith(".sql"))
   .sort();
-
-// ── Apply pending migrations ──────────────────────────────────────────────────
 
 let ran = 0;
 
@@ -53,10 +45,9 @@ for (const file of files) {
 
   const content = readFileSync(join(MIGRATIONS_DIR, file), "utf8");
 
-  // Split on drizzle breakpoints, then on semicolons
   const statements = content
     .split(/-->\s*statement-breakpoint/i)
-    .flatMap((chunk) => chunk.split(";"))
+    .flatMap(splitSqlStatements)
     .map((s) => s.trim())
     .filter(Boolean);
 
@@ -66,7 +57,6 @@ for (const file of files) {
     try {
       await sql.query(stmt, []);
     } catch (err) {
-      // Skip "already exists" errors so re-running is safe
       if (
         err.message?.includes("already exists") ||
         err.message?.includes("duplicate column")
@@ -83,4 +73,106 @@ for (const file of files) {
   ran++;
 }
 
-console.log(`\nDone — ${ran} migration(s) applied, ${applied.size} already up to date.`);
+console.log(`\nDone: ${ran} migration(s) applied, ${applied.size} already up to date.`);
+
+function splitSqlStatements(sqlText) {
+  const statements = [];
+  let current = "";
+  let singleQuoted = false;
+  let doubleQuoted = false;
+  let lineComment = false;
+  let blockComment = false;
+  let dollarQuote = null;
+
+  for (let i = 0; i < sqlText.length; i++) {
+    const char = sqlText[i];
+    const next = sqlText[i + 1];
+
+    current += char;
+
+    if (lineComment) {
+      if (char === "\n") lineComment = false;
+      continue;
+    }
+
+    if (blockComment) {
+      if (char === "*" && next === "/") {
+        current += next;
+        i++;
+        blockComment = false;
+      }
+      continue;
+    }
+
+    if (singleQuoted) {
+      if (char === "'" && next === "'") {
+        current += next;
+        i++;
+      } else if (char === "'") {
+        singleQuoted = false;
+      }
+      continue;
+    }
+
+    if (doubleQuoted) {
+      if (char === '"' && next === '"') {
+        current += next;
+        i++;
+      } else if (char === '"') {
+        doubleQuoted = false;
+      }
+      continue;
+    }
+
+    if (dollarQuote) {
+      if (sqlText.startsWith(dollarQuote, i)) {
+        current += sqlText.slice(i + 1, i + dollarQuote.length);
+        i += dollarQuote.length - 1;
+        dollarQuote = null;
+      }
+      continue;
+    }
+
+    if (char === "-" && next === "-") {
+      current += next;
+      i++;
+      lineComment = true;
+      continue;
+    }
+
+    if (char === "/" && next === "*") {
+      current += next;
+      i++;
+      blockComment = true;
+      continue;
+    }
+
+    if (char === "'") {
+      singleQuoted = true;
+      continue;
+    }
+
+    if (char === '"') {
+      doubleQuoted = true;
+      continue;
+    }
+
+    if (char === "$") {
+      const match = sqlText.slice(i).match(/^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/);
+      if (match) {
+        current += match[0].slice(1);
+        i += match[0].length - 1;
+        dollarQuote = match[0];
+      }
+      continue;
+    }
+
+    if (char === ";") {
+      statements.push(current.slice(0, -1));
+      current = "";
+    }
+  }
+
+  if (current.trim()) statements.push(current);
+  return statements;
+}
