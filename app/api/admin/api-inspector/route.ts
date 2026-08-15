@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   const state = await getApiInspectorState();
 
   return NextResponse.json({
+    persistenceAvailable: state.persistenceAvailable,
     specs: state.specs.map((spec) => ({
       ...spec,
       createdAt: spec.createdAt.toISOString(),
