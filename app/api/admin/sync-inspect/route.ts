@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
 import { IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
+import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 
 export const maxDuration = 300;
 
@@ -53,6 +54,14 @@ export async function POST(request: NextRequest) {
     Math.max(1, parseInt(searchParams.get("pageSize") ?? String(PAGE_SIZE_DEFAULT), 10))
   );
 
+  await recordSyncLog({
+    job: "inspect",
+    status: "started",
+    message: `Started inspect sync for ${type} page ${page}`,
+    details: { type, page, pageSize },
+    userId: session.user.id,
+  });
+
   const [{ value: total }] = await db
     .select({ value: count() })
     .from(items)
@@ -61,6 +70,13 @@ export async function POST(request: NextRequest) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   if (total === 0) {
+    await recordSyncLog({
+      job: "inspect",
+      status: "skipped",
+      message: `Skipped inspect sync for ${type}: no local items`,
+      details: { type, synced: 0, skipped: 0, total: 0, page: 1, totalPages: 1 },
+      userId: session.user.id,
+    });
     return NextResponse.json({ synced: 0, skipped: 0, total: 0, page: 1, totalPages: 1 });
   }
 
@@ -133,6 +149,14 @@ export async function POST(request: NextRequest) {
       skipped++;
     }
   }
+
+  await recordSyncLog({
+    job: "inspect",
+    status: skipped > 0 ? "progress" : "success",
+    message: `Inspect sync ${type} page ${page}/${totalPages}: ${synced} synced, ${skipped} skipped`,
+    details: { type, page, pageSize, total, totalPages, synced, skipped },
+    userId: session.user.id,
+  });
 
   return NextResponse.json({ synced, skipped, total, page, totalPages });
 }

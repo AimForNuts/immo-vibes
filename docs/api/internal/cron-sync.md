@@ -170,3 +170,19 @@ When there are no local items:
 - Inserts tier 1 and higher-tier sales into `market_price_history` with `onConflictDoNothing`.
 - Marks `sync_state.job = "prices"` as `done` for observability.
 
+---
+
+## Admin Sync Observability
+
+Manual admin sync routes write append-only lifecycle events to `sync_job_logs`. The admin Sync Status page reads these through `GET /api/admin/sync-logs`.
+
+| Route | Job | Logged statuses |
+|---|---|---|
+| `POST /api/admin/sync-items` | `items` | `started`, `success`, `failed`, `skipped` |
+| `POST /api/admin/sync-inspect` | `inspect` | `started`, `success`, `progress`, `skipped` |
+| `POST /api/admin/sync-prices` | `prices` | `started`, `success`, `progress`, `skipped` |
+| `POST /api/admin/sync-recipes` | `recipes` | `started`, `success`, `progress`, `skipped` |
+| `POST /api/admin/sync-dungeons` | `dungeons` | `started`, `success`, `failed` |
+
+`progress` means the route completed but skipped or errored on part of the batch. Logging failures are caught by the logging service and do not fail the sync request.
+

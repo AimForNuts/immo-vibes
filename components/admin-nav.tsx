@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, ChevronDown, ChevronRight, Package, Skull, Sword, Globe, Users, Lock } from "lucide-react";
+import { ShieldCheck, ChevronDown, ChevronRight, Package, Skull, Sword, Globe, Users, Lock, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 
@@ -16,6 +16,7 @@ const GROUPS: SubGroup[] = [
     label: "Economy",
     items: [
       { href: "/dashboard/admin/economy/items", label: "Items", icon: Package },
+      { href: "/dashboard/admin/sync", label: "Sync Status", icon: Activity },
     ],
   },
   {

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric, primaryKey, index } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 // ─── Shared types for JSONB columns ───────────────────────────────────────────
@@ -273,6 +273,25 @@ export const syncState = pgTable("sync_state", {
   /** When the current run completed (UTC). Null while running. */
   completedAt:      timestamp("completed_at"),
 });
+
+export type SyncJobLogDetails = Record<string, unknown>;
+
+export const syncJobLogs = pgTable(
+  "sync_job_logs",
+  {
+    id:        text("id").primaryKey(),
+    job:       text("job").notNull(),
+    status:    text("status").notNull(),
+    message:   text("message").notNull(),
+    details:   jsonb("details").$type<SyncJobLogDetails>(),
+    userId:    text("user_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  },
+  (t) => [
+    index("sync_job_logs_created_at_idx").on(t.createdAt),
+    index("sync_job_logs_job_created_at_idx").on(t.job, t.createdAt),
+  ]
+);
 
 /**
  * Cached character roster per user — populated on first overview load and

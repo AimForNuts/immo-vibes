@@ -285,6 +285,7 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `components/admin/SyncLog.tsx` — live sync log |
 | Root (redirect) | `app/(dashboard)/dashboard/admin/page.tsx` → redirects to economy/items |
 | Items page | `app/(dashboard)/dashboard/admin/economy/items/page.tsx` |
+| Sync status page | `app/(dashboard)/dashboard/admin/sync/page.tsx` |
 | Dungeons page | `app/(dashboard)/dashboard/admin/world/dungeons/page.tsx` |
 | Zones page | `app/(dashboard)/dashboard/admin/world/zones/page.tsx` |
 | World Bosses (placeholder) | `app/(dashboard)/dashboard/admin/world/world-bosses/page.tsx` |
@@ -295,6 +296,7 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `app/api/admin/sync-recipes/route.ts` |
 | | `app/api/admin/sync-inspect/route.ts` |
 | | `app/api/admin/sync-dungeons/route.ts` |
+| API — sync logs | `app/api/admin/sync-logs/route.ts` (`GET` — recent manual sync job events) |
 | | `app/api/admin/market-type-check/route.ts` |
 | API — items | `app/api/admin/items/route.ts` (`GET` — paginated, filterable by name/type/quality) |
 | API — dungeons | `app/api/admin/dungeons/route.ts` (`GET` — paginated, filterable by name/minLevel) |
@@ -307,11 +309,12 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `lib/services/admin/dungeons.service.ts` → `getAdminDungeons()` |
 | | `lib/services/admin/zones.service.ts` → `getAdminZones()`, `getZoneDetail()`, CRUD, associations |
 | | `lib/services/admin/users.service.ts` → `getAdminUsers()`, `updateUserEmail()`, `deleteUser()`, `dissociateCharacter()` |
+| | `lib/services/admin/sync-logs.service.ts` → `recordSyncLog()`, `getRecentSyncLogs()` |
 
-**DB tables**: `items`, `market_price_history`, `sync_state`, `dungeons`, `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, `characters`
+**DB tables**: `items`, `market_price_history`, `sync_state`, `sync_job_logs`, `dungeons`, `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, `characters`
 **External API**: All IdleMMO sync endpoints
 **Requires**: `session.user.role === "admin"`
-**Docs**: `docs/api/internal/admin-items.md`, `docs/api/internal/admin-users.md`, `docs/api/internal/admin-zones.md`, `docs/api/internal/cron-sync.md`
+**Docs**: `docs/api/internal/admin-items.md`, `docs/api/internal/admin-users.md`, `docs/api/internal/admin-zones.md`, `docs/api/internal/cron-sync.md`, `docs/api/internal/sync-logs.md`
 
 ---
 
@@ -362,6 +365,7 @@ Email/password auth via better-auth.
 | `gearPresets` | gear actions | gear page, dungeons page |
 | `userPreferences` | preferences action | dashboard, settings |
 | `syncState` | all cron jobs | cron jobs (gating), admin panel |
+| `sync_job_logs` | admin sync routes | admin sync status page |
 | `characters` | character-cache service | dashboard, characters list |
 | `character_pets` | sync-pet API route (user action) | character detail page |
 | `dungeons` | admin sync-dungeons route | dungeons page |
