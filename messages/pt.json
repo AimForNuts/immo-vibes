@@ -86,8 +86,27 @@
     "saveFailed": "Falha ao guardar. Tente novamente."
   },
   "forgotPassword": {
-    "title": "Recuperação de palavra-passe em breve",
-    "description": "Este ecrã agora abre numa página própria enquanto a recuperação de conta é finalizada.",
+    "title": "Repor palavra-passe",
+    "description": "Introduza o seu nome de utilizador e enviaremos uma ligação de reposição para a conta.",
+    "username": "Nome de utilizador",
+    "usernameRequired": "Introduza o seu nome de utilizador.",
+    "submit": "Enviar ligação",
+    "sending": "A enviar…",
+    "sent": "Se essa conta existir, foi enviada uma ligação de reposição.",
+    "requestFailed": "Falha ao pedir a ligação de reposição. Tente novamente.",
+    "backToLogin": "Voltar ao início de sessão"
+  },
+  "resetPassword": {
+    "title": "Escolha uma nova palavra-passe",
+    "description": "Use a ligação de recuperação enviada para definir uma nova palavra-passe.",
+    "newPassword": "Nova palavra-passe",
+    "confirmPassword": "Confirmar palavra-passe",
+    "submit": "Guardar nova palavra-passe",
+    "saving": "A guardar…",
+    "invalidToken": "Esta ligação de reposição é inválida ou expirou.",
+    "passwordMismatch": "As palavras-passe não coincidem.",
+    "passwordTooShort": "A palavra-passe deve ter pelo menos 8 caracteres.",
+    "resetFailed": "Falha ao repor a palavra-passe. Tente novamente.",
     "backToLogin": "Voltar ao início de sessão"
   },
   "overview": {

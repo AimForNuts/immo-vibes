@@ -35,6 +35,8 @@ Copy `.env.example` to `.env.local` and fill in:
 DATABASE_URL=         # Neon PostgreSQL connection string
 BETTER_AUTH_SECRET=   # Random secret for better-auth
 BETTER_AUTH_URL=      # Base URL (e.g. http://localhost:3000)
+RESEND_API_KEY=       # Optional; sends password recovery emails in production
+PASSWORD_RESET_EMAIL_FROM= # Optional; from address for password recovery emails
 ```
 
 ### 3. Push the database schema
@@ -102,6 +104,11 @@ Start with these docs when planning or iterating:
 ---
 
 ## Recent Changes
+
+### 2026-08-15 - Password recovery
+
+- **Auth**: Replaced the password recovery placeholder with a better-auth reset flow.
+- **Auth**: Added `/reset-password` for reset links and Resend-backed reset email delivery, with reset links logged during local development when email is not configured.
 
 ### 2026-08-14 - Iteration documentation hub
 
