@@ -29,8 +29,6 @@ export interface EnemyScaling {
  */
 export function useEnemyScaling(charCombatLevel: number | null): EnemyScaling {
   const defaultLevel = charCombatLevel ?? 1;
-  const defaultLevelRef = useRef(defaultLevel);
-  defaultLevelRef.current = defaultLevel; // keep in sync on every render
 
   const [pendingLevel, setPendingLevel] = useState(defaultLevel);
   const [scaledLevel, setScaledLevel] = useState(defaultLevel);
@@ -61,8 +59,8 @@ export function useEnemyScaling(charCombatLevel: number | null): EnemyScaling {
 
   function reset() {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setPendingLevel(defaultLevelRef.current);
-    setScaledLevel(defaultLevelRef.current);
+    setPendingLevel(defaultLevel);
+    setScaledLevel(defaultLevel);
   }
 
   return {

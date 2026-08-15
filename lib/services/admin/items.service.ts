@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
-import { ilike, eq, and, count, SQL } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
+import { ilike, eq, and, count } from "drizzle-orm";
 
 export type AdminItemRow = {
   hashedId: string;

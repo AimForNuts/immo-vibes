@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Package, Coins, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QUALITY_HEX, QUALITY_BORDER_CSS, QUALITY_GLOW_CSS } from "@/lib/game-constants";
@@ -53,9 +54,12 @@ export function ItemCard({ item, selected, onClick }: ItemCardProps) {
       {/* Image */}
       <div className="size-12 rounded-md bg-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
         {item.image_url ? (
-          <img
+          <Image
             src={item.image_url}
             alt={item.name}
+            width={40}
+            height={40}
+            unoptimized
             className="size-10 object-contain"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />

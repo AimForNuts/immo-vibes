@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { X, Package, BookOpen, ChevronRight, Coins, Pencil, MapPin } from "lucide-react";
 import { ZonePickerModal } from "./ZonePickerModal";
 import { QUALITY_HEX, QUALITY_BORDER_CSS } from "@/lib/game-constants";
@@ -70,7 +71,14 @@ export function DetailPanel({
       <div className="flex items-start gap-3 p-4 border-b border-zinc-800 shrink-0">
         <div className="size-14 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
           {item.image_url ? (
-            <img src={item.image_url} alt={item.name} className="size-12 object-contain" />
+            <Image
+              src={item.image_url}
+              alt={item.name}
+              width={48}
+              height={48}
+              unoptimized
+              className="size-12 object-contain"
+            />
           ) : (
             <Package className="size-7 text-zinc-600" />
           )}
