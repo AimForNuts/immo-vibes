@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 import { routing, type Locale } from "@/i18n/routing";
 import { db } from "@/lib/db";
 import { userPreferences } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 

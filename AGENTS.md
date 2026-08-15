@@ -165,6 +165,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **security-guidance** — PreToolUse hook, fires automatically before every Edit/Write. Checks for XSS, eval, exec injection, dangerouslySetInnerHTML. No action required.
 - **typescript-lsp** — Language server (typescript-language-server v5.1.3 installed globally). Provides passive type diagnostics. Run `npx tsc --noEmit` to surface errors explicitly.
 
+## Lint conventions
+
+- Browser/app code should avoid `console.*` except `console.warn` and `console.error`; Node-only scripts and tests may use console output for diagnostics.
+
 ## Invoke with the Skill tool
 
 > **MANDATORY** — do not skip these without asking the user first. Feeling confident is not a valid reason to skip.

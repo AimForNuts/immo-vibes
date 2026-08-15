@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric, primaryKey } from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 // ─── Shared types for JSONB columns ───────────────────────────────────────────
 
@@ -371,7 +372,7 @@ export const dungeons = pgTable("dungeons", {
   name:          text("name").notNull(),
   imageUrl:      text("image_url"),
   /** Zone this dungeon belongs to — set manually by admins. Null until assigned. */
-  zoneId:        integer("zone_id").references((): any => zones.id, { onDelete: "set null" }),
+  zoneId:        integer("zone_id").references((): AnyPgColumn => zones.id, { onDelete: "set null" }),
   levelRequired: integer("level_required").notNull().default(0),
   difficulty:    integer("difficulty").notNull().default(0),
   /** Run duration in milliseconds (the "length" field from the API) */
