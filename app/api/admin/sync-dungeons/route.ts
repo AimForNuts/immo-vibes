@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { dungeons } from "@/lib/db/schema";
 import { getDungeons } from "@/lib/idlemmo";
+import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 
 /**
  * POST /api/admin/sync-dungeons
@@ -25,11 +26,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No IdleMMO API token configured" }, { status: 400 });
   }
 
+  await recordSyncLog({
+    job: "dungeons",
+    status: "started",
+    message: "Started dungeon sync",
+    userId: session.user.id,
+  });
+
   let apiDungeons;
   try {
     apiDungeons = await getDungeons(token);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
+    await recordSyncLog({
+      job: "dungeons",
+      status: "failed",
+      message: `Dungeon sync failed: ${msg}`,
+      details: { error: msg },
+      userId: session.user.id,
+    });
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 
@@ -67,6 +82,14 @@ export async function POST(request: NextRequest) {
         },
       });
   }
+
+  await recordSyncLog({
+    job: "dungeons",
+    status: "success",
+    message: `Synced ${rows.length} dungeons`,
+    details: { synced: rows.length },
+    userId: session.user.id,
+  });
 
   return NextResponse.json({ synced: rows.length });
 }
