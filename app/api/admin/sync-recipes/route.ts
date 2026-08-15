@@ -4,6 +4,7 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
+import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 
 export const maxDuration = 300;
 
@@ -46,6 +47,14 @@ export async function POST(request: NextRequest) {
     Math.max(1, parseInt(searchParams.get("pageSize") ?? String(PAGE_SIZE_DEFAULT), 10))
   );
 
+  await recordSyncLog({
+    job: "recipes",
+    status: "started",
+    message: `Started recipe sync page ${page}`,
+    details: { page, pageSize },
+    userId: session.user.id,
+  });
+
   const nullCondition = and(eq(items.type, "RECIPE"), isNull(items.recipeResultHashedId));
 
   const [{ value: total }] = await db
@@ -56,6 +65,13 @@ export async function POST(request: NextRequest) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   if (total === 0) {
+    await recordSyncLog({
+      job: "recipes",
+      status: "skipped",
+      message: "Skipped recipe sync: no missing recipe results",
+      details: { populated: 0, noData: 0, errors: 0, total: 0, page: 1, totalPages: 1 },
+      userId: session.user.id,
+    });
     return NextResponse.json({ populated: 0, noData: 0, errors: 0, total: 0, page: 1, totalPages: 1 });
   }
 
@@ -131,6 +147,14 @@ export async function POST(request: NextRequest) {
       errors++;
     }
   }
+
+  await recordSyncLog({
+    job: "recipes",
+    status: errors > 0 ? "progress" : "success",
+    message: `Recipe sync page ${page}/${totalPages}: ${populated} populated, ${noData} no data, ${errors} errors`,
+    details: { populated, noData, errors, total, page, pageSize, totalPages },
+    userId: session.user.id,
+  });
 
   return NextResponse.json({ populated, noData, errors, total, page, totalPages });
 }

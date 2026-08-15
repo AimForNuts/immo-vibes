@@ -105,6 +105,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-15 - Sync observability
+
+- **Admin**: Added a Sync Status page for recent manual sync job progress, failures, skipped batches, and per-job filtering.
+- **Database**: Added the append-only `sync_job_logs` table for structured sync lifecycle events.
+
 ### 2026-08-15 - Password recovery
 
 - **Auth**: Replaced the password recovery placeholder with a better-auth reset flow.

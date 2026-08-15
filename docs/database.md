@@ -27,6 +27,7 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | User's tracked price alerts | `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
 | Cron sync progress | `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
+| Recent sync failures / partial progress | `sync_job_logs` | `job`, `status`, `created_at`, `details` |
 | Saved gear loadouts | `gear_presets` | `user_id`, `slots` (JSONB map of slot → `{hashedId, tier}`) |
 | Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
 | Saved main-pet stats for a character | `character_pets` | `user_id`, `character_hashed_id`, `attack_power`, `protection`, `agility`, `accuracy`, `max_stamina`, `movement_speed`, `critical_chance`, `critical_damage`, `synced_at` |
@@ -135,6 +136,29 @@ Tracks progress of automated cron jobs so each 10-minute Vercel invocation can r
 | `current_page` | integer | Pagination within the active type — prices only |
 | `started_at` | timestamp | When the current run started |
 | `completed_at` | timestamp | When the current run finished (null while running) |
+
+---
+
+### `sync_job_logs`
+
+Append-only event log for manual admin sync route observability.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | text PK | - | UUID |
+| `job` | text | - | Sync job key, e.g. `items`, `inspect`, `prices`, `recipes`, `dungeons` |
+| `status` | text | - | `started`, `progress`, `success`, `failed`, or `skipped` |
+| `message` | text | - | Human-readable status summary |
+| `details` | jsonb | yes | Counts, paging info, error messages, or route-specific context |
+| `user_id` | text FK | yes | Admin user who started the manual sync; set null if the user is deleted |
+| `created_at` | timestamp | - | Event creation time |
+
+**Indexes**:
+- `sync_job_logs_created_at_idx` on `created_at`
+- `sync_job_logs_job_created_at_idx` on `(job, created_at)`
+
+**Service**: `lib/services/admin/sync-logs.service.ts`
+**API route**: `GET /api/admin/sync-logs`
 
 ---
 
