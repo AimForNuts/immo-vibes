@@ -144,7 +144,8 @@ const pages = targetPage ? [targetPage] : Array.from({ length: totalPages }, (_,
 if (targetPage) console.log(`Running single-page debug: page ${targetPage}/${totalPages}`);
 
 const state = { rlRemaining: null, rlResetAt: 0 };
-let totalPopulated = 0, totalSkipped = 0, allErrors = [];
+let totalPopulated = 0, totalSkipped = 0;
+const allErrors = [];
 
 for (const page of pages) {
   console.log(`\n── Page ${page}/${totalPages} ── started ${ts()}`);

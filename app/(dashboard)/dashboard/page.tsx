@@ -6,6 +6,16 @@ import { getPreferences } from "@/app/actions/preferences";
 import { getDbCharacters, CACHE_TTL_MS } from "@/lib/services/character-cache";
 import { DashboardGrid } from "@/components/dashboard-grid";
 import { CharacterRoster } from "@/app/(dashboard)/dashboard/components/CharacterRoster";
+import type { CachedCharacter } from "@/lib/services/character-cache";
+
+function getCurrentTimeMs() {
+  return Date.now();
+}
+
+function stripCachedAt({ cachedAt, ...character }: CachedCharacter) {
+  void cachedAt;
+  return character;
+}
 
 export default async function DashboardPage() {
   const t = await getTranslations();
@@ -35,7 +45,7 @@ export default async function DashboardPage() {
   const roster  = await getDbCharacters(session.user.id);
   const primary = roster.find((c) => c.isPrimary) ?? null;
   const isStale = roster.length === 0
-    || (Date.now() - roster[0].cachedAt.getTime()) > CACHE_TTL_MS;
+    || (getCurrentTimeMs() - roster[0].cachedAt.getTime()) > CACHE_TTL_MS;
 
   return (
     <div className="max-w-3xl space-y-10">
@@ -56,7 +66,7 @@ export default async function DashboardPage() {
 
       {/* Character roster — client component handles background refresh when stale */}
       <CharacterRoster
-        initialRoster={roster.map(({ cachedAt: _ignored, ...rest }) => rest)}
+        initialRoster={roster.map(stripCachedAt)}
         initialIsStale={isStale}
         titleLabel={t("characters.title")}
         countTemplate={t("overview.characters", { count: "{count}" })}

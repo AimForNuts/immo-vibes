@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Sword, Shield, Wind, Crosshair, User, Zap, TrendingUp,
-  ChevronDown, ChevronRight, Flame, Coffee, Activity, Info,
+  ChevronDown, ChevronRight, Activity, Info,
   RotateCcw, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -94,7 +94,11 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
   function toggleEnemy(id: number) {
     setExpandedEnemies((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
@@ -125,7 +129,7 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
       .finally(() => { if (!cancelled) setLoadingChar(false); });
 
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [characterId]);
 
   const scaling = isScaling;
@@ -133,7 +137,11 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
   function toggleZone(name: string) {
     setExpandedZones((prev) => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
       return next;
     });
   }

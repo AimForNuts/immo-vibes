@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { Check, Clipboard, Hammer, Package, Plus, Search, Trash2 } from "lucide-react";
 import { calculateForgeMaterials } from "@/lib/domain/forge-planner";
 import { QUALITY_COLORS } from "@/lib/game-constants";
@@ -122,9 +123,12 @@ export function ForgePlanner({ recipes }: ForgePlannerProps) {
                     <div className="flex w-full items-start gap-3">
                       <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-800 bg-zinc-950">
                         {recipe.resultImageUrl ? (
-                          <img
+                          <Image
                             src={recipe.resultImageUrl}
                             alt={recipe.resultName}
+                            width={40}
+                            height={40}
+                            unoptimized
                             className="size-10 object-contain"
                             onError={(event) => {
                               event.currentTarget.style.display = "none";
