@@ -15,7 +15,7 @@ Built with Next.js 16, better-auth, Drizzle ORM, and shadcn/ui. Supports multipl
 | Database | Neon PostgreSQL + Drizzle ORM |
 | UI | shadcn/ui (base-ui variant) + Tailwind CSS |
 | i18n | next-intl (`localePrefix: "never"`) |
-| Validation | Zod |
+| Validation | Lightweight route-boundary helpers |
 
 ---
 

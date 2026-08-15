@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getItemZoneIds, replaceItemZones } from "@/lib/services/admin/zones.service";
+import { invalidRequest, parseIntegerArrayField, readJsonObject } from "@/lib/validation/api";
 
 async function requireAdmin(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -48,17 +49,12 @@ export async function PUT(
   const [item] = await db.select({ hashedId: items.hashedId }).from(items).where(eq(items.hashedId, id)).limit(1);
   if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
 
-  let body: { zone_ids?: unknown };
-  try {
-    body = await req.json() as { zone_ids?: unknown };
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
+  const body = await readJsonObject(req);
+  if (!body.ok) return invalidRequest(body.message);
 
-  const zone_ids: number[] = Array.isArray(body.zone_ids)
-    ? (body.zone_ids as unknown[]).filter((v): v is number => Number.isInteger(v))
-    : [];
+  const zone_ids = parseIntegerArrayField(body.data, "zone_ids");
+  if (!zone_ids.ok) return invalidRequest(zone_ids.message);
 
-  await replaceItemZones(id, zone_ids);
-  return NextResponse.json({ zone_ids });
+  await replaceItemZones(id, zone_ids.data);
+  return NextResponse.json({ zone_ids: zone_ids.data });
 }
