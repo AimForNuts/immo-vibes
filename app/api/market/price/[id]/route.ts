@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { and, desc, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";

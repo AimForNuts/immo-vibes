@@ -14,6 +14,29 @@ import { EconomyNav } from "@/components/economy-nav";
 import { AdminNav } from "@/components/admin-nav";
 import { cn } from "@/lib/utils";
 
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+};
+
+function NavLink({ href, label, icon: Icon, active }: NavItem & { active: boolean }) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
+        active
+          ? "bg-primary/10 text-primary font-medium"
+          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+      )}
+    >
+      <Icon className="size-4 shrink-0" />
+      {label}
+    </Link>
+  );
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -24,29 +47,12 @@ export default function DashboardLayout({
   const t = useTranslations("nav");
   const isAdmin = session?.user?.role === "admin";
 
-  const navItems = [
+  const navItems: NavItem[] = [
     { href: "/dashboard",          label: t("overview"),  icon: LayoutDashboard },
     { href: "/dashboard/gear",     label: t("gear"),      icon: Swords },
     { href: "/dashboard/dungeons", label: t("dungeons"),  icon: Skull },
     { href: "/dashboard/combat",   label: t("combat"),    icon: Sword },
   ];
-
-  function NavLink({ href, label, icon: Icon }: typeof navItems[number]) {
-    return (
-      <Link
-        href={href}
-        className={cn(
-          "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
-          pathname === href
-            ? "bg-primary/10 text-primary font-medium"
-            : "text-muted-foreground hover:text-foreground hover:bg-accent"
-        )}
-      >
-        <Icon className="size-4 shrink-0" />
-        {label}
-      </Link>
-    );
-  }
 
   return (
     <div className="min-h-screen flex">
@@ -67,13 +73,13 @@ export default function DashboardLayout({
         </div>
 
         <nav className="flex-1 px-2 py-4 flex flex-col gap-1">
-          <NavLink key={navItems[0].href} {...navItems[0]} />
+          <NavLink key={navItems[0].href} {...navItems[0]} active={pathname === navItems[0].href} />
 
           {/* Characters with expandable sub-nav */}
           <CharactersNav />
 
           {navItems.slice(1).map((item) => (
-            <NavLink key={item.href} {...item} />
+            <NavLink key={item.href} {...item} active={pathname === item.href} />
           ))}
 
           {/* Economy section with Market + Investments sub-nav */}
