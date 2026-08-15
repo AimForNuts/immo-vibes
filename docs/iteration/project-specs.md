@@ -314,7 +314,6 @@ Jobs:
 - `sync-prices`: daily market price refresh, 80 items per run.
 - `sync-inspect`: admin-only item detail/stat sync.
 - `sync-dungeons`: admin-only dungeon catalog sync.
-- `sync-market`: legacy/compatibility route still present in `app/api/cron/sync-market/route.ts`.
 
 Data:
 

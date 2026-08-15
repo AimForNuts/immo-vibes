@@ -175,10 +175,8 @@ Admin-only routes. These require an authenticated admin session unless noted oth
 | `GET` | `/api/admin/zones` | Paginated zone admin table or slim zone list with `?slim=true`. |
 | `POST` | `/api/admin/zones` | Create a zone. |
 | `GET` | `/api/admin/zones/[id]` | Read zone detail. |
-| `PATCH` | `/api/admin/zones/[id]` | Update zone metadata/associations supported by the route. |
+| `PATCH` | `/api/admin/zones/[id]` | Update zone metadata and JSON association fields supported by the route. |
 | `DELETE` | `/api/admin/zones/[id]` | Delete a zone. |
-
-> `docs/project-map.md` references future association subroutes for zone enemies, dungeons, world bosses, and resources. The current route inventory only includes route files present under `app/api/admin/` in this branch.
 
 #### Users
 
@@ -192,6 +190,10 @@ Admin-only routes. These require an authenticated admin session unless noted oth
 Related docs:
 
 - `docs/api/internal/admin-store-price.md`
+- `docs/api/internal/admin-items.md`
+- `docs/api/internal/admin-users.md`
+- `docs/api/internal/admin-zones.md`
+- `docs/api/internal/cron-sync.md`
 - `docs/api/internal/dungeons-sync.md`
 - `docs/api/internal/sync-items.md`
 - `app/(dashboard)/dashboard/admin/README.md`
@@ -208,12 +210,12 @@ Cron-triggered routes called by Vercel. All current cron route handlers export `
 | `POST` | `/api/cron/sync-items` | Monday 00:00 UTC | Refresh the item catalog. |
 | `POST` | `/api/cron/sync-recipes` | Monday 02:00 UTC | Populate recipe result metadata after item sync. |
 | `POST` | `/api/cron/sync-prices` | Daily 04:00 UTC | Refresh market prices for a batch of items. |
-| `POST` | `/api/cron/sync-market` | Not listed in `docs/project-map.md` cron summary | Legacy/compatibility market sync route; clarify or retire before expanding cron docs. |
 
 Related docs:
 
 - `docs/database.md`
 - `docs/api/rate-limiting.md`
+- `docs/api/internal/cron-sync.md`
 - `docs/project-map.md`
 
 ---
@@ -223,6 +225,9 @@ Related docs:
 Existing detailed internal API docs:
 
 - `docs/api/internal/admin-store-price.md`
+- `docs/api/internal/admin-items.md`
+- `docs/api/internal/admin-users.md`
+- `docs/api/internal/admin-zones.md`
 - `docs/api/internal/character-detail.md`
 - `docs/api/internal/character-effects.md`
 - `docs/api/internal/characters.md`
@@ -235,5 +240,6 @@ Existing detailed internal API docs:
 - `docs/api/internal/overview.md`
 - `docs/api/internal/pet-stats.md`
 - `docs/api/internal/sync-items.md`
+- `docs/api/internal/cron-sync.md`
 
 Known documentation gaps are tracked in `docs/iteration/improvements.md`.
