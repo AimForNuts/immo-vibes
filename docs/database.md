@@ -304,7 +304,7 @@ Enemy catalog. One row per IdleMMO enemy. Populated by a future admin sync actio
 | `loot` | jsonb | ✓ | Array of `{ item_hashed_id, chance }` |
 | `synced_at` | timestamp | ✓ | When last synced |
 
-**Admin route**: `GET /api/admin/enemies` (picker/search)
+**Admin lifecycle**: table exists for future enemy admin/sync work. There is no current `app/api/admin/enemies` route in this branch.
 
 ---
 
@@ -322,7 +322,7 @@ World boss catalog. Same shape as `enemies` — separated because bosses appear 
 | `loot` | jsonb | ✓ | Array of `{ item_hashed_id, chance }` |
 | `synced_at` | timestamp | ✓ | When last synced |
 
-**Admin route**: `GET /api/admin/world-bosses` (picker/search)
+**Admin lifecycle**: table exists for future world boss admin/sync work. There is no current `app/api/admin/world-bosses` route in this branch.
 
 ---
 
@@ -337,7 +337,7 @@ Junction table linking zones to item resources (drop locations).
 
 Composite PK: `(zone_id, item_hashed_id)`
 
-**Admin routes**: `POST/DELETE /api/admin/zones/[id]/resources`
+**Admin lifecycle**: table exists for future zone resource admin work. There is no current `app/api/admin/zones/[id]/resources` route in this branch.
 
 ---
 
