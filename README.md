@@ -105,6 +105,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-16 - API inspector
+
+- **Admin**: Added an API Inspector for running curated IdleMMO endpoints with editable test values and copyable latest raw responses.
+- **Docs**: Added persisted typed response schemas, schema observations, merge/override actions, and explicit deprecated-field handling.
+
 ### 2026-08-15 - Sync observability
 
 - **Admin**: Added a Sync Status page for recent manual sync job progress, failures, skipped batches, and per-job filtering.
