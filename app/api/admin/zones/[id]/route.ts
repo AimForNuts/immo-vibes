@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getZoneDetail, updateZone, deleteZone } from "@/lib/services/admin/zones.service";
 import type { ZoneEnemy, ZoneDungeon, ZoneWorldBoss } from "@/lib/services/admin/zones.service";

@@ -837,7 +837,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
         <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-emerald-400 inline-block" /> ≥ 160% — Max MF (10% HP loss)</span>
         {!hasDifficultyData && (
           <span className="flex items-center gap-1.5 text-amber-500/80">
-            <Zap className="size-3" /> Difficulty data unavailable — difficulty values will show "—"
+            <Zap className="size-3" /> Difficulty data unavailable — difficulty values will show &quot;—&quot;
           </span>
         )}
       </div>
