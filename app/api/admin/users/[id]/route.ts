@@ -2,6 +2,7 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { updateUserEmail, deleteUser } from "@/lib/services/admin/users.service";
+import { invalidRequest, parseStringField, readJsonObject } from "@/lib/validation/api";
 
 async function requireAdmin(r: NextRequest) {
   const s = await auth.api.getSession({ headers: r.headers });
@@ -11,16 +12,23 @@ async function requireAdmin(r: NextRequest) {
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!await requireAdmin(request)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await params;
-  const { email, newPassword } = await request.json() as { email?: string; newPassword?: string };
+  const body = await readJsonObject(request);
+  if (!body.ok) return invalidRequest(body.message);
+
+  const email = parseStringField(body.data, "email");
+  if (!email.ok) return invalidRequest(email.message);
+
+  const newPassword = parseStringField(body.data, "newPassword", { minLength: 8 });
+  if (!newPassword.ok) return invalidRequest(newPassword.message);
 
   try {
-    if (email) {
-      await updateUserEmail(id, email);
+    if (email.data) {
+      await updateUserEmail(id, email.data);
     }
 
-    if (newPassword) {
+    if (newPassword.data) {
       await auth.api.setUserPassword({
-        body: { userId: id, newPassword },
+        body: { userId: id, newPassword: newPassword.data },
         headers: request.headers,
       });
     }

@@ -77,6 +77,7 @@ Updates a user's email and/or password.
 ```
 
 Both fields are optional, but an empty body is effectively a no-op and still returns `{ "ok": true }`.
+`email` must be a string when present. `newPassword` must be a string with at least 8 characters when present.
 
 ### 200 OK
 
@@ -89,6 +90,10 @@ Both fields are optional, but an empty body is effectively a no-op and still ret
 | Status | Body | Cause |
 |---|---|---|
 | 400 | `{ "error": "<message>" }` | Email update or Better Auth password update failed. |
+| 400 | `{ "error": "Invalid JSON body" }` | Request body could not be parsed as JSON. |
+| 400 | `{ "error": "JSON body must be an object" }` | Request JSON was not an object. |
+| 400 | `{ "error": "email must be a string" }` | `email` was present but not a string. |
+| 400 | `{ "error": "newPassword must be at least 8 characters" }` | `newPassword` was present but too short. |
 | 403 | `{ "error": "Forbidden" }` | Missing session or non-admin user. |
 
 ### Side Effects
@@ -112,6 +117,7 @@ Empty response body.
 
 | Status | Body | Cause |
 |---|---|---|
+| 400 | `{ "error": "charId must be a positive integer" }` | `charId` path parameter was not a positive integer. |
 | 403 | `{ "error": "Forbidden" }` | Missing session or non-admin user. |
 
 ### Side Effects

@@ -70,6 +70,7 @@ Admin-only UI in the market detail panel to associate ORE, LOG, and FISH items w
 
 **DB tables**: `zones` (read), `item_zones` (read/write)
 **Requires**: `session.user.role === "admin"`
+**Docs**: `docs/api/internal/item-zones.md`
 
 ---
 
@@ -148,7 +149,7 @@ User-tracked items with price history charts.
 
 **DB tables**: `priceTracker` (read/write), `marketPriceHistory` (read for chart data)
 **External API**: none
-**Docs**: `docs/database.md`
+**Docs**: `docs/database.md`, `docs/api/internal/investments.md`
 
 ---
 
