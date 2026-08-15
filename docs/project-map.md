@@ -324,9 +324,12 @@ Email/password auth via better-auth.
 | API handler | `app/api/auth/[...all]/route.ts` |
 | Login UI | `app/(auth)/login/page.tsx`, `components/login-form.tsx` |
 | Register UI | `app/(auth)/register/page.tsx`, `components/register-form.tsx` |
-| Password recovery placeholder | `app/forgot-password/page.tsx` |
+| Password recovery request | `app/forgot-password/page.tsx`, `components/forgot-password-form.tsx` |
+| Password reset | `app/reset-password/page.tsx`, `components/reset-password-form.tsx` |
+| Password reset email delivery | `lib/services/password-reset-email.ts` |
 
 **DB tables**: `user`, `session`, `account`, `verification`
+**External services**: Resend API when `RESEND_API_KEY` and `PASSWORD_RESET_EMAIL_FROM` are configured; development logs reset links when email is not configured.
 **Docs**: better-auth — use context7 before modifying
 
 ---
