@@ -105,6 +105,7 @@ export default function ApiInspectorPage() {
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const selectedSpec = useMemo(
     () => state.specs.find((spec) => spec.key === selectedKey) ?? state.specs[0],
@@ -177,6 +178,7 @@ export default function ApiInspectorPage() {
     if (!selectedSpec) return;
     setSaving(true);
     setError(null);
+    setWarning(null);
     try {
       const schema = JSON.parse(schemaDraft) as unknown;
       const body = action === "deprecate"
@@ -189,6 +191,10 @@ export default function ApiInspectorPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save schema");
+      if (data.persistenceAvailable === false) {
+        setWarning(data.message ?? "API inspector database tables are not available yet, so this schema was not saved.");
+        return;
+      }
       await loadState();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save schema");
@@ -201,6 +207,7 @@ export default function ApiInspectorPage() {
     if (!selectedSpec) return;
     setSaving(true);
     setError(null);
+    setWarning(null);
     try {
       const config = JSON.parse(configDraft) as SpecConfig;
       const res = await fetch("/api/admin/api-inspector/schema", {
@@ -210,6 +217,10 @@ export default function ApiInspectorPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save endpoint config");
+      if (data.persistenceAvailable === false) {
+        setWarning(data.message ?? "API inspector database tables are not available yet, so this endpoint config was not saved.");
+        return;
+      }
       await loadState();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save endpoint config");
@@ -240,6 +251,7 @@ export default function ApiInspectorPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {warning && <p className="text-sm text-amber-600 dark:text-amber-400">{warning}</p>}
       {state.persistenceAvailable === false && (
         <p className="text-sm text-amber-600 dark:text-amber-400">
           Endpoint catalog is loaded from built-in defaults. Schema saves and observation history require the API inspector database tables.

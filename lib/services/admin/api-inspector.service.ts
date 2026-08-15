@@ -491,12 +491,17 @@ export async function runEndpointAndObserve(input: {
 }
 
 export async function getResponseSchema(endpointKey: string) {
-  const [schema] = await db
-    .select()
-    .from(apiResponseSchemas)
-    .where(eq(apiResponseSchemas.endpointKey, endpointKey))
-    .limit(1);
-  return schema ?? null;
+  try {
+    const [schema] = await db
+      .select()
+      .from(apiResponseSchemas)
+      .where(eq(apiResponseSchemas.endpointKey, endpointKey))
+      .limit(1);
+    return schema ?? null;
+  } catch (error) {
+    console.error("[api-inspector] failed to load response schema", error);
+    return null;
+  }
 }
 
 export async function saveResponseSchema(input: {
@@ -507,39 +512,58 @@ export async function saveResponseSchema(input: {
   inferredSchema?: ApiInspectorSchema | null;
   deprecatedFields?: string[];
 }) {
-  const now = new Date();
-  const existing = await getResponseSchema(input.endpointKey);
-  const version = (existing?.version ?? 0) + 1;
+  try {
+    const now = new Date();
+    const existing = await getResponseSchema(input.endpointKey);
+    const version = (existing?.version ?? 0) + 1;
 
-  const [schema] = await db
-    .insert(apiResponseSchemas)
-    .values({
-      endpointKey: input.endpointKey,
-      activeSchema: input.activeSchema,
-      manualSchema: input.manualSchema ?? null,
-      inferredSchema: input.inferredSchema ?? input.activeSchema,
-      deprecatedFields: input.deprecatedFields ?? existing?.deprecatedFields ?? [],
-      version,
-      lastSeenAt: now,
-      updatedByUserId: input.userId,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: apiResponseSchemas.endpointKey,
-      set: {
+    const [schema] = await db
+      .insert(apiResponseSchemas)
+      .values({
+        endpointKey: input.endpointKey,
         activeSchema: input.activeSchema,
-        manualSchema: input.manualSchema ?? existing?.manualSchema ?? null,
-        inferredSchema: input.inferredSchema ?? existing?.inferredSchema ?? input.activeSchema,
+        manualSchema: input.manualSchema ?? null,
+        inferredSchema: input.inferredSchema ?? input.activeSchema,
         deprecatedFields: input.deprecatedFields ?? existing?.deprecatedFields ?? [],
         version,
         lastSeenAt: now,
         updatedByUserId: input.userId,
         updatedAt: now,
-      },
-    })
-    .returning();
+      })
+      .onConflictDoUpdate({
+        target: apiResponseSchemas.endpointKey,
+        set: {
+          activeSchema: input.activeSchema,
+          manualSchema: input.manualSchema ?? existing?.manualSchema ?? null,
+          inferredSchema: input.inferredSchema ?? existing?.inferredSchema ?? input.activeSchema,
+          deprecatedFields: input.deprecatedFields ?? existing?.deprecatedFields ?? [],
+          version,
+          lastSeenAt: now,
+          updatedByUserId: input.userId,
+          updatedAt: now,
+        },
+      })
+      .returning();
 
-  return schema;
+    return { schema, persistenceAvailable: true as const };
+  } catch (error) {
+    console.error("[api-inspector] failed to save response schema", error);
+    return {
+      schema: {
+        endpointKey: input.endpointKey,
+        activeSchema: input.activeSchema,
+        manualSchema: input.manualSchema ?? null,
+        inferredSchema: input.inferredSchema ?? input.activeSchema,
+        deprecatedFields: input.deprecatedFields ?? [],
+        version: 0,
+        lastSeenAt: null,
+        updatedByUserId: input.userId,
+        updatedAt: new Date(),
+      },
+      persistenceAvailable: false as const,
+      message: "API inspector database tables are not available yet, so this schema was not saved.",
+    };
+  }
 }
 
 export function mergeSchemas(base: ApiInspectorSchema | null | undefined, next: ApiInspectorSchema): ApiInspectorSchema {
