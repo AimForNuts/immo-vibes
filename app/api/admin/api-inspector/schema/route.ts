@@ -30,22 +30,33 @@ export async function PATCH(request: Request) {
       if (!isSpecConfig(body.config)) {
         return NextResponse.json({ error: "Valid config is required" }, { status: 400 });
       }
-      const spec = await updateEndpointSpecConfig(body.endpointKey, body.config);
-      return NextResponse.json({ spec });
+      try {
+        const spec = await updateEndpointSpecConfig(body.endpointKey, body.config);
+        return NextResponse.json({ spec, persistenceAvailable: true });
+      } catch {
+        return NextResponse.json({
+          spec: null,
+          persistenceAvailable: false,
+          message: "API inspector database tables are not available yet, so this endpoint config was not saved.",
+        });
+      }
     }
 
     if (body.action === "save" || body.action === "override") {
       if (!("schema" in body)) {
         return NextResponse.json({ error: "schema is required" }, { status: 400 });
       }
-      const schema = await saveResponseSchema({
+      const result = await saveResponseSchema({
         endpointKey: body.endpointKey,
         userId: session.user.id,
         activeSchema: body.schema as ApiInspectorSchema,
         manualSchema: body.action === "override" ? body.schema as ApiInspectorSchema : undefined,
         deprecatedFields: stringArray(body.deprecatedFields),
       });
-      return NextResponse.json({ schema: serializeSchemaRow(schema) });
+      return NextResponse.json({
+        ...result,
+        schema: serializeSchemaRow(result.schema),
+      });
     }
 
     if (body.action === "merge") {
@@ -54,14 +65,17 @@ export async function PATCH(request: Request) {
       }
       const current = await getResponseSchema(body.endpointKey);
       const merged = mergeSchemas(current?.activeSchema ?? null, body.schema as ApiInspectorSchema);
-      const schema = await saveResponseSchema({
+      const result = await saveResponseSchema({
         endpointKey: body.endpointKey,
         userId: session.user.id,
         activeSchema: merged,
         inferredSchema: body.schema as ApiInspectorSchema,
         deprecatedFields: current?.deprecatedFields ?? [],
       });
-      return NextResponse.json({ schema: serializeSchemaRow(schema) });
+      return NextResponse.json({
+        ...result,
+        schema: serializeSchemaRow(result.schema),
+      });
     }
 
     if (body.action === "deprecate") {
@@ -73,7 +87,7 @@ export async function PATCH(request: Request) {
         ...(current.deprecatedFields ?? []),
         ...stringArray(body.fields),
       ]));
-      const schema = await saveResponseSchema({
+      const result = await saveResponseSchema({
         endpointKey: body.endpointKey,
         userId: session.user.id,
         activeSchema: current.activeSchema,
@@ -81,7 +95,10 @@ export async function PATCH(request: Request) {
         inferredSchema: current.inferredSchema,
         deprecatedFields,
       });
-      return NextResponse.json({ schema: serializeSchemaRow(schema) });
+      return NextResponse.json({
+        ...result,
+        schema: serializeSchemaRow(result.schema),
+      });
     }
   } catch (error) {
     return NextResponse.json(
