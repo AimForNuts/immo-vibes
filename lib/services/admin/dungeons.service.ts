@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { dungeons } from "@/lib/db/schema";
-import { ilike, gte, and, count, SQL } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
+import { ilike, gte, and, count } from "drizzle-orm";
 
 export type AdminDungeonRow = {
   id: number;
