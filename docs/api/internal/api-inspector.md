@@ -88,3 +88,5 @@ Updates endpoint config or response schemas.
 | `deprecate` | Marks selected missing fields as deprecated. |
 
 Missing fields are never auto-deprecated. Admins must explicitly choose the deprecate action.
+
+When persistence is unavailable, save actions return `200 OK` with `persistenceAvailable: false` and a warning message. The UI keeps the latest schema draft visible, but no schema/config/observation data is saved until the inspector tables exist.
