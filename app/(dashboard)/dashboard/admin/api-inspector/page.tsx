@@ -63,6 +63,7 @@ type InspectorState = {
   specs: SpecRow[];
   schemas: SchemaRow[];
   observations: ObservationRow[];
+  persistenceAvailable?: boolean;
 };
 
 type RunResult = {
@@ -239,6 +240,11 @@ export default function ApiInspectorPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {state.persistenceAvailable === false && (
+        <p className="text-sm text-amber-600 dark:text-amber-400">
+          Endpoint catalog is loaded from built-in defaults. Schema saves and observation history require the API inspector database tables.
+        </p>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
         <section className="space-y-4">

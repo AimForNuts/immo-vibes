@@ -16,6 +16,37 @@ Returns endpoint specs, active typed schemas, and recent schema observations.
 
 The route seeds default endpoint specs on first use. Specs include path/query params, editable test values, and default test values.
 
+If the inspector tables are temporarily unavailable, the route returns the built-in endpoint catalog with `persistenceAvailable: false` so the dropdown still works. Schema saves and observation history require the DB tables.
+
+### Built-in Endpoint Catalog
+
+| Key | Path |
+|---|---|
+| `auth.check` | `/v1/auth/check` |
+| `locations.list` | `/v1/world/locations/list` |
+| `combat.worldBosses` | `/v1/combat/world_bosses/list` |
+| `combat.dungeons` | `/v1/combat/dungeons/list` |
+| `combat.enemies` | `/v1/combat/enemies/list` |
+| `item.search` | `/v1/item/search` |
+| `item.inspect` | `/v1/item/{hashedId}/inspect` |
+| `item.marketHistory` | `/v1/item/{hashedId}/market-history` |
+| `character.information` | `/v1/character/{hashedId}/information` |
+| `character.metrics` | `/v1/character/{hashedId}/metrics` |
+| `character.effects` | `/v1/character/{hashedId}/effects` |
+| `character.characters` | `/v1/character/{hashedId}/characters` |
+| `character.museum` | `/v1/character/{hashedId}/museum` |
+| `character.currentAction` | `/v1/character/{hashedId}/current-action` |
+| `character.pets` | `/v1/character/{hashedId}/pets` |
+| `pets.companionExchangeListings` | `/v1/pets/companion-exchange/listings` |
+| `guild.information` | `/v1/guild/{id}/information` |
+| `guild.members` | `/v1/guild/{id}/members` |
+| `guild.activity` | `/v1/guild/{id}/activity` |
+| `guild.energizingPool` | `/v1/guild/{id}/energizing-pool/information` |
+| `guild.hall` | `/v1/guild/{id}/hall` |
+| `guild.conquest` | `/v1/guild/conquest/view` |
+| `guild.conquestZone` | `/v1/guild/conquest/zone/{zoneId}/inspect` |
+| `shrine.progress` | `/v1/shrine/progress` |
+
 ## POST /api/admin/api-inspector/run
 
 Runs one curated IdleMMO endpoint using the admin user's IdleMMO token.

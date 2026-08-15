@@ -109,6 +109,7 @@ Start with these docs when planning or iterating:
 
 - **Admin**: Added an API Inspector for running curated IdleMMO endpoints with editable test values and copyable latest raw responses.
 - **Docs**: Added persisted typed response schemas, schema observations, merge/override actions, and explicit deprecated-field handling.
+- **Admin**: Expanded the inspector catalog to all currently known IdleMMO endpoints and added a built-in fallback list for deploy windows before persistence is available.
 
 ### 2026-08-15 - Sync observability
 

@@ -16,6 +16,8 @@ import type {
 const BASE_URL = "https://api.idle-mmo.com";
 
 type Primitive = string | number | boolean;
+type EndpointSpecRow = typeof apiEndpointSpecs.$inferSelect;
+type SchemaObservationRow = typeof apiSchemaObservations.$inferSelect;
 
 export type ApiInspectorDiff = {
   newFields: string[];
@@ -35,26 +37,30 @@ const DEFAULT_ENDPOINTS: ApiInspectorSpecConfig[] = [
     key: "locations.list",
     label: "Locations List",
     method: "GET",
-    pathTemplate: "/v1/locations",
+    pathTemplate: "/v1/world/locations/list",
     params: [],
     notes: "Used to document location fields such as id and name.",
   },
   {
-    key: "guild.hall",
-    label: "Guild Hall",
+    key: "combat.worldBosses",
+    label: "Combat World Bosses",
     method: "GET",
-    pathTemplate: "/v1/guild/{id}/hall",
-    params: [
-      {
-        name: "id",
-        source: "path",
-        type: "number",
-        required: true,
-        testValues: [1],
-        defaultTestValue: 1,
-        notes: "Guild ID. Add real guild IDs as they are discovered.",
-      },
-    ],
+    pathTemplate: "/v1/combat/world_bosses/list",
+    params: [],
+  },
+  {
+    key: "combat.dungeons",
+    label: "Combat Dungeons",
+    method: "GET",
+    pathTemplate: "/v1/combat/dungeons/list",
+    params: [],
+  },
+  {
+    key: "combat.enemies",
+    label: "Combat Enemies",
+    method: "GET",
+    pathTemplate: "/v1/combat/enemies/list",
+    params: [],
   },
   {
     key: "character.information",
@@ -73,34 +79,60 @@ const DEFAULT_ENDPOINTS: ApiInspectorSpecConfig[] = [
     ],
   },
   {
+    key: "character.metrics",
+    label: "Character Metrics",
+    method: "GET",
+    pathTemplate: "/v1/character/{hashedId}/metrics",
+    params: [hashedCharacterParam()],
+  },
+  {
     key: "character.effects",
     label: "Character Effects",
     method: "GET",
     pathTemplate: "/v1/character/{hashedId}/effects",
-    params: [
-      {
-        name: "hashedId",
-        source: "path",
-        type: "string",
-        required: true,
-        testValues: [],
-      },
-    ],
+    params: [hashedCharacterParam()],
+  },
+  {
+    key: "character.characters",
+    label: "Character Characters",
+    method: "GET",
+    pathTemplate: "/v1/character/{hashedId}/characters",
+    params: [hashedCharacterParam()],
+  },
+  {
+    key: "character.museum",
+    label: "Character Museum",
+    method: "GET",
+    pathTemplate: "/v1/character/{hashedId}/museum",
+    params: [hashedCharacterParam()],
+  },
+  {
+    key: "character.currentAction",
+    label: "Character Current Action",
+    method: "GET",
+    pathTemplate: "/v1/character/{hashedId}/current-action",
+    params: [hashedCharacterParam()],
+  },
+  {
+    key: "character.pets",
+    label: "Character Pets",
+    method: "GET",
+    pathTemplate: "/v1/character/{hashedId}/pets",
+    params: [hashedCharacterParam()],
+  },
+  {
+    key: "pets.companionExchangeListings",
+    label: "Companion Exchange Listings",
+    method: "GET",
+    pathTemplate: "/v1/pets/companion-exchange/listings",
+    params: [],
   },
   {
     key: "item.inspect",
     label: "Item Inspect",
     method: "GET",
     pathTemplate: "/v1/item/{hashedId}/inspect",
-    params: [
-      {
-        name: "hashedId",
-        source: "path",
-        type: "string",
-        required: true,
-        testValues: [],
-      },
-    ],
+    params: [hashedItemParam()],
   },
   {
     key: "item.search",
@@ -132,13 +164,7 @@ const DEFAULT_ENDPOINTS: ApiInspectorSpecConfig[] = [
     method: "GET",
     pathTemplate: "/v1/item/{hashedId}/market-history",
     params: [
-      {
-        name: "hashedId",
-        source: "path",
-        type: "string",
-        required: true,
-        testValues: [],
-      },
+      hashedItemParam(),
       {
         name: "tier",
         source: "query",
@@ -158,20 +184,106 @@ const DEFAULT_ENDPOINTS: ApiInspectorSpecConfig[] = [
     ],
   },
   {
-    key: "combat.enemies",
-    label: "Combat Enemies",
+    key: "guild.information",
+    label: "Guild Information",
     method: "GET",
-    pathTemplate: "/v1/combat/enemies/list",
+    pathTemplate: "/v1/guild/{id}/information",
+    params: [guildIdParam()],
+  },
+  {
+    key: "guild.members",
+    label: "Guild Members",
+    method: "GET",
+    pathTemplate: "/v1/guild/{id}/members",
+    params: [guildIdParam()],
+  },
+  {
+    key: "guild.activity",
+    label: "Guild Activity",
+    method: "GET",
+    pathTemplate: "/v1/guild/{id}/activity",
+    params: [guildIdParam()],
+  },
+  {
+    key: "guild.energizingPool",
+    label: "Guild Energizing Pool",
+    method: "GET",
+    pathTemplate: "/v1/guild/{id}/energizing-pool/information",
+    params: [guildIdParam()],
+  },
+  {
+    key: "guild.hall",
+    label: "Guild Hall",
+    method: "GET",
+    pathTemplate: "/v1/guild/{id}/hall",
+    params: [guildIdParam()],
+  },
+  {
+    key: "guild.conquest",
+    label: "Guild Conquest View",
+    method: "GET",
+    pathTemplate: "/v1/guild/conquest/view",
     params: [],
   },
   {
-    key: "combat.dungeons",
-    label: "Combat Dungeons",
+    key: "guild.conquestZone",
+    label: "Guild Conquest Zone Inspect",
     method: "GET",
-    pathTemplate: "/v1/combat/dungeons/list",
+    pathTemplate: "/v1/guild/conquest/zone/{zoneId}/inspect",
+    params: [
+      {
+        name: "zoneId",
+        source: "path",
+        type: "number",
+        required: true,
+        testValues: [1],
+        defaultTestValue: 1,
+        notes: "Conquest zone ID. Add known zone IDs as they are discovered.",
+      },
+    ],
+  },
+  {
+    key: "shrine.progress",
+    label: "Shrine Progress",
+    method: "GET",
+    pathTemplate: "/v1/shrine/progress",
     params: [],
   },
 ];
+
+function hashedCharacterParam(): ApiInspectorParam {
+  return {
+    name: "hashedId",
+    source: "path",
+    type: "string",
+    required: true,
+    testValues: [],
+    notes: "Character hashed ID. Add a known value once discovered.",
+  };
+}
+
+function hashedItemParam(): ApiInspectorParam {
+  return {
+    name: "hashedId",
+    source: "path",
+    type: "string",
+    required: true,
+    testValues: [],
+    notes: "Item hashed ID. Add a known value once discovered.",
+  };
+}
+
+function guildIdParam(): ApiInspectorParam {
+  return {
+    name: "id",
+    source: "path",
+    type: "number",
+    required: true,
+    testValues: [1],
+    defaultTestValue: 1,
+    notes: "Guild ID. Replace with or add known guild IDs after successful runs.",
+  };
+}
 
 export async function ensureDefaultApiEndpointSpecs() {
   const now = new Date();
@@ -194,23 +306,43 @@ export async function ensureDefaultApiEndpointSpecs() {
 }
 
 export async function getApiInspectorState() {
-  await ensureDefaultApiEndpointSpecs();
+  try {
+    await ensureDefaultApiEndpointSpecs();
 
-  const specs = await db.select().from(apiEndpointSpecs).orderBy(apiEndpointSpecs.label);
-  const schemas = await db.select().from(apiResponseSchemas);
-  const observations = await db
-    .select()
-    .from(apiSchemaObservations)
-    .orderBy(desc(apiSchemaObservations.createdAt))
-    .limit(30);
+    const specs = await db.select().from(apiEndpointSpecs).orderBy(apiEndpointSpecs.label);
+    const schemas = await db.select().from(apiResponseSchemas);
+    const observations = await db
+      .select()
+      .from(apiSchemaObservations)
+      .orderBy(desc(apiSchemaObservations.createdAt))
+      .limit(30);
 
-  return { specs, schemas, observations };
+    return {
+      specs: specs.length > 0 ? specs : getDefaultEndpointSpecRows(),
+      schemas,
+      observations,
+      persistenceAvailable: true,
+    };
+  } catch (error) {
+    console.error("[api-inspector] failed to load persisted endpoint specs", error);
+    return {
+      specs: getDefaultEndpointSpecRows(),
+      schemas: [],
+      observations: [],
+      persistenceAvailable: false,
+    };
+  }
 }
 
 export async function getEndpointSpec(key: string) {
-  await ensureDefaultApiEndpointSpecs();
-  const [spec] = await db.select().from(apiEndpointSpecs).where(eq(apiEndpointSpecs.key, key)).limit(1);
-  return spec ?? null;
+  try {
+    await ensureDefaultApiEndpointSpecs();
+    const [spec] = await db.select().from(apiEndpointSpecs).where(eq(apiEndpointSpecs.key, key)).limit(1);
+    return spec ?? getDefaultEndpointSpecRows().find((row) => row.key === key) ?? null;
+  } catch (error) {
+    console.error("[api-inspector] failed to load persisted endpoint spec", error);
+    return getDefaultEndpointSpecRows().find((row) => row.key === key) ?? null;
+  }
 }
 
 export async function updateEndpointSpecConfig(
@@ -306,12 +438,13 @@ export async function runEndpointAndObserve(input: {
   const raw = await readResponseBody(res);
   const inferredSchema = inferTypedSchema(raw);
 
-  const current = await getResponseSchema(input.endpointKey);
+  const current = await getResponseSchema(input.endpointKey).catch((error) => {
+    console.error("[api-inspector] failed to load active schema", error);
+    return null;
+  });
   const diff = compareSchemas(current?.activeSchema ?? null, inferredSchema);
 
-  const [observation] = await db
-    .insert(apiSchemaObservations)
-    .values({
+  const observationInput: SchemaObservationRow = {
       id: randomUUID(),
       endpointKey: input.endpointKey,
       params,
@@ -323,15 +456,32 @@ export async function runEndpointAndObserve(input: {
       typeConflicts: diff.typeConflicts,
       createdByUserId: input.userId,
       createdAt: new Date(),
-    })
-    .returning();
+  };
+
+  let observation: SchemaObservationRow = observationInput;
+  let persistenceAvailable = true;
+  try {
+    [observation] = await db
+      .insert(apiSchemaObservations)
+      .values(observationInput)
+      .returning();
+  } catch (error) {
+    persistenceAvailable = false;
+    console.error("[api-inspector] failed to persist schema observation", error);
+  }
 
   const mergedConfig = mergeTestValues(spec, params);
-  await updateEndpointSpecConfig(input.endpointKey, mergedConfig);
+  try {
+    await updateEndpointSpecConfig(input.endpointKey, mergedConfig);
+  } catch (error) {
+    persistenceAvailable = false;
+    console.error("[api-inspector] failed to persist endpoint test values", error);
+  }
 
   return {
     spec: { ...specRow, config: mergedConfig },
     observation,
+    persistenceAvailable,
     response: raw,
     inferredSchema,
     currentSchema: current,
@@ -501,4 +651,20 @@ function typeLabel(value: unknown) {
 function unionTypes(a: string, b: string) {
   const parts = new Set([...a.split(" | "), ...b.split(" | ")]);
   return Array.from(parts).sort().join(" | ");
+}
+
+function getDefaultEndpointSpecRows(): EndpointSpecRow[] {
+  const now = new Date();
+  return DEFAULT_ENDPOINTS
+    .map((spec) => ({
+      key: spec.key,
+      label: spec.label,
+      method: spec.method,
+      pathTemplate: spec.pathTemplate,
+      config: spec,
+      notes: spec.notes ?? null,
+      createdAt: now,
+      updatedAt: now,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
