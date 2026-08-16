@@ -9,8 +9,7 @@ Move ImmoWeb Suite from Vercel to Cloudflare in practical stages:
 1. Cloudflare Workers/OpenNext runtime and Cloudflare Cron Triggers.
 2. Use the free Cloudflare `workers.dev` hostname as the production URL.
 3. D1 and R2 adoption where they make the app simpler to own.
-4. Vercel removal.
-5. Neon removal after data migration is complete.
+4. Neon removal after data migration is complete.
 
 Temporary broken login or data access is acceptable during migration windows because this is currently a single-user hobby project. Prefer fast, understandable checkpoints over elaborate zero-downtime compatibility layers.
 
@@ -25,7 +24,7 @@ Phase 1 is runtime migration only.
 | ORM | Drizzle remains active |
 | Auth | better-auth remains active against Neon |
 | Cron | Cloudflare Cron Triggers call existing `app/api/cron/*` route handlers |
-| Vercel | Still present during cutover window |
+| Vercel | Removed from repo config; project can be turned off in Vercel |
 | D1 | Not created yet |
 | R2 | Not created yet |
 
@@ -56,7 +55,6 @@ Record every Cloudflare resource here as it is created.
 | `wrangler.jsonc` | Worker name, runtime flags, assets binding, observability, cron schedules |
 | `worker.ts` | Custom Worker entry with `fetch` and `scheduled` handlers |
 | `package.json` | Cloudflare scripts and dependencies |
-| `vercel.json` | Transitional Vercel cron config; remove after Vercel shutdown |
 
 ## Runtime Flow
 
@@ -157,10 +155,9 @@ Latest smoke test against `https://immo-web-suite.void-presence.workers.dev`:
 2. Set all required secrets.
 3. Update `BETTER_AUTH_URL` to the `workers.dev` production URL.
 4. Smoke test login and dashboard.
-5. Disable Vercel crons to avoid duplicate sync jobs.
+5. Turn off or delete the Vercel project to stop old Vercel cron executions.
 6. Update external bookmarks/links to the `workers.dev` URL.
 7. Watch Worker logs and Neon connection behavior.
-8. Remove `vercel.json` and Vercel project only after Cloudflare is stable.
 
 ## What Codex Needs To Create Cloudflare Resources
 
@@ -181,7 +178,7 @@ Codex also needs these project decisions/values:
 | Production hostname | Currently `https://immo-web-suite.void-presence.workers.dev` |
 | Whether to add a custom domain later | Optional cleanup only |
 | Secret values | Runtime DB/auth/cron/email behavior |
-| Vercel shutdown timing | Avoid duplicate cron runs |
+| Vercel shutdown timing | Turn off/delete the Vercel project after Cloudflare smoke checks pass |
 
 ## Later D1/R2 Planning Notes
 
