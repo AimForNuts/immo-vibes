@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { asc, eq, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
-import { items, marketPriceHistory, syncState } from "@/lib/db/schema";
+import { items, marketPriceHistory } from "@/lib/db/schema";
+import { upsertSyncStateJob } from "@/lib/services/sync-state.service";
 
 export const maxDuration = 300;
 
@@ -140,13 +141,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Record completion in sync_state for observability
-  await db
-    .insert(syncState)
-    .values({ job: "prices", status: "done", startedAt: now, completedAt: new Date() })
-    .onConflictDoUpdate({
-      target: syncState.job,
-      set: { status: "done", startedAt: now, completedAt: new Date() },
-    });
+  await upsertSyncStateJob({ job: "prices", status: "done", startedAt: now, completedAt: new Date() });
 
   return NextResponse.json({ synced, skipped, total: rows.length });
 }

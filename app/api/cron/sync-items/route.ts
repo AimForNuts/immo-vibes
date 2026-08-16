@@ -2,8 +2,9 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { items, syncState } from "@/lib/db/schema";
+import { items } from "@/lib/db/schema";
 import { searchItemsByType, IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
+import { upsertSyncStateJob } from "@/lib/services/sync-state.service";
 
 export const maxDuration = 300;
 
@@ -33,13 +34,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Mark running
-  await db
-    .insert(syncState)
-    .values({ job: "items", status: "running", startedAt: new Date(), completedAt: null })
-    .onConflictDoUpdate({
-      target: syncState.job,
-      set: { status: "running", startedAt: new Date(), completedAt: null },
-    });
+  const startedAt = new Date();
+  await upsertSyncStateJob({ job: "items", status: "running", startedAt, completedAt: null });
 
   const now = new Date();
   let totalSynced = 0;
@@ -81,13 +77,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Mark done
-  await db
-    .insert(syncState)
-    .values({ job: "items", status: "done", completedAt: new Date() })
-    .onConflictDoUpdate({
-      target: syncState.job,
-      set: { status: "done", completedAt: new Date() },
-    });
+  await upsertSyncStateJob({ job: "items", status: "done", startedAt, completedAt: new Date() });
 
   return NextResponse.json({ synced: totalSynced, types: IDLEMMO_ITEM_TYPES.length });
 }

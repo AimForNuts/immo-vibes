@@ -12,7 +12,7 @@ Built with Next.js 16, better-auth, Drizzle ORM, and shadcn/ui. Supports multipl
 |---|---|
 | Framework | Next.js 16 App Router |
 | Auth | better-auth (username plugin) |
-| Database | Neon PostgreSQL + Drizzle ORM |
+| Database | Neon PostgreSQL + Drizzle ORM; Cloudflare D1 for migrated edge-native tables |
 | Runtime | Cloudflare Workers/OpenNext |
 | UI | shadcn/ui (base-ui variant) + Tailwind CSS |
 | i18n | next-intl (`localePrefix: "never"`) |
@@ -152,6 +152,12 @@ Start with these docs when planning or iterating:
 ---
 
 ## Recent Changes
+
+### 2026-08-16 - Cloudflare D1 sync state
+
+- **Database**: Added Cloudflare D1 database `immo-web-suite-sync` for cron `sync_state`.
+- **Cron**: Routed automated cron state reads/writes through a D1-backed service with Neon fallback for local development.
+- **Docs**: Updated the Cloudflare runbook and database reference for the first D1 table.
 
 ### 2026-08-16 - Cloudflare runtime migration scaffold
 

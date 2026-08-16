@@ -2,7 +2,8 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { items, syncState } from "@/lib/db/schema";
+import { items } from "@/lib/db/schema";
+import { getSyncStateJob, upsertSyncStateJob } from "@/lib/services/sync-state.service";
 
 export const maxDuration = 300;
 
@@ -39,12 +40,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Gate: items must have completed today
-  const itemsStateRows = await db
-    .select({ status: syncState.status, completedAt: syncState.completedAt })
-    .from(syncState)
-    .where(eq(syncState.job, "items"))
-    .limit(1);
-  const itemsState = itemsStateRows[0];
+  const itemsState = await getSyncStateJob("items");
 
   if (!itemsState || itemsState.status !== "done" || !isToday(itemsState.completedAt)) {
     return NextResponse.json({ skipped: true, reason: "items sync not completed today" });
@@ -59,13 +55,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Mark running
-  await db
-    .insert(syncState)
-    .values({ job: "recipes", status: "running", startedAt: new Date(), completedAt: null })
-    .onConflictDoUpdate({
-      target: syncState.job,
-      set: { status: "running", startedAt: new Date(), completedAt: null },
-    });
+  const startedAt = new Date();
+  await upsertSyncStateJob({ job: "recipes", status: "running", startedAt, completedAt: null });
 
   const nullCondition = and(eq(items.type, "RECIPE"), isNull(items.recipeResultHashedId));
   const reqHeaders = {
@@ -140,13 +131,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Mark done
-  await db
-    .insert(syncState)
-    .values({ job: "recipes", status: "done", completedAt: new Date() })
-    .onConflictDoUpdate({
-      target: syncState.job,
-      set: { status: "done", completedAt: new Date() },
-    });
+  await upsertSyncStateJob({ job: "recipes", status: "done", startedAt, completedAt: new Date() });
 
   return NextResponse.json({ populated, noData, errors });
 }
