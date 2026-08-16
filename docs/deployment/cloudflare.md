@@ -130,6 +130,25 @@ Or use the package script:
 npm run deploy
 ```
 
+## GitHub Actions CD
+
+`.github/workflows/ci.yml` deploys to Cloudflare Workers on pushes to `master` after type check, build, and database migrations pass. Pull requests run CI and smoke tests but do not deploy production.
+
+Required GitHub Actions repository secrets:
+
+| Secret | Purpose |
+|---|---|
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account that owns Worker `immo-web-suite` |
+| `CLOUDFLARE_API_TOKEN` | Wrangler deploy authentication |
+| `DATABASE_URL` | Build-time and migration database access |
+| `BETTER_AUTH_SECRET` | Build/runtime auth config |
+| `BETTER_AUTH_URL` | Build-time auth URL fallback |
+| `NEXT_PUBLIC_APP_URL` | Build-time client auth URL fallback |
+| `E2E_EMAIL` | Playwright smoke login |
+| `E2E_PASSWORD` | Playwright smoke login |
+
+The deploy job pins the production URL to `https://immo-web-suite.void-presence.workers.dev` for `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL`.
+
 After deploy, verify:
 
 1. Public Worker URL loads.
