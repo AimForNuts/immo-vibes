@@ -1,7 +1,9 @@
 # Database Schema Reference
 
-Postgres via Neon, managed by Drizzle ORM. Schema source: `lib/db/schema.ts`.
+Postgres via Neon remains the primary application database, managed by Drizzle ORM. Schema source: `lib/db/schema.ts`.
 Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrate`.
+
+Cloudflare D1 is being introduced incrementally for small Cloudflare-native data. D1 migrations live in `d1/migrations/` and are applied with Wrangler.
 
 ---
 
@@ -26,7 +28,7 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | User settings / dashboard layout | `user_preferences` | `user_id`, `dashboard_layout` |
 | User's tracked price alerts | `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
-| Cron sync progress | `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
+| Cron sync progress | D1 `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
 | Recent sync failures / partial progress | `sync_job_logs` | `job`, `status`, `created_at`, `details` |
 | IdleMMO API typed response docs | `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations` | `key`, `active_schema`, `inferred_schema`, `new_fields` |
 | Saved gear loadouts | `gear_presets` | `user_id`, `slots` (JSONB map of slot → `{hashedId, tier}`) |
@@ -125,9 +127,9 @@ Per-user list of items the user is watching. Display only — does not drive any
 
 ---
 
-### `sync_state`
+### D1 `sync_state`
 
-Tracks progress of automated cron jobs so each 10-minute Vercel invocation can resume where the last one left off.
+Tracks progress of automated cron jobs and gates downstream syncs. This table now lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/sync-state.service.ts`.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -137,6 +139,10 @@ Tracks progress of automated cron jobs so each 10-minute Vercel invocation can r
 | `current_page` | integer | Pagination within the active type — prices only |
 | `started_at` | timestamp | When the current run started |
 | `completed_at` | timestamp | When the current run finished (null while running) |
+
+**D1 migration**: `d1/migrations/0001_sync_state.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `sync_state` table when D1 is unavailable in Node-based local development.
 
 ---
 
@@ -447,4 +453,4 @@ zones.*  (populated separately — not part of the item sync pipeline)
 - **sync-inspect**: inspect API — stats, tiers, recipe, effects. Must run after sync-items. Does **not** write `where_to_find` — location data now lives in `zones`.
 - **sync-prices**: market-history API — last sold price per tier. Must run after sync-items.
 
-Cron order is enforced via `sync_state`: each job checks the upstream job's status before starting.
+Cron order is enforced via D1 `sync_state`: each job checks the upstream job's status before starting.

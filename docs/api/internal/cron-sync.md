@@ -1,12 +1,13 @@
 # Cron Sync Routes
 
-Server-only routes called by Vercel Cron. They are not called from the UI.
+Server-only routes called by Cloudflare Cron Triggers. They are not called from the UI.
 
 Sources:
 - `app/api/cron/sync-items/route.ts`
 - `app/api/cron/sync-recipes/route.ts`
 - `app/api/cron/sync-prices/route.ts`
-- `vercel.json`
+- `wrangler.jsonc`
+- `lib/services/sync-state.service.ts`
 
 All cron sync routes require:
 
@@ -30,7 +31,9 @@ The active schedule is:
 | `POST /api/cron/sync-recipes` | Monday 02:00 UTC | Populate missing recipe result links for recipe items, gated on item sync. |
 | `POST /api/cron/sync-prices` | Daily 04:00 UTC | Refresh market prices for the next batch of items ordered by oldest check time. |
 
-The retired `POST /api/cron/sync-market` route was removed because it duplicated `sync-items`, was not scheduled in `vercel.json`, did not update `sync_state`, and its name implied price syncing even though it only refreshed catalog data.
+The retired `POST /api/cron/sync-market` route was removed because it duplicated `sync-items`, was not scheduled, did not update `sync_state`, and its name implied price syncing even though it only refreshed catalog data.
+
+`sync_state` is stored in Cloudflare D1 via `lib/services/sync-state.service.ts`. The service falls back to Neon when the D1 binding is unavailable in local Node-based development.
 
 ---
 
@@ -73,7 +76,7 @@ Populates missing `items.recipe_result_hashed_id` values for `RECIPE` rows.
 
 ### Gate
 
-Requires `sync_state.job = "items"` to have `status = "done"` and `completed_at` equal to the current UTC date. If the gate fails, the route does not call IdleMMO.
+Requires D1 `sync_state.job = "items"` to have `status = "done"` and `completed_at` equal to the current UTC date. If the gate fails, the route does not call IdleMMO.
 
 ### Data Source
 
