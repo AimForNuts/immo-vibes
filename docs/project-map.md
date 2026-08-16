@@ -36,6 +36,7 @@ Runtime deployment is migrating from Vercel to Cloudflare Workers/OpenNext in st
 | Cloudflare Worker entry | `worker.ts` |
 | Transitional Vercel cron config | `vercel.json` |
 | E2E smoke config | `playwright.config.ts` |
+| Cloudflare runbook | `docs/deployment/cloudflare.md` |
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`. `vercel.json` remains temporarily during the migration and should be removed after Vercel is fully decommissioned.
 
