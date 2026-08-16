@@ -134,6 +134,8 @@ npm run deploy
 
 `.github/workflows/ci.yml` deploys to Cloudflare Workers on pushes to `master` after type check, build, and database migrations pass. Pull requests run CI and smoke tests but do not deploy production.
 
+The workflow uses Node.js 22 because current Wrangler releases require Node.js 22 or newer.
+
 Required GitHub Actions repository secrets:
 
 | Secret | Purpose |
