@@ -13,6 +13,7 @@ Built with Next.js 16, better-auth, Drizzle ORM, and shadcn/ui. Supports multipl
 | Framework | Next.js 16 App Router |
 | Auth | better-auth (username plugin) |
 | Database | Neon PostgreSQL + Drizzle ORM |
+| Runtime | Cloudflare Workers/OpenNext |
 | UI | shadcn/ui (base-ui variant) + Tailwind CSS |
 | i18n | next-intl (`localePrefix: "never"`) |
 | Validation | Lightweight route-boundary helpers |
@@ -56,6 +57,53 @@ Open [http://localhost:3000](http://localhost:3000).
 ### 5. Connect your IdleMMO account
 
 After registering, go to **Settings** and enter your IdleMMO API token and primary character ID. These are used to fetch live character data.
+
+---
+
+## Cloudflare Migration
+
+The app is migrating to Cloudflare in stages. The first stage moves the Next.js runtime and cron scheduling to Cloudflare Workers/OpenNext while leaving Neon PostgreSQL untouched. Later stages can move relational data to D1 and object/source storage to R2.
+
+Current production URL:
+
+```text
+https://immo-web-suite.void-presence.workers.dev
+```
+
+The full Cloudflare resource log and operations runbook lives at `docs/deployment/cloudflare.md`.
+
+### Local Cloudflare Preview
+
+```bash
+npm run preview
+```
+
+This builds the app with OpenNext and serves it through Wrangler's Workers runtime.
+
+### Deploy To Cloudflare
+
+```bash
+npm run deploy
+```
+
+Required Cloudflare secrets:
+
+```
+DATABASE_URL
+BETTER_AUTH_SECRET
+BETTER_AUTH_URL
+CRON_SECRET
+RESEND_API_KEY
+PASSWORD_RESET_EMAIL_FROM
+```
+
+Set secrets with Wrangler, for example:
+
+```bash
+npx wrangler secret put DATABASE_URL
+```
+
+`wrangler.jsonc` owns Cloudflare Cron Triggers.
 
 ---
 
@@ -104,6 +152,12 @@ Start with these docs when planning or iterating:
 ---
 
 ## Recent Changes
+
+### 2026-08-16 - Cloudflare runtime migration scaffold
+
+- **Deployment**: Added OpenNext/Cloudflare Workers config, Wrangler scripts, and a custom Worker entry for Cloudflare Cron Triggers.
+- **Runtime**: Bumped Next.js to `16.2.11` to satisfy the current OpenNext Cloudflare adapter peer range.
+- **Migration**: Documented the staged path: Cloudflare runtime first, Neon retained for now, D1/R2 later.
 
 ### 2026-08-16 - API inspector
 
