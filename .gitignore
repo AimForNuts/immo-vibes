@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.open-next/
 /out/
 
 # production
@@ -47,6 +48,7 @@ local.db
 .vercel
 
 # local / generated files
+.wrangler/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 immo_web_suite_logo.png

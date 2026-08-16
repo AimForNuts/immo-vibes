@@ -25,6 +25,20 @@ Dedicated project specs and improvement backlog for planning future work.
 
 **Use when**: planning feature iterations, onboarding to the product surface, choosing next improvements, or checking which docs need to be expanded.
 
+### Deployment & Cron
+Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active database during the first Cloudflare runtime phase; D1 and R2 are future migration targets.
+
+| Layer | Files |
+|---|---|
+| Next config | `next.config.ts` |
+| Cloudflare adapter config | `open-next.config.ts` |
+| Cloudflare Worker config | `wrangler.jsonc` |
+| Cloudflare Worker entry | `worker.ts` |
+| E2E smoke config | `playwright.config.ts` |
+| Cloudflare runbook | `docs/deployment/cloudflare.md` |
+
+**Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
+
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
 
@@ -392,20 +406,20 @@ Email/password auth via better-auth.
 | `sync-recipes` | Monday 02:00 UTC | items done today |
 | `sync-prices` | Daily 04:00 UTC | — (processes 80 items/day, cycles all items over time) |
 
-**Hobby plan limit**: 1 execution per day per cron — `*/N` expressions are rejected at deploy time.
+**Current runtime target**: Cloudflare Cron Triggers via `wrangler.jsonc`.
 
 ---
 
 ## E2E Smoke Tests
 
-Playwright tests that verify key pages load without a 500 error against the production deployment at `https://immowebsuite.vercel.app`.
+Playwright tests that verify key pages load without a 500 error against the production deployment. CI should set `BASE_URL` to `https://immo-web-suite.void-presence.workers.dev`.
 
 | File | Purpose |
 |---|---|
 | `playwright.config.ts` | Playwright configuration — base URL, projects, storageState path |
 | `e2e/auth.setup.ts` | One-time login fixture — saves session to `playwright/.auth/user.json` |
 | `e2e/smoke.spec.ts` | Smoke tests: unauthenticated redirect check + authenticated page load checks |
-| `.github/workflows/e2e.yml` | CI workflow — runs on push to master and on PRs |
+| `.github/workflows/ci.yml` | CI/CD workflow — runs type check, build, migrations, deploys `master` to Cloudflare Workers, and smoke-tests Cloudflare production |
 
 **Secrets required** (already in GitHub repo): `E2E_EMAIL`, `E2E_PASSWORD`
 
