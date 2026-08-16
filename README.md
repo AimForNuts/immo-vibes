@@ -64,6 +64,8 @@ After registering, go to **Settings** and enter your IdleMMO API token and prima
 
 The app is migrating to Cloudflare in stages. The first stage moves the Next.js runtime and cron scheduling to Cloudflare Workers/OpenNext while leaving Neon PostgreSQL untouched. Later stages can move relational data to D1 and object/source storage to R2.
 
+The full Cloudflare resource log and operations runbook lives at `docs/deployment/cloudflare.md`.
+
 ### Local Cloudflare Preview
 
 ```bash
