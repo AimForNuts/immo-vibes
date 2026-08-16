@@ -6,6 +6,12 @@ import { db } from "@/lib/db";
 import { priceTracker } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import {
+  invalidRequest,
+  parsePositiveIntegerField,
+  parseStringField,
+  readJsonObject,
+} from "@/lib/validation/api";
 
 /**
  * GET /api/investments
@@ -35,11 +41,33 @@ export async function POST(request: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json();
-  const { itemHashedId, itemName, itemQuality, itemType, imageUrl, tier } = body;
+  const body = await readJsonObject(request);
+  if (!body.ok) return invalidRequest(body.message);
 
-  if (!itemHashedId || !itemName || !itemQuality || !itemType) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  const itemHashedId = parseStringField(body.data, "itemHashedId", { required: true });
+  if (!itemHashedId.ok) return invalidRequest(itemHashedId.message);
+
+  const itemName = parseStringField(body.data, "itemName", { required: true });
+  if (!itemName.ok) return invalidRequest(itemName.message);
+
+  const itemQuality = parseStringField(body.data, "itemQuality", { required: true });
+  if (!itemQuality.ok) return invalidRequest(itemQuality.message);
+
+  const itemType = parseStringField(body.data, "itemType", { required: true });
+  if (!itemType.ok) return invalidRequest(itemType.message);
+
+  const imageUrl = parseStringField(body.data, "imageUrl");
+  if (!imageUrl.ok) return invalidRequest(imageUrl.message);
+
+  const tier = parsePositiveIntegerField(body.data, "tier");
+  if (!tier.ok) return invalidRequest(tier.message);
+  if (
+    itemHashedId.data === undefined ||
+    itemName.data === undefined ||
+    itemQuality.data === undefined ||
+    itemType.data === undefined
+  ) {
+    return invalidRequest("Missing required fields");
   }
 
   const [item] = await db
@@ -47,12 +75,12 @@ export async function POST(request: NextRequest) {
     .values({
       id: randomUUID(),
       userId: session.user.id,
-      itemHashedId,
-      itemName,
-      itemQuality,
-      itemType,
-      imageUrl: imageUrl ?? null,
-      tier: tier ?? 1,
+      itemHashedId: itemHashedId.data,
+      itemName: itemName.data,
+      itemQuality: itemQuality.data,
+      itemType: itemType.data,
+      imageUrl: imageUrl.data ?? null,
+      tier: tier.data ?? 1,
       createdAt: new Date(),
     })
     .returning();

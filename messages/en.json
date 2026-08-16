@@ -86,8 +86,27 @@
     "saveFailed": "Failed to save. Please try again."
   },
   "forgotPassword": {
-    "title": "Password recovery is coming soon",
-    "description": "This screen now opens on its own page while account recovery is being finished.",
+    "title": "Reset your password",
+    "description": "Enter your username and we will send a reset link for the account.",
+    "username": "Username",
+    "usernameRequired": "Enter your username.",
+    "submit": "Send reset link",
+    "sending": "Sending…",
+    "sent": "If that account exists, a reset link has been sent.",
+    "requestFailed": "Failed to request a reset link. Please try again.",
+    "backToLogin": "Back to sign in"
+  },
+  "resetPassword": {
+    "title": "Choose a new password",
+    "description": "Use the reset link from your recovery email to set a new password.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "submit": "Save new password",
+    "saving": "Saving…",
+    "invalidToken": "This reset link is invalid or expired.",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "resetFailed": "Failed to reset password. Please try again.",
     "backToLogin": "Back to sign in"
   },
   "overview": {

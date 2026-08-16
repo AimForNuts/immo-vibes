@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { items } from "@/lib/db/schema";
 import { searchItemsByTypePage, IDLEMMO_ITEM_TYPES, RateLimitError } from "@/lib/idlemmo";
+import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 
 export const maxDuration = 60;
 
@@ -33,14 +34,36 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  await recordSyncLog({
+    job: "items",
+    status: "started",
+    message: `Started item catalog sync for ${type} page ${page}`,
+    details: { type, page },
+    userId: session.user.id,
+  });
+
   let fetched: Awaited<ReturnType<typeof searchItemsByTypePage>>;
   try {
     fetched = await searchItemsByTypePage(type, page, token);
   } catch (e) {
     if (e instanceof RateLimitError) {
+      await recordSyncLog({
+        job: "items",
+        status: "skipped",
+        message: `Item catalog sync hit rate limit for ${type} page ${page}`,
+        details: { type, page, retryAfterMs: e.retryAfterMs },
+        userId: session.user.id,
+      });
       return NextResponse.json({ retryAfterMs: e.retryAfterMs }, { status: 429 });
     }
     const msg = e instanceof Error ? e.message : String(e);
+    await recordSyncLog({
+      job: "items",
+      status: "failed",
+      message: `Item catalog sync failed for ${type} page ${page}: ${msg}`,
+      details: { type, page, error: msg },
+      userId: session.user.id,
+    });
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 
@@ -73,12 +96,22 @@ export async function POST(request: NextRequest) {
       });
   }
 
-  return NextResponse.json({
+  const response = {
     type,
     synced:     fetched.items.length,
     page:       fetched.pagination.current_page,
     totalPages: fetched.pagination.last_page,
     remaining:  fetched.rl.remaining,
     resetAt:    fetched.rl.resetAt,
+  };
+
+  await recordSyncLog({
+    job: "items",
+    status: "success",
+    message: `Synced ${response.synced} ${type} items on page ${response.page}/${response.totalPages}`,
+    details: response,
+    userId: session.user.id,
   });
+
+  return NextResponse.json(response);
 }

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, jsonb, integer, uniqueIndex, serial, numeric, primaryKey, index } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 // ─── Shared types for JSONB columns ───────────────────────────────────────────
@@ -273,6 +273,90 @@ export const syncState = pgTable("sync_state", {
   /** When the current run completed (UTC). Null while running. */
   completedAt:      timestamp("completed_at"),
 });
+
+export type SyncJobLogDetails = Record<string, unknown>;
+
+export const syncJobLogs = pgTable(
+  "sync_job_logs",
+  {
+    id:        text("id").primaryKey(),
+    job:       text("job").notNull(),
+    status:    text("status").notNull(),
+    message:   text("message").notNull(),
+    details:   jsonb("details").$type<SyncJobLogDetails>(),
+    userId:    text("user_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  },
+  (t) => [
+    index("sync_job_logs_created_at_idx").on(t.createdAt),
+    index("sync_job_logs_job_created_at_idx").on(t.job, t.createdAt),
+  ]
+);
+
+export type ApiInspectorParam = {
+  name: string;
+  source: "path" | "query";
+  type: "string" | "number" | "boolean";
+  required: boolean;
+  testValues: Array<string | number | boolean>;
+  defaultTestValue?: string | number | boolean;
+  notes?: string;
+};
+
+export type ApiInspectorSpecConfig = {
+  key: string;
+  label: string;
+  method: "GET";
+  pathTemplate: string;
+  params: ApiInspectorParam[];
+  notes?: string;
+};
+
+export type ApiInspectorSchema = Record<string, unknown> | string | number | boolean | null | unknown[];
+
+export const apiEndpointSpecs = pgTable("api_endpoint_specs", {
+  key:          text("key").primaryKey(),
+  label:        text("label").notNull(),
+  method:       text("method").notNull().default("GET"),
+  pathTemplate: text("path_template").notNull(),
+  config:       jsonb("config").$type<ApiInspectorSpecConfig>().notNull(),
+  notes:        text("notes"),
+  createdAt:    timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt:    timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const apiResponseSchemas = pgTable("api_response_schemas", {
+  endpointKey:      text("endpoint_key").primaryKey().references(() => apiEndpointSpecs.key, { onDelete: "cascade" }),
+  inferredSchema:   jsonb("inferred_schema").$type<ApiInspectorSchema>(),
+  manualSchema:     jsonb("manual_schema").$type<ApiInspectorSchema>(),
+  activeSchema:     jsonb("active_schema").$type<ApiInspectorSchema>(),
+  deprecatedFields: jsonb("deprecated_fields").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  version:          integer("version").notNull().default(1),
+  lastSeenAt:       timestamp("last_seen_at"),
+  updatedByUserId:  text("updated_by_user_id").references(() => user.id, { onDelete: "set null" }),
+  updatedAt:        timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const apiSchemaObservations = pgTable(
+  "api_schema_observations",
+  {
+    id:             text("id").primaryKey(),
+    endpointKey:    text("endpoint_key").notNull().references(() => apiEndpointSpecs.key, { onDelete: "cascade" }),
+    params:         jsonb("params").$type<Record<string, string | number | boolean>>().notNull(),
+    statusCode:     integer("status_code").notNull(),
+    durationMs:     integer("duration_ms").notNull(),
+    inferredSchema: jsonb("inferred_schema").$type<ApiInspectorSchema>().notNull(),
+    newFields:      jsonb("new_fields").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    missingFields:  jsonb("missing_fields").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    typeConflicts:  jsonb("type_conflicts").$type<Array<{ path: string; previous: string; next: string }>>().notNull().default(sql`'[]'::jsonb`),
+    createdByUserId:text("created_by_user_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt:      timestamp("created_at").notNull().default(sql`now()`),
+  },
+  (t) => [
+    index("api_schema_observations_endpoint_created_idx").on(t.endpointKey, t.createdAt),
+    index("api_schema_observations_created_idx").on(t.createdAt),
+  ]
+);
 
 /**
  * Cached character roster per user — populated on first overview load and

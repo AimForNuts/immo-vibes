@@ -4,6 +4,12 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { characterPets } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import {
+  invalidRequest,
+  parseNonNegativeIntegerField,
+  parseNonNegativeNumberField,
+  readJsonObject,
+} from "@/lib/validation/api";
 
 export async function GET(
   _req: Request,
@@ -68,28 +74,44 @@ export async function PATCH(
     );
   }
 
-  const body = await req.json() as {
-    attackPower?: number | null;
-    protection?: number | null;
-    agility?: number | null;
-    accuracy?: number | null;
-    maxStamina?: number | null;
-    movementSpeed?: number | null;
-    criticalChance?: number | null;
-    criticalDamage?: number | null;
-  };
+  const body = await readJsonObject(req);
+  if (!body.ok) return invalidRequest(body.message);
+
+  const attackPower = parseNonNegativeIntegerField(body.data, "attackPower", { nullable: true });
+  if (!attackPower.ok) return invalidRequest(attackPower.message);
+
+  const protection = parseNonNegativeIntegerField(body.data, "protection", { nullable: true });
+  if (!protection.ok) return invalidRequest(protection.message);
+
+  const agility = parseNonNegativeIntegerField(body.data, "agility", { nullable: true });
+  if (!agility.ok) return invalidRequest(agility.message);
+
+  const accuracy = parseNonNegativeIntegerField(body.data, "accuracy", { nullable: true });
+  if (!accuracy.ok) return invalidRequest(accuracy.message);
+
+  const maxStamina = parseNonNegativeIntegerField(body.data, "maxStamina", { nullable: true });
+  if (!maxStamina.ok) return invalidRequest(maxStamina.message);
+
+  const movementSpeed = parseNonNegativeNumberField(body.data, "movementSpeed", { nullable: true });
+  if (!movementSpeed.ok) return invalidRequest(movementSpeed.message);
+
+  const criticalChance = parseNonNegativeIntegerField(body.data, "criticalChance", { nullable: true });
+  if (!criticalChance.ok) return invalidRequest(criticalChance.message);
+
+  const criticalDamage = parseNonNegativeIntegerField(body.data, "criticalDamage", { nullable: true });
+  if (!criticalDamage.ok) return invalidRequest(criticalDamage.message);
 
   await db
     .update(characterPets)
     .set({
-      ...(body.attackPower    !== undefined && body.attackPower    !== null && { attackPower:    body.attackPower    }),
-      ...(body.protection     !== undefined && body.protection     !== null && { protection:     body.protection     }),
-      ...(body.agility        !== undefined && body.agility        !== null && { agility:        body.agility        }),
-      ...(body.accuracy       !== undefined && { accuracy:       body.accuracy       }),
-      ...(body.maxStamina     !== undefined && { maxStamina:     body.maxStamina     }),
-      ...(body.movementSpeed  !== undefined && { movementSpeed:  body.movementSpeed !== null ? String(body.movementSpeed) : null }),
-      ...(body.criticalChance !== undefined && { criticalChance: body.criticalChance }),
-      ...(body.criticalDamage !== undefined && { criticalDamage: body.criticalDamage }),
+      ...(attackPower.data    !== undefined && attackPower.data    !== null && { attackPower:    attackPower.data    }),
+      ...(protection.data     !== undefined && protection.data     !== null && { protection:     protection.data     }),
+      ...(agility.data        !== undefined && agility.data        !== null && { agility:        agility.data        }),
+      ...(accuracy.data       !== undefined && { accuracy:       accuracy.data       }),
+      ...(maxStamina.data     !== undefined && { maxStamina:     maxStamina.data     }),
+      ...(movementSpeed.data  !== undefined && { movementSpeed:  movementSpeed.data !== null ? String(movementSpeed.data) : null }),
+      ...(criticalChance.data !== undefined && { criticalChance: criticalChance.data }),
+      ...(criticalDamage.data !== undefined && { criticalDamage: criticalDamage.data }),
     })
     .where(
       and(

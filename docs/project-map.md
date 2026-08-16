@@ -70,6 +70,7 @@ Admin-only UI in the market detail panel to associate ORE, LOG, and FISH items w
 
 **DB tables**: `zones` (read), `item_zones` (read/write)
 **Requires**: `session.user.role === "admin"`
+**Docs**: `docs/api/internal/item-zones.md`
 
 ---
 
@@ -148,7 +149,7 @@ User-tracked items with price history charts.
 
 **DB tables**: `priceTracker` (read/write), `marketPriceHistory` (read for chart data)
 **External API**: none
-**Docs**: `docs/database.md`
+**Docs**: `docs/database.md`, `docs/api/internal/investments.md`
 
 ---
 
@@ -284,6 +285,8 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `components/admin/SyncLog.tsx` — live sync log |
 | Root (redirect) | `app/(dashboard)/dashboard/admin/page.tsx` → redirects to economy/items |
 | Items page | `app/(dashboard)/dashboard/admin/economy/items/page.tsx` |
+| Sync status page | `app/(dashboard)/dashboard/admin/sync/page.tsx` |
+| API inspector page | `app/(dashboard)/dashboard/admin/api-inspector/page.tsx` |
 | Dungeons page | `app/(dashboard)/dashboard/admin/world/dungeons/page.tsx` |
 | Zones page | `app/(dashboard)/dashboard/admin/world/zones/page.tsx` |
 | World Bosses (placeholder) | `app/(dashboard)/dashboard/admin/world/world-bosses/page.tsx` |
@@ -294,7 +297,11 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `app/api/admin/sync-recipes/route.ts` |
 | | `app/api/admin/sync-inspect/route.ts` |
 | | `app/api/admin/sync-dungeons/route.ts` |
+| API — sync logs | `app/api/admin/sync-logs/route.ts` (`GET` — recent manual sync job events) |
 | | `app/api/admin/market-type-check/route.ts` |
+| API inspector routes | `app/api/admin/api-inspector/route.ts` |
+| | `app/api/admin/api-inspector/run/route.ts` |
+| | `app/api/admin/api-inspector/schema/route.ts` |
 | API — items | `app/api/admin/items/route.ts` (`GET` — paginated, filterable by name/type/quality) |
 | API — dungeons | `app/api/admin/dungeons/route.ts` (`GET` — paginated, filterable by name/minLevel) |
 | API — zones | `app/api/admin/zones/route.ts` (`GET`, `POST`) |
@@ -306,11 +313,12 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `lib/services/admin/dungeons.service.ts` → `getAdminDungeons()` |
 | | `lib/services/admin/zones.service.ts` → `getAdminZones()`, `getZoneDetail()`, CRUD, associations |
 | | `lib/services/admin/users.service.ts` → `getAdminUsers()`, `updateUserEmail()`, `deleteUser()`, `dissociateCharacter()` |
-
-**DB tables**: `items`, `market_price_history`, `sync_state`, `dungeons`, `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, `characters`
+| | `lib/services/admin/sync-logs.service.ts` → `recordSyncLog()`, `getRecentSyncLogs()` |
+| | `lib/services/admin/api-inspector.service.ts` -> endpoint specs, typed schema inference, schema diffs, observations |
+**DB tables**: `items`, `market_price_history`, `sync_state`, `sync_job_logs`, `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations`, `dungeons`, `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, `characters`
 **External API**: All IdleMMO sync endpoints
 **Requires**: `session.user.role === "admin"`
-**Docs**: `docs/api/internal/admin-items.md`, `docs/api/internal/admin-users.md`, `docs/api/internal/admin-zones.md`, `docs/api/internal/cron-sync.md`
+**Docs**: `docs/api/internal/admin-items.md`, `docs/api/internal/admin-users.md`, `docs/api/internal/admin-zones.md`, `docs/api/internal/cron-sync.md`, `docs/api/internal/sync-logs.md`, `docs/api/internal/api-inspector.md`
 
 ---
 
@@ -324,9 +332,12 @@ Email/password auth via better-auth.
 | API handler | `app/api/auth/[...all]/route.ts` |
 | Login UI | `app/(auth)/login/page.tsx`, `components/login-form.tsx` |
 | Register UI | `app/(auth)/register/page.tsx`, `components/register-form.tsx` |
-| Password recovery placeholder | `app/forgot-password/page.tsx` |
+| Password recovery request | `app/forgot-password/page.tsx`, `components/forgot-password-form.tsx` |
+| Password reset | `app/reset-password/page.tsx`, `components/reset-password-form.tsx` |
+| Password reset email delivery | `lib/services/password-reset-email.ts` |
 
 **DB tables**: `user`, `session`, `account`, `verification`
+**External services**: Resend API when `RESEND_API_KEY` and `PASSWORD_RESET_EMAIL_FROM` are configured; development logs reset links when email is not configured.
 **Docs**: better-auth — use context7 before modifying
 
 ---
@@ -358,6 +369,10 @@ Email/password auth via better-auth.
 | `gearPresets` | gear actions | gear page, dungeons page |
 | `userPreferences` | preferences action | dashboard, settings |
 | `syncState` | all cron jobs | cron jobs (gating), admin panel |
+| `sync_job_logs` | admin sync routes | admin sync status page |
+| `api_endpoint_specs` | API inspector defaults/admin edits | API inspector |
+| `api_response_schemas` | API inspector schema saves | API inspector, future API docs work |
+| `api_schema_observations` | API inspector endpoint runs | API inspector |
 | `characters` | character-cache service | dashboard, characters list |
 | `character_pets` | sync-pet API route (user action) | character detail page |
 | `dungeons` | admin sync-dungeons route | dungeons page |

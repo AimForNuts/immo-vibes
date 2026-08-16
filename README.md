@@ -15,7 +15,7 @@ Built with Next.js 16, better-auth, Drizzle ORM, and shadcn/ui. Supports multipl
 | Database | Neon PostgreSQL + Drizzle ORM |
 | UI | shadcn/ui (base-ui variant) + Tailwind CSS |
 | i18n | next-intl (`localePrefix: "never"`) |
-| Validation | Zod |
+| Validation | Lightweight route-boundary helpers |
 
 ---
 
@@ -35,6 +35,8 @@ Copy `.env.example` to `.env.local` and fill in:
 DATABASE_URL=         # Neon PostgreSQL connection string
 BETTER_AUTH_SECRET=   # Random secret for better-auth
 BETTER_AUTH_URL=      # Base URL (e.g. http://localhost:3000)
+RESEND_API_KEY=       # Optional; sends password recovery emails in production
+PASSWORD_RESET_EMAIL_FROM= # Optional; from address for password recovery emails
 ```
 
 ### 3. Push the database schema
@@ -102,6 +104,22 @@ Start with these docs when planning or iterating:
 ---
 
 ## Recent Changes
+
+### 2026-08-16 - API inspector
+
+- **Admin**: Added an API Inspector for running curated IdleMMO endpoints with editable test values and copyable latest raw responses.
+- **Docs**: Added persisted typed response schemas, schema observations, merge/override actions, and explicit deprecated-field handling.
+- **Admin**: Expanded the inspector catalog to all currently known IdleMMO endpoints and added a built-in fallback list for deploy windows before persistence is available.
+
+### 2026-08-15 - Sync observability
+
+- **Admin**: Added a Sync Status page for recent manual sync job progress, failures, skipped batches, and per-job filtering.
+- **Database**: Added the append-only `sync_job_logs` table for structured sync lifecycle events.
+
+### 2026-08-15 - Password recovery
+
+- **Auth**: Replaced the password recovery placeholder with a better-auth reset flow.
+- **Auth**: Added `/reset-password` for reset links and Resend-backed reset email delivery, with reset links logged during local development when email is not configured.
 
 ### 2026-08-14 - Iteration documentation hub
 

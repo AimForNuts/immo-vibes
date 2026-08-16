@@ -27,6 +27,8 @@ Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrat
 | User's tracked price alerts | `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
 | Cron sync progress | `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
+| Recent sync failures / partial progress | `sync_job_logs` | `job`, `status`, `created_at`, `details` |
+| IdleMMO API typed response docs | `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations` | `key`, `active_schema`, `inferred_schema`, `new_fields` |
 | Saved gear loadouts | `gear_presets` | `user_id`, `slots` (JSONB map of slot → `{hashedId, tier}`) |
 | Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
 | Saved main-pet stats for a character | `character_pets` | `user_id`, `character_hashed_id`, `attack_power`, `protection`, `agility`, `accuracy`, `max_stamina`, `movement_speed`, `critical_chance`, `critical_damage`, `synced_at` |
@@ -135,6 +137,87 @@ Tracks progress of automated cron jobs so each 10-minute Vercel invocation can r
 | `current_page` | integer | Pagination within the active type — prices only |
 | `started_at` | timestamp | When the current run started |
 | `completed_at` | timestamp | When the current run finished (null while running) |
+
+---
+
+### `sync_job_logs`
+
+Append-only event log for manual admin sync route observability.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | text PK | - | UUID |
+| `job` | text | - | Sync job key, e.g. `items`, `inspect`, `prices`, `recipes`, `dungeons` |
+| `status` | text | - | `started`, `progress`, `success`, `failed`, or `skipped` |
+| `message` | text | - | Human-readable status summary |
+| `details` | jsonb | yes | Counts, paging info, error messages, or route-specific context |
+| `user_id` | text FK | yes | Admin user who started the manual sync; set null if the user is deleted |
+| `created_at` | timestamp | - | Event creation time |
+
+**Indexes**:
+- `sync_job_logs_created_at_idx` on `created_at`
+- `sync_job_logs_job_created_at_idx` on `(job, created_at)`
+
+**Service**: `lib/services/admin/sync-logs.service.ts`
+**API route**: `GET /api/admin/sync-logs`
+
+---
+
+### `api_endpoint_specs`
+
+Editable admin catalog of curated IdleMMO API endpoints that the API Inspector can call.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `key` | text PK | - | Stable endpoint key, e.g. `guild.hall` |
+| `label` | text | - | Display label |
+| `method` | text | - | Currently `GET` |
+| `path_template` | text | - | IdleMMO path with path params, e.g. `/v1/guild/{id}/hall` |
+| `config` | jsonb | - | Params, editable test values, default test values, notes |
+| `notes` | text | yes | Optional admin notes |
+| `created_at` | timestamp | - | Created time |
+| `updated_at` | timestamp | - | Last edited time |
+
+### `api_response_schemas`
+
+One active typed response schema per API Inspector endpoint.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `endpoint_key` | text PK FK | - | References `api_endpoint_specs.key` |
+| `inferred_schema` | jsonb | yes | Most recently saved inferred schema |
+| `manual_schema` | jsonb | yes | Admin override schema |
+| `active_schema` | jsonb | yes | Current schema used for comparison |
+| `deprecated_fields` | jsonb | - | Explicitly marked deprecated field paths |
+| `version` | integer | - | Increments on save/merge/override/deprecate |
+| `last_seen_at` | timestamp | yes | Last schema update from inspector activity |
+| `updated_by_user_id` | text FK | yes | Admin who last changed it |
+| `updated_at` | timestamp | - | Last updated time |
+
+### `api_schema_observations`
+
+Derived metadata for each inspector run. Raw responses are not stored; the UI only exposes the latest raw response from the current run.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | text PK | - | UUID |
+| `endpoint_key` | text FK | - | References `api_endpoint_specs.key` |
+| `params` | jsonb | - | Params used for this observation |
+| `status_code` | integer | - | IdleMMO HTTP status |
+| `duration_ms` | integer | - | Request duration |
+| `inferred_schema` | jsonb | - | Typed schema inferred from this response |
+| `new_fields` | jsonb | - | Field paths present in this run but absent from active schema |
+| `missing_fields` | jsonb | - | Field paths absent in this run but present in active schema |
+| `type_conflicts` | jsonb | - | Field paths with conflicting types |
+| `created_by_user_id` | text FK | yes | Admin who ran the observation |
+| `created_at` | timestamp | - | Observation time |
+
+**Indexes**:
+- `api_schema_observations_endpoint_created_idx` on `(endpoint_key, created_at)`
+- `api_schema_observations_created_idx` on `created_at`
+
+**Service**: `lib/services/admin/api-inspector.service.ts`
+**API routes**: `GET /api/admin/api-inspector`, `POST /api/admin/api-inspector/run`, `PATCH /api/admin/api-inspector/schema`
 
 ---
 
