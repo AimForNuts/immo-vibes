@@ -20,7 +20,7 @@ Phase 1 is runtime migration only.
 
 | Area | Current state |
 |---|---|
-| Hosting/runtime | Cloudflare Workers via OpenNext |
+| Hosting/runtime | Cloudflare Workers via OpenNext at `https://immo-web-suite.void-presence.workers.dev` |
 | Database | Neon PostgreSQL remains active |
 | ORM | Drizzle remains active |
 | Auth | better-auth remains active against Neon |
@@ -29,17 +29,21 @@ Phase 1 is runtime migration only.
 | D1 | Not created yet |
 | R2 | Not created yet |
 
+Cloudflare account: `Jogada`
+
 ## Created Cloudflare Resources
 
 Record every Cloudflare resource here as it is created.
 
 | Resource | Name | Purpose | Source of truth | Status |
 |---|---|---|---|---|
-| Worker | `immo-web-suite` | Next.js application runtime | `wrangler.jsonc`, `worker.ts` | Planned |
-| Worker Assets binding | `ASSETS` | Static assets emitted by OpenNext | `wrangler.jsonc` | Planned |
-| Cron Trigger | `0 0 * * 1` | Weekly item catalog sync | `wrangler.jsonc`, `worker.ts` | Planned |
-| Cron Trigger | `0 2 * * 1` | Weekly recipe sync | `wrangler.jsonc`, `worker.ts` | Planned |
-| Cron Trigger | `0 4 * * *` | Daily price sync | `wrangler.jsonc`, `worker.ts` | Planned |
+| Worker | `immo-web-suite` | Next.js application runtime | `wrangler.jsonc`, `worker.ts` | Created |
+| Worker URL | `https://immo-web-suite.void-presence.workers.dev` | Temporary Cloudflare smoke-test hostname | Cloudflare Workers | Created |
+| Worker version | `3cc048bc-038c-4126-b485-b63dff5f8235` | Current deployed version after auth URL update | Wrangler deploy output | Created |
+| Worker Assets binding | `ASSETS` | Static assets emitted by OpenNext | `wrangler.jsonc` | Created |
+| Cron Trigger | `0 0 * * 1` | Weekly item catalog sync | `wrangler.jsonc`, `worker.ts` | Created |
+| Cron Trigger | `0 2 * * 1` | Weekly recipe sync | `wrangler.jsonc`, `worker.ts` | Created |
+| Cron Trigger | `0 4 * * *` | Daily price sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Custom domain | TBD | Production app hostname | Cloudflare dashboard / Wrangler | Not started |
 | D1 database | TBD | Future relational data store | Future migration doc | Not started |
 | R2 bucket | TBD | Future object/source storage | Future migration doc | Not started |
@@ -86,6 +90,13 @@ Set these as Cloudflare Worker secrets. Do not put real values in `wrangler.json
 | `RESEND_API_KEY` | No | Password reset email delivery |
 | `PASSWORD_RESET_EMAIL_FROM` | No | Password reset sender address |
 
+Currently set on Worker `immo-web-suite`:
+
+- `DATABASE_URL`
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
+- `CRON_SECRET`
+
 Set a secret:
 
 ```bash
@@ -130,6 +141,15 @@ After deploy, verify:
 5. `/api/cron/sync-prices` rejects unauthenticated manual requests with `401`.
 6. Cloudflare dashboard shows the three cron triggers.
 7. Worker logs show no immediate boot-time errors.
+
+Latest smoke test against `https://immo-web-suite.void-presence.workers.dev`:
+
+| Check | Result |
+|---|---|
+| `GET /` | `200` |
+| `GET /login` | `200` |
+| `GET /dashboard` without session | `307` to `/login?from=%2Fdashboard` |
+| `POST /api/cron/sync-prices` without auth | `401` |
 
 ## Cutover Checklist
 
