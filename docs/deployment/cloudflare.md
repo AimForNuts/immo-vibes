@@ -7,7 +7,7 @@ This document is the source of truth for Cloudflare resources created for ImmoWe
 Move ImmoWeb Suite from Vercel to Cloudflare in practical stages:
 
 1. Cloudflare Workers/OpenNext runtime and Cloudflare Cron Triggers.
-2. Custom domain and DNS cutover from Vercel to Cloudflare.
+2. Use the free Cloudflare `workers.dev` hostname as the production URL.
 3. D1 and R2 adoption where they make the app simpler to own.
 4. Vercel removal.
 5. Neon removal after data migration is complete.
@@ -38,13 +38,13 @@ Record every Cloudflare resource here as it is created.
 | Resource | Name | Purpose | Source of truth | Status |
 |---|---|---|---|---|
 | Worker | `immo-web-suite` | Next.js application runtime | `wrangler.jsonc`, `worker.ts` | Created |
-| Worker URL | `https://immo-web-suite.void-presence.workers.dev` | Temporary Cloudflare smoke-test hostname | Cloudflare Workers | Created |
-| Worker version | `3cc048bc-038c-4126-b485-b63dff5f8235` | Current deployed version after auth URL update | Wrangler deploy output | Created |
+| Worker URL | `https://immo-web-suite.void-presence.workers.dev` | Current production hostname on Cloudflare's free `workers.dev` domain | Cloudflare Workers | Created |
+| Worker version | `d127bfa5-cb43-4304-a9b7-0aed08164fa6` | Current deployed version with explicit `workers.dev` production config | Wrangler deploy output | Created |
 | Worker Assets binding | `ASSETS` | Static assets emitted by OpenNext | `wrangler.jsonc` | Created |
 | Cron Trigger | `0 0 * * 1` | Weekly item catalog sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Cron Trigger | `0 2 * * 1` | Weekly recipe sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Cron Trigger | `0 4 * * *` | Daily price sync | `wrangler.jsonc`, `worker.ts` | Created |
-| Custom domain | TBD | Production app hostname | Cloudflare dashboard / Wrangler | Not started |
+| Custom domain | TBD | Optional future nicer hostname | Cloudflare dashboard / Wrangler | Deferred |
 | D1 database | TBD | Future relational data store | Future migration doc | Not started |
 | R2 bucket | TBD | Future object/source storage | Future migration doc | Not started |
 
@@ -155,14 +155,12 @@ Latest smoke test against `https://immo-web-suite.void-presence.workers.dev`:
 
 1. Deploy Worker to the generated `workers.dev` URL.
 2. Set all required secrets.
-3. Update `BETTER_AUTH_URL` to the Cloudflare URL for testing.
+3. Update `BETTER_AUTH_URL` to the `workers.dev` production URL.
 4. Smoke test login and dashboard.
-5. Add the production custom domain in Cloudflare.
-6. Update `BETTER_AUTH_URL` to the production domain.
-7. Disable Vercel crons to avoid duplicate sync jobs.
-8. Point DNS/custom domain traffic at Cloudflare.
-9. Watch Worker logs and Neon connection behavior.
-10. Remove `vercel.json` and Vercel project only after Cloudflare is stable.
+5. Disable Vercel crons to avoid duplicate sync jobs.
+6. Update external bookmarks/links to the `workers.dev` URL.
+7. Watch Worker logs and Neon connection behavior.
+8. Remove `vercel.json` and Vercel project only after Cloudflare is stable.
 
 ## What Codex Needs To Create Cloudflare Resources
 
@@ -180,8 +178,8 @@ Codex also needs these project decisions/values:
 |---|---|
 | Cloudflare account to deploy into | Worker creation |
 | Worker name | Defaults to `immo-web-suite` from `wrangler.jsonc` |
-| Production hostname | Custom domain setup |
-| Whether to use `workers.dev` before domain cutover | First live smoke test |
+| Production hostname | Currently `https://immo-web-suite.void-presence.workers.dev` |
+| Whether to add a custom domain later | Optional cleanup only |
 | Secret values | Runtime DB/auth/cron/email behavior |
 | Vercel shutdown timing | Avoid duplicate cron runs |
 
