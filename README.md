@@ -13,7 +13,7 @@ Built with Next.js 16, better-auth, Drizzle ORM, and shadcn/ui. Supports multipl
 | Framework | Next.js 16 App Router |
 | Auth | better-auth (username plugin) |
 | Database | Neon PostgreSQL + Drizzle ORM |
-| Runtime | Cloudflare Workers/OpenNext, migrating away from Vercel |
+| Runtime | Cloudflare Workers/OpenNext |
 | UI | shadcn/ui (base-ui variant) + Tailwind CSS |
 | i18n | next-intl (`localePrefix: "never"`) |
 | Validation | Lightweight route-boundary helpers |
@@ -103,7 +103,7 @@ Set secrets with Wrangler, for example:
 npx wrangler secret put DATABASE_URL
 ```
 
-`wrangler.jsonc` owns Cloudflare Cron Triggers. `vercel.json` is intentionally still present during the cutover window and should be removed once Vercel is fully decommissioned.
+`wrangler.jsonc` owns Cloudflare Cron Triggers.
 
 ---
 
