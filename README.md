@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-17 - Cloudflare D1 character pets
+
+- **Database**: Added Cloudflare D1 `character_pets` for saved character pet stats.
+- **Characters**: Routed pet sync and manual pet stat reads/writes through a D1-backed service with Neon fallback for local development.
+
 ### 2026-08-17 - Cloudflare D1 gear presets
 
 - **Database**: Added Cloudflare D1 `gear_presets` for saved gear loadouts.

@@ -1,9 +1,10 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { characterPets } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import {
+  getStoredCharacterPet,
+  updateStoredCharacterPetStats,
+} from "@/lib/services/character-pets.service";
 import {
   invalidRequest,
   parseNonNegativeIntegerField,
@@ -19,31 +20,20 @@ export async function GET(
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rows = await db
-    .select()
-    .from(characterPets)
-    .where(
-      and(
-        eq(characterPets.userId, session.user.id),
-        eq(characterPets.characterHashedId, characterHashedId)
-      )
-    )
-    .limit(1);
+  const pet = await getStoredCharacterPet({ userId: session.user.id, characterHashedId });
+  if (!pet) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const r = rows[0];
   return NextResponse.json({
-    attackPower:    r.attackPower,
-    protection:     r.protection,
-    agility:        r.agility,
-    accuracy:       r.accuracy,
-    maxStamina:     r.maxStamina,
-    movementSpeed:  r.movementSpeed !== null ? Number(r.movementSpeed) : null,
-    criticalChance: r.criticalChance,
-    criticalDamage: r.criticalDamage,
-    imageUrl:       r.imageUrl,
-    quality:        r.quality,
+    attackPower: pet.attackPower,
+    protection: pet.protection,
+    agility: pet.agility,
+    accuracy: pet.accuracy,
+    maxStamina: pet.maxStamina,
+    movementSpeed: pet.movementSpeed !== null ? Number(pet.movementSpeed) : null,
+    criticalChance: pet.criticalChance,
+    criticalDamage: pet.criticalDamage,
+    imageUrl: pet.imageUrl,
+    quality: pet.quality,
   });
 }
 
@@ -55,19 +45,8 @@ export async function PATCH(
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Row must exist (user must sync first)
-  const existing = await db
-    .select({ id: characterPets.id })
-    .from(characterPets)
-    .where(
-      and(
-        eq(characterPets.userId, session.user.id),
-        eq(characterPets.characterHashedId, characterHashedId)
-      )
-    )
-    .limit(1);
-
-  if (!existing[0]) {
+  const existing = await getStoredCharacterPet({ userId: session.user.id, characterHashedId });
+  if (!existing) {
     return NextResponse.json(
       { error: "No pet synced for this character. Use Sync Current Pet first." },
       { status: 404 }
@@ -101,24 +80,18 @@ export async function PATCH(
   const criticalDamage = parseNonNegativeIntegerField(body.data, "criticalDamage", { nullable: true });
   if (!criticalDamage.ok) return invalidRequest(criticalDamage.message);
 
-  await db
-    .update(characterPets)
-    .set({
-      ...(attackPower.data    !== undefined && attackPower.data    !== null && { attackPower:    attackPower.data    }),
-      ...(protection.data     !== undefined && protection.data     !== null && { protection:     protection.data     }),
-      ...(agility.data        !== undefined && agility.data        !== null && { agility:        agility.data        }),
-      ...(accuracy.data       !== undefined && { accuracy:       accuracy.data       }),
-      ...(maxStamina.data     !== undefined && { maxStamina:     maxStamina.data     }),
-      ...(movementSpeed.data  !== undefined && { movementSpeed:  movementSpeed.data !== null ? String(movementSpeed.data) : null }),
-      ...(criticalChance.data !== undefined && { criticalChance: criticalChance.data }),
-      ...(criticalDamage.data !== undefined && { criticalDamage: criticalDamage.data }),
-    })
-    .where(
-      and(
-        eq(characterPets.userId, session.user.id),
-        eq(characterPets.characterHashedId, characterHashedId)
-      )
-    );
+  await updateStoredCharacterPetStats({
+    userId: session.user.id,
+    characterHashedId,
+    attackPower: attackPower.data,
+    protection: protection.data,
+    agility: agility.data,
+    accuracy: accuracy.data,
+    maxStamina: maxStamina.data,
+    movementSpeed: movementSpeed.data,
+    criticalChance: criticalChance.data,
+    criticalDamage: criticalDamage.data,
+  });
 
   return NextResponse.json({ ok: true });
 }
