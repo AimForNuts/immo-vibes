@@ -18,11 +18,44 @@
  */
 
 import { eq, asc } from "drizzle-orm";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { db } from "@/lib/db";
 import { characters } from "@/lib/db/schema";
 import { getCharacterInfo, getAltCharacters, getCharacterEffects } from "@/lib/idlemmo";
 
 export const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+type D1Value = string | number | boolean | null;
+
+type D1PreparedStatement = {
+  bind(...values: D1Value[]): D1PreparedStatement;
+  all<T = unknown>(): Promise<{ results: T[] }>;
+  run(): Promise<unknown>;
+};
+
+type D1DatabaseBinding = {
+  prepare(query: string): D1PreparedStatement;
+  batch(statements: D1PreparedStatement[]): Promise<unknown[]>;
+};
+
+type CharactersCloudflareEnv = {
+  IMMO_SYNC_DB?: D1DatabaseBinding;
+};
+
+type CharacterD1Row = {
+  user_id: string;
+  hashed_id: string;
+  idlemmo_id: number;
+  name: string;
+  class: string;
+  image_url: string | null;
+  total_level: number;
+  location_name: string | null;
+  current_status: string | null;
+  is_primary: number;
+  is_member: number | null;
+  cached_at: string;
+};
 
 export interface CachedCharacter {
   hashedId:      string;
@@ -39,11 +72,93 @@ export interface CachedCharacter {
   cachedAt:      Date;
 }
 
+type CharacterCacheWrite = CachedCharacter & {
+  userId: string;
+};
+
+function getCharactersD1(): D1DatabaseBinding | null {
+  try {
+    return (getCloudflareContext().env as CharactersCloudflareEnv).IMMO_SYNC_DB ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function mapD1Row(row: CharacterD1Row): CachedCharacter {
+  return {
+    hashedId: row.hashed_id,
+    idlemmoId: row.idlemmo_id,
+    name: row.name,
+    class: row.class,
+    imageUrl: row.image_url,
+    totalLevel: row.total_level,
+    locationName: row.location_name,
+    currentStatus: row.current_status,
+    isPrimary: Boolean(row.is_primary),
+    isMember: row.is_member === null ? null : Boolean(row.is_member),
+    cachedAt: new Date(row.cached_at),
+  };
+}
+
+async function replaceCharacterCache(userId: string, rows: CharacterCacheWrite[]) {
+  const d1 = getCharactersD1();
+
+  if (d1) {
+    await d1.batch([
+      d1.prepare("DELETE FROM characters WHERE user_id = ?").bind(userId),
+      ...rows.map((row) =>
+        d1
+          .prepare(
+            `INSERT INTO characters (
+               user_id, hashed_id, idlemmo_id, name, class, image_url, total_level,
+               location_name, current_status, is_primary, is_member, cached_at
+             )
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          )
+          .bind(
+            row.userId,
+            row.hashedId,
+            row.idlemmoId,
+            row.name,
+            row.class,
+            row.imageUrl,
+            row.totalLevel,
+            row.locationName,
+            row.currentStatus,
+            row.isPrimary ? 1 : 0,
+            row.isMember === null ? null : row.isMember ? 1 : 0,
+            row.cachedAt.toISOString()
+          )
+      ),
+    ]);
+    return;
+  }
+
+  await db.delete(characters).where(eq(characters.userId, userId));
+  await db.insert(characters).values(rows);
+}
+
 /**
  * Reads the character roster from the DB only — no API calls, always instant.
  * Returns an empty array if no cache exists yet.
  */
 export async function getDbCharacters(userId: string): Promise<CachedCharacter[]> {
+  const d1 = getCharactersD1();
+  if (d1) {
+    const { results } = await d1
+      .prepare(
+        `SELECT user_id, hashed_id, idlemmo_id, name, class, image_url, total_level,
+                location_name, current_status, is_primary, is_member, cached_at
+         FROM characters
+         WHERE user_id = ?
+         ORDER BY idlemmo_id ASC`
+      )
+      .bind(userId)
+      .all<CharacterD1Row>();
+
+    return results.map(mapD1Row);
+  }
+
   return db
     .select()
     .from(characters)
@@ -106,8 +221,7 @@ export async function refreshCharacters(
       })),
     ];
 
-    await db.delete(characters).where(eq(characters.userId, userId));
-    await db.insert(characters).values(allChars);
+    await replaceCharacterCache(userId, allChars);
 
     return allChars.slice().sort((a, b) => a.idlemmoId - b.idlemmoId);
   } catch {
