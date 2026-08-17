@@ -39,7 +39,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active dat
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, and `gear_presets` through `lib/services/gear-presets.service.ts`. Neon remains the source for primary app data.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, and `character_pets` through `lib/services/character-pets.service.ts`. Neon remains the source for primary app data.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -258,8 +258,9 @@ Character roster and detail pages.
 | API — detail | `app/api/idlemmo/character/[id]/route.ts` |
 | API — sync pet | `app/api/characters/[id]/sync-pet/route.ts` |
 | API — pet stats (GET/PATCH) | `app/api/characters/[id]/pet-stats/route.ts` |
+| Service | `lib/services/character-pets.service.ts` |
 
-**DB tables**: `character_pets` (read/write via sync-pet and pet-stats routes)
+**DB tables**: D1 `character_pets` (read/write via sync-pet and pet-stats routes)
 **External API**: `getCharacterInfo()`, `getAltCharacters()`, `getCharacterPets()`
 **Docs**: `docs/game-mechanics/classes.md`, `docs/game-mechanics/pets.md`, `docs/database.md`, `docs/api/internal/pet-stats.md`
 
@@ -394,7 +395,7 @@ Email/password auth via better-auth.
 | `api_response_schemas` | API inspector schema saves | API inspector, future API docs work |
 | `api_schema_observations` | API inspector endpoint runs | API inspector |
 | `characters` | character-cache service | dashboard, characters list |
-| `character_pets` | sync-pet API route (user action) | character detail page |
+| D1 `character_pets` | sync-pet API route (user action) | character detail page |
 | `dungeons` | admin sync-dungeons route | dungeons page |
 | `enemies` | future sync (placeholder) | admin enemies picker |
 | `world_bosses` | future sync (placeholder) | admin world-bosses picker |
