@@ -29,7 +29,7 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | User's tracked price alerts | `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
 | Cron sync progress | D1 `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
-| Recent sync failures / partial progress | `sync_job_logs` | `job`, `status`, `created_at`, `details` |
+| Recent sync failures / partial progress | D1 `sync_job_logs` | `job`, `status`, `created_at`, `details` |
 | IdleMMO API typed response docs | `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations` | `key`, `active_schema`, `inferred_schema`, `new_fields` |
 | Saved gear loadouts | `gear_presets` | `user_id`, `slots` (JSONB map of slot → `{hashedId, tier}`) |
 | Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
@@ -146,9 +146,9 @@ Tracks progress of automated cron jobs and gates downstream syncs. This table no
 
 ---
 
-### `sync_job_logs`
+### D1 `sync_job_logs`
 
-Append-only event log for manual admin sync route observability.
+Append-only event log for manual admin sync route observability. This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/admin/sync-logs.service.ts`.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
@@ -156,8 +156,8 @@ Append-only event log for manual admin sync route observability.
 | `job` | text | - | Sync job key, e.g. `items`, `inspect`, `prices`, `recipes`, `dungeons` |
 | `status` | text | - | `started`, `progress`, `success`, `failed`, or `skipped` |
 | `message` | text | - | Human-readable status summary |
-| `details` | jsonb | yes | Counts, paging info, error messages, or route-specific context |
-| `user_id` | text FK | yes | Admin user who started the manual sync; set null if the user is deleted |
+| `details` | text JSON | yes | Counts, paging info, error messages, or route-specific context |
+| `user_id` | text | yes | Admin user who started the manual sync. No D1 foreign key while auth remains in Neon |
 | `created_at` | timestamp | - | Event creation time |
 
 **Indexes**:
@@ -166,6 +166,9 @@ Append-only event log for manual admin sync route observability.
 
 **Service**: `lib/services/admin/sync-logs.service.ts`
 **API route**: `GET /api/admin/sync-logs`
+**D1 migration**: `d1/migrations/0002_sync_job_logs.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `sync_job_logs` table when D1 is unavailable in Node-based local development.
 
 ---
 
