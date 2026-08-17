@@ -39,7 +39,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active dat
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts` and `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`. Neon remains the source for primary app data.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, and `user_preferences` through `lib/services/user-preferences.service.ts`. Neon remains the source for primary app data.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -271,9 +271,10 @@ Customisable 3×2 shortcut grid with character overview.
 | Page | `app/(dashboard)/dashboard/page.tsx` |
 | Component | `components/dashboard-grid.tsx` |
 | Server action | `app/actions/preferences.ts` → `saveDashboardLayout()` |
+| Preferences service | `lib/services/user-preferences.service.ts` → `getUserPreferences()`, `saveUserDashboardLayout()` |
 | Cache service | `lib/services/character-cache.ts` → `getCachedCharacters()` |
 
-**DB tables**: `userPreferences` (read/write `dashboardLayout`), `characters` (read/write roster cache)
+**DB tables**: D1 `userPreferences` (read/write `dashboardLayout`), `characters` (read/write roster cache)
 **External API**: `getCharacterInfo()`, `getAltCharacters()` — called only when cache is stale (> 5 min)
 
 ---
@@ -285,9 +286,10 @@ Account settings and IdleMMO API key configuration.
 |---|---|
 | Page | `app/(dashboard)/dashboard/settings/page.tsx` |
 | Components | `components/settings-account-form.tsx` |
-| Server actions | `app/actions/account.ts` |
+| Server actions | `app/actions/account.ts`, `app/actions/locale.ts` |
+| Preferences service | `lib/services/user-preferences.service.ts` → `saveUserLanguage()` |
 
-**DB tables**: `user` (read/write `idlemmoToken`, `idlemmoCharacterId`, `name`)
+**DB tables**: `user` (read/write `idlemmoToken`, `idlemmoCharacterId`, `name`), D1 `userPreferences` (write `language`)
 
 ---
 
@@ -383,7 +385,7 @@ Email/password auth via better-auth.
 | `market_price_history` | sync-prices (cron + admin) | investments history, market price route |
 | `priceTracker` | investments API (user action) | investments page |
 | `gearPresets` | gear actions | gear page, dungeons page |
-| `userPreferences` | preferences action | dashboard, settings |
+| D1 `userPreferences` | preferences and locale actions | dashboard, settings |
 | `syncState` | all cron jobs | cron jobs (gating), admin panel |
 | D1 `sync_job_logs` | admin sync routes | admin sync status page |
 | `api_endpoint_specs` | API inspector defaults/admin edits | API inspector |
