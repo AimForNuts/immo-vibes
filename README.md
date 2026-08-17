@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-17 - Cloudflare D1 character cache
+
+- **Database**: Added Cloudflare D1 `characters` for the cached character roster.
+- **Dashboard/Characters**: Routed cached roster reads and refresh writes through the D1-backed character cache service with Neon fallback for local development.
+
 ### 2026-08-17 - Cloudflare D1 character pets
 
 - **Database**: Added Cloudflare D1 `character_pets` for saved character pet stats.
