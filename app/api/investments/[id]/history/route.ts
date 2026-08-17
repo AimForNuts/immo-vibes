@@ -2,9 +2,7 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { priceTracker } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { getTrackedPriceItem } from "@/lib/services/price-tracker.service";
 
 const BASE = "https://api.idle-mmo.com";
 
@@ -28,10 +26,7 @@ export async function GET(
 
   const { id } = await params;
 
-  const [tracked] = await db
-    .select()
-    .from(priceTracker)
-    .where(and(eq(priceTracker.id, id), eq(priceTracker.userId, session.user.id)));
+  const tracked = await getTrackedPriceItem({ id, userId: session.user.id });
 
   if (!tracked) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

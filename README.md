@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-17 - Cloudflare D1 price tracker
+
+- **Database**: Added Cloudflare D1 `price_tracker` for user-tracked investment items.
+- **Investments**: Routed tracked item list/add/delete and history lookup ownership checks through a D1-backed service with Neon fallback for local development.
+
 ### 2026-08-17 - Cloudflare D1 user preferences
 
 - **Database**: Added Cloudflare D1 `user_preferences` for dashboard layout and language preferences.

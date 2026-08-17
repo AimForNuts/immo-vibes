@@ -2,10 +2,10 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { priceTracker } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { randomUUID } from "crypto";
+import {
+  createTrackedPriceItem,
+  getTrackedPriceItems,
+} from "@/lib/services/price-tracker.service";
 import {
   invalidRequest,
   parsePositiveIntegerField,
@@ -23,10 +23,7 @@ export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const items = await db
-    .select()
-    .from(priceTracker)
-    .where(eq(priceTracker.userId, session.user.id));
+  const items = await getTrackedPriceItems(session.user.id);
 
   return NextResponse.json({ items });
 }
@@ -70,20 +67,15 @@ export async function POST(request: NextRequest) {
     return invalidRequest("Missing required fields");
   }
 
-  const [item] = await db
-    .insert(priceTracker)
-    .values({
-      id: randomUUID(),
-      userId: session.user.id,
-      itemHashedId: itemHashedId.data,
-      itemName: itemName.data,
-      itemQuality: itemQuality.data,
-      itemType: itemType.data,
-      imageUrl: imageUrl.data ?? null,
-      tier: tier.data ?? 1,
-      createdAt: new Date(),
-    })
-    .returning();
+  const item = await createTrackedPriceItem({
+    userId: session.user.id,
+    itemHashedId: itemHashedId.data,
+    itemName: itemName.data,
+    itemQuality: itemQuality.data,
+    itemType: itemType.data,
+    imageUrl: imageUrl.data ?? null,
+    tier: tier.data ?? 1,
+  });
 
   return NextResponse.json({ item });
 }
