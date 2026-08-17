@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-17 - Cloudflare D1 migrations in CI
+
+- **CI/CD**: GitHub Actions now applies Cloudflare D1 migrations before deploying `master` to Cloudflare Workers.
+- **Docs**: Documented the D1 migration workflow in the Cloudflare runbook.
+
 ### 2026-08-16 - Cloudflare D1 sync state
 
 - **Database**: Added Cloudflare D1 database `immo-web-suite-sync` for cron `sync_state`.

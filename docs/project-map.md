@@ -421,7 +421,7 @@ Playwright tests that verify key pages load without a 500 error against the prod
 | `playwright.config.ts` | Playwright configuration — base URL, projects, storageState path |
 | `e2e/auth.setup.ts` | One-time login fixture — saves session to `playwright/.auth/user.json` |
 | `e2e/smoke.spec.ts` | Smoke tests: unauthenticated redirect check + authenticated page load checks |
-| `.github/workflows/ci.yml` | CI/CD workflow — runs type check, build, migrations, deploys `master` to Cloudflare Workers, and smoke-tests Cloudflare production |
+| `.github/workflows/ci.yml` | CI/CD workflow — runs type check, build, Neon and D1 migrations, deploys `master` to Cloudflare Workers, and smoke-tests Cloudflare production |
 
 **Secrets required** (already in GitHub repo): `E2E_EMAIL`, `E2E_PASSWORD`
 
