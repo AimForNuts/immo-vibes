@@ -1,13 +1,16 @@
 "use server";
 
 import { headers } from "next/headers";
-import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { gearPresets } from "@/lib/db/schema";
+import {
+  createGearPreset,
+  deleteGearPreset,
+  updateGearPreset,
+  type GearPresetSlotMap,
+} from "@/lib/services/gear-presets.service";
 
-export type SlotMap = Record<string, { hashedId: string; tier: number }>;
+export type SlotMap = GearPresetSlotMap;
 
 export interface SavedPreset {
   id: string;
@@ -26,28 +29,22 @@ export async function savePreset(data: {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Unauthorized");
 
-  const id = crypto.randomUUID();
-  const now = new Date();
-
-  await db.insert(gearPresets).values({
-    id,
+  const preset = await createGearPreset({
     userId: session.user.id,
     name: data.name,
     weaponStyle: data.weaponStyle,
     slots: data.slots,
-    characterId: data.characterId ?? null,
-    createdAt: now,
-    updatedAt: now,
+    characterId: data.characterId,
   });
 
   revalidatePath("/dashboard/gear");
 
   return {
-    id,
-    name: data.name,
-    weaponStyle: data.weaponStyle,
-    slots: data.slots,
-    characterId: data.characterId,
+    id: preset.id,
+    name: preset.name,
+    weaponStyle: preset.weaponStyle,
+    slots: preset.slots,
+    characterId: preset.characterId ?? undefined,
   };
 }
 
@@ -58,15 +55,13 @@ export async function updatePreset(
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Unauthorized");
 
-  await db
-    .update(gearPresets)
-    .set({
-      weaponStyle: data.weaponStyle,
-      slots: data.slots,
-      characterId: data.characterId ?? null,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(gearPresets.id, id), eq(gearPresets.userId, session.user.id)));
+  await updateGearPreset({
+    id,
+    userId: session.user.id,
+    weaponStyle: data.weaponStyle,
+    slots: data.slots,
+    characterId: data.characterId,
+  });
 
   revalidatePath("/dashboard/gear");
 }
@@ -75,9 +70,7 @@ export async function deletePreset(id: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) throw new Error("Unauthorized");
 
-  await db
-    .delete(gearPresets)
-    .where(and(eq(gearPresets.id, id), eq(gearPresets.userId, session.user.id)));
+  await deleteGearPreset({ id, userId: session.user.id });
 
   revalidatePath("/dashboard/gear");
 }
