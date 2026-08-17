@@ -1,30 +1,23 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { gearPresets, items } from "@/lib/db/schema";
+import { items } from "@/lib/db/schema";
 import { getCharacterInfo, getAltCharacters } from "@/lib/idlemmo";
+import { getGearPresets } from "@/lib/services/gear-presets.service";
 import { GearCalculator } from "./GearCalculator";
 
 export default async function GearPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
-  const presets = await db
-    .select()
-    .from(gearPresets)
-    .where(eq(gearPresets.userId, session.user.id))
-    .orderBy(gearPresets.createdAt);
+  const presets = await getGearPresets(session.user.id);
 
   // Collect all unique item hashedIds referenced in presets
   const allHashedIds = Array.from(
     new Set(
-      presets.flatMap((p) =>
-        Object.values(p.slots as Record<string, { hashedId: string; tier: number }>).map(
-          (s) => s.hashedId
-        )
-      )
+      presets.flatMap((p) => Object.values(p.slots).map((s) => s.hashedId))
     )
   );
 
@@ -73,7 +66,7 @@ export default async function GearPage() {
         id: p.id,
         name: p.name,
         weaponStyle: p.weaponStyle,
-        slots: p.slots as Record<string, { hashedId: string; tier: number }>,
+        slots: p.slots,
         characterId: p.characterId ?? undefined,
       }))}
       itemsMap={itemsMap}
