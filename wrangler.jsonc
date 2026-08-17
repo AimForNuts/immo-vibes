@@ -10,6 +10,14 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "d1_databases": [
+    {
+      "binding": "IMMO_SYNC_DB",
+      "database_name": "immo-web-suite-sync",
+      "database_id": "112c46c3-0718-4e3f-8a51-d11529b1ba4f",
+      "migrations_dir": "d1/migrations"
+    }
+  ],
   "observability": {
     "enabled": true
   },
