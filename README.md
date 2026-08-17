@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-17 - Cloudflare D1 sync logs
+
+- **Database**: Added Cloudflare D1 `sync_job_logs` for admin sync observability.
+- **Admin**: Routed manual sync log reads/writes through a D1-backed service with Neon fallback for local development.
+
 ### 2026-08-17 - Cloudflare D1 migrations in CI
 
 - **CI/CD**: GitHub Actions now applies Cloudflare D1 migrations before deploying `master` to Cloudflare Workers.

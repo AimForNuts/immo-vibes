@@ -39,7 +39,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active dat
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`. Neon remains the source for primary app data.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts` and `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`. Neon remains the source for primary app data.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -331,7 +331,7 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `lib/services/admin/users.service.ts` → `getAdminUsers()`, `updateUserEmail()`, `deleteUser()`, `dissociateCharacter()` |
 | | `lib/services/admin/sync-logs.service.ts` → `recordSyncLog()`, `getRecentSyncLogs()` |
 | | `lib/services/admin/api-inspector.service.ts` -> endpoint specs, typed schema inference, schema diffs, observations |
-**DB tables**: `items`, `market_price_history`, `sync_state`, `sync_job_logs`, `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations`, `dungeons`, `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, `characters`
+**DB tables**: `items`, `market_price_history`, D1 `sync_state`, D1 `sync_job_logs`, `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations`, `dungeons`, `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, `characters`
 **External API**: All IdleMMO sync endpoints
 **Requires**: `session.user.role === "admin"`
 **Docs**: `docs/api/internal/admin-items.md`, `docs/api/internal/admin-users.md`, `docs/api/internal/admin-zones.md`, `docs/api/internal/cron-sync.md`, `docs/api/internal/sync-logs.md`, `docs/api/internal/api-inspector.md`
@@ -385,7 +385,7 @@ Email/password auth via better-auth.
 | `gearPresets` | gear actions | gear page, dungeons page |
 | `userPreferences` | preferences action | dashboard, settings |
 | `syncState` | all cron jobs | cron jobs (gating), admin panel |
-| `sync_job_logs` | admin sync routes | admin sync status page |
+| D1 `sync_job_logs` | admin sync routes | admin sync status page |
 | `api_endpoint_specs` | API inspector defaults/admin edits | API inspector |
 | `api_response_schemas` | API inspector schema saves | API inspector, future API docs work |
 | `api_schema_observations` | API inspector endpoint runs | API inspector |
