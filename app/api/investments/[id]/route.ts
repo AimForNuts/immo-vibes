@@ -2,9 +2,7 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { priceTracker } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { deleteTrackedPriceItem } from "@/lib/services/price-tracker.service";
 
 /**
  * DELETE /api/investments/[id]
@@ -20,9 +18,7 @@ export async function DELETE(
 
   const { id } = await params;
 
-  await db
-    .delete(priceTracker)
-    .where(and(eq(priceTracker.id, id), eq(priceTracker.userId, session.user.id)));
+  await deleteTrackedPriceItem({ id, userId: session.user.id });
 
   return NextResponse.json({ ok: true });
 }

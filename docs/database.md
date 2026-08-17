@@ -26,7 +26,7 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | Zone catalog (name, level requirement) | `zones` | `id`, `name`, `level_required` |
 | Gathering item → zone associations | `item_zones` | `item_hashed_id`, `zone_id` |
 | User settings / dashboard layout | D1 `user_preferences` | `user_id`, `dashboard_layout` |
-| User's tracked price alerts | `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
+| User's tracked price alerts | D1 `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
 | Cron sync progress | D1 `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
 | Recent sync failures / partial progress | D1 `sync_job_logs` | `job`, `status`, `created_at`, `details` |
@@ -109,14 +109,14 @@ LIMIT 1;
 
 ---
 
-### `price_tracker`
+### D1 `price_tracker`
 
-Per-user list of items the user is watching. Display only — does not drive any sync.
+Per-user list of items the user is watching. Display only — does not drive any sync. This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/price-tracker.service.ts`.
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | text PK | UUID |
-| `user_id` | text FK | → `user.id` |
+| `user_id` | text | User id from better-auth. No D1 foreign key while auth remains in Neon |
 | `item_hashed_id` | text | Item being tracked |
 | `item_name` | text | Denormalised for fast display |
 | `item_quality` | text | Denormalised |
@@ -124,6 +124,13 @@ Per-user list of items the user is watching. Display only — does not drive any
 | `image_url` | text | Denormalised |
 | `tier` | integer | Which tier the user is tracking. Default 1 |
 | `created_at` | timestamp | — |
+
+**Indexes**:
+- `price_tracker_user_id_idx` on `user_id`
+
+**D1 migration**: `d1/migrations/0004_price_tracker.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `price_tracker` table when D1 is unavailable in Node-based local development.
 
 ---
 
