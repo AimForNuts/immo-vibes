@@ -135,7 +135,7 @@ npm run deploy
 
 ## GitHub Actions CD
 
-`.github/workflows/ci.yml` deploys to Cloudflare Workers on pushes to `master` after type check, build, and database migrations pass. Pull requests run CI and smoke tests but do not deploy production.
+`.github/workflows/ci.yml` deploys to Cloudflare Workers on pushes to `master` after type check, build, Neon migrations, and Cloudflare D1 migrations pass. Pull requests run CI and smoke tests but do not deploy production or apply migrations.
 
 The workflow uses Node.js 22 because current Wrangler releases require Node.js 22 or newer.
 
@@ -153,6 +153,23 @@ Required GitHub Actions repository secrets:
 | `E2E_PASSWORD` | Playwright smoke login |
 
 The deploy job pins the production URL to `https://immo-web-suite.void-presence.workers.dev` for `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL`.
+
+### D1 Migrations
+
+D1 migrations live in `d1/migrations/` and are applied by the `Run DB migrations` GitHub Actions job before production deploy:
+
+```bash
+npx wrangler d1 migrations apply immo-web-suite-sync --remote
+```
+
+The same command can be run manually from the repo when a migration needs to be applied outside CI. It requires `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in the shell environment.
+
+When adding a D1 table:
+
+1. Add an append-only SQL migration under `d1/migrations/`.
+2. Bind or reuse the D1 database in `wrangler.jsonc`.
+3. Run the migration against remote D1 before production traffic depends on it, or merge through CI and let the `Run DB migrations` job apply it.
+4. Document the table and ownership in this runbook and `docs/database.md`.
 
 After deploy, verify:
 
