@@ -31,7 +31,7 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | Cron sync progress | D1 `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
 | Recent sync failures / partial progress | D1 `sync_job_logs` | `job`, `status`, `created_at`, `details` |
 | IdleMMO API typed response docs | `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations` | `key`, `active_schema`, `inferred_schema`, `new_fields` |
-| Saved gear loadouts | `gear_presets` | `user_id`, `slots` (JSONB map of slot → `{hashedId, tier}`) |
+| Saved gear loadouts | D1 `gear_presets` | `user_id`, `slots` (JSON map of slot → `{hashedId, tier}`) |
 | Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
 | Saved main-pet stats for a character | `character_pets` | `user_id`, `character_hashed_id`, `attack_power`, `protection`, `agility`, `accuracy`, `max_stamina`, `movement_speed`, `critical_chance`, `critical_damage`, `synced_at` |
 | Dungeon catalog (difficulty, duration, loot) | `dungeons` | `id`, `name`, `zone_id`, `difficulty`, `duration_ms`, `loot` |
@@ -237,20 +237,27 @@ Derived metadata for each inspector run. Raw responses are not stored; the UI on
 
 ---
 
-### `gear_presets`
+### D1 `gear_presets`
 
-Saved gear loadouts per user.
+Saved gear loadouts per user. This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/gear-presets.service.ts`.
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | text PK | UUID |
-| `user_id` | text FK | → `user.id` |
+| `user_id` | text | User id from better-auth. No D1 foreign key while auth remains in Neon |
 | `name` | text | Display name |
 | `character_id` | text | Optional — ties preset to a specific character |
 | `weapon_style` | text | e.g. `'dual'` / `'single'` |
-| `slots` | jsonb | `Record<slotKey, { hashedId: string; tier: number }>` |
+| `slots` | text JSON | `Record<slotKey, { hashedId: string; tier: number }>` |
 | `created_at` | timestamp | — |
 | `updated_at` | timestamp | — |
+
+**Indexes**:
+- `gear_presets_user_id_idx` on `user_id`
+
+**D1 migration**: `d1/migrations/0005_gear_presets.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `gear_presets` table when D1 is unavailable in Node-based local development.
 
 ---
 
