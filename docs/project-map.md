@@ -39,7 +39,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active dat
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, and `user_preferences` through `lib/services/user-preferences.service.ts`. Neon remains the source for primary app data.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, and `price_tracker` through `lib/services/price-tracker.service.ts`. Neon remains the source for primary app data.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -162,9 +162,10 @@ User-tracked items with price history charts.
 | API — list/add | `app/api/investments/route.ts` |
 | API — delete | `app/api/investments/[id]/route.ts` |
 | API — history | `app/api/investments/[id]/history/route.ts` |
+| Service | `lib/services/price-tracker.service.ts` |
 
-**DB tables**: `priceTracker` (read/write), `marketPriceHistory` (read for chart data)
-**External API**: none
+**DB tables**: D1 `price_tracker` (read/write tracked items), `marketPriceHistory` (Neon read for chart data)
+**External API**: `GET /v1/item/{hashedId}/market-history?tier={tier}&type=listings` via history route
 **Docs**: `docs/database.md`, `docs/api/internal/investments.md`
 
 ---
@@ -383,7 +384,7 @@ Email/password auth via better-auth.
 |---|---|---|
 | `items` | sync-items, sync-prices, sync-inspect, sync-recipes | market, gear, investments, admin |
 | `market_price_history` | sync-prices (cron + admin) | investments history, market price route |
-| `priceTracker` | investments API (user action) | investments page |
+| D1 `price_tracker` | investments API (user action) | investments page |
 | `gearPresets` | gear actions | gear page, dungeons page |
 | D1 `userPreferences` | preferences and locale actions | dashboard, settings |
 | `syncState` | all cron jobs | cron jobs (gating), admin panel |
