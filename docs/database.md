@@ -32,7 +32,7 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | Recent sync failures / partial progress | D1 `sync_job_logs` | `job`, `status`, `created_at`, `details` |
 | IdleMMO API typed response docs | `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations` | `key`, `active_schema`, `inferred_schema`, `new_fields` |
 | Saved gear loadouts | D1 `gear_presets` | `user_id`, `slots` (JSON map of slot → `{hashedId, tier}`) |
-| Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
+| Cached character roster | D1 `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
 | Saved main-pet stats for a character | D1 `character_pets` | `user_id`, `character_hashed_id`, `attack_power`, `protection`, `agility`, `accuracy`, `max_stamina`, `movement_speed`, `critical_chance`, `critical_damage`, `synced_at` |
 | Dungeon catalog (difficulty, duration, loot) | `dungeons` | `id`, `name`, `zone_id`, `difficulty`, `duration_ms`, `loot` |
 | Enemy catalog (name, level, drops) | `enemies` | `id`, `name`, `level`, `zone_id`, `loot` |
@@ -278,16 +278,16 @@ One row per user, keyed by `user_id`. This table lives in Cloudflare D1 database
 
 ---
 
-### `characters`
+### D1 `characters`
 
 Per-user character roster cache. Populated on first overview load; refreshed when `cached_at` is older than 5 minutes.
 Ordered by `idlemmo_id ASC` for a deterministic, game-consistent order.
+This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/character-cache.ts`.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
-| `id` | serial PK | — | Auto-increment |
-| `user_id` | text FK | — | → `user.id` (cascade delete) |
-| `hashed_id` | text | — | IdleMMO character identifier |
+| `user_id` | text PK (part) | — | User id from better-auth. No D1 foreign key while auth remains in Neon |
+| `hashed_id` | text PK (part) | — | IdleMMO character identifier |
 | `idlemmo_id` | integer | — | IdleMMO integer ID — used for `ORDER BY idlemmo_id ASC` |
 | `name` | text | — | Character display name |
 | `class` | text | — | e.g. `LUMBERJACK`, `WARRIOR` |
@@ -297,10 +297,14 @@ Ordered by `idlemmo_id ASC` for a deterministic, game-consistent order.
 | `current_status` | text | ✓ | `ONLINE` \| `IDLING` \| `OFFLINE` — primary only |
 | `is_primary` | boolean | — | True for the token owner's main character |
 | `is_member` | boolean | ✓ | Account has active membership — derived from primary `/effects` (source `"membership"`). Null until first effects sync. Shared across all characters for the same `user_id`. |
-| `cached_at` | timestamp | — | When this row was last written |
+| `cached_at` | text timestamp | — | When this row was last written |
 
-**Unique index**: `(user_id, hashed_id)` — prevents duplicates on concurrent refresh.
+**Primary key**: `(user_id, hashed_id)` — prevents duplicates on concurrent refresh.
+**Index**: `(user_id, idlemmo_id)` for deterministic roster ordering.
 **Service**: `lib/services/character-cache.ts` → `getCachedCharacters()`
+**D1 migration**: `d1/migrations/0007_characters.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `characters` table when D1 is unavailable in Node-based local development.
 
 ---
 
