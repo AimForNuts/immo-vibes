@@ -2,7 +2,7 @@
 
 ## GET `/api/characters/[id]/pet-stats`
 
-Returns all stored combat stats for the equipped pet of a character.
+Returns all stored combat stats for the equipped pet of a character. Stored pet rows live in Cloudflare D1 table `character_pets` through `lib/services/character-pets.service.ts`; local Node development falls back to the legacy Neon table when D1 is unavailable.
 
 **Auth:** Required (session cookie)
 
