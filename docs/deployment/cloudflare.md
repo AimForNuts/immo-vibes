@@ -25,7 +25,7 @@ Phase 1 is runtime migration only.
 | Auth | better-auth remains active against Neon |
 | Cron | Cloudflare Cron Triggers call existing `app/api/cron/*` route handlers |
 | Vercel | Removed from repo config; project can be turned off in Vercel |
-| D1 | `immo-web-suite-sync` stores `sync_state` and `sync_job_logs` |
+| D1 | `immo-web-suite-sync` stores `sync_state`, `sync_job_logs`, and `user_preferences` |
 | R2 | Not created yet |
 
 Cloudflare account: `Jogada`
@@ -44,7 +44,7 @@ Record every Cloudflare resource here as it is created.
 | Cron Trigger | `0 2 * * 1` | Weekly recipe sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Cron Trigger | `0 4 * * *` | Daily price sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Custom domain | TBD | Optional future nicer hostname | Cloudflare dashboard / Wrangler | Deferred |
-| D1 database | `immo-web-suite-sync` (`112c46c3-0718-4e3f-8a51-d11529b1ba4f`) | Cron sync state and admin sync logs | `wrangler.jsonc`, `d1/migrations/` | Created |
+| D1 database | `immo-web-suite-sync` (`112c46c3-0718-4e3f-8a51-d11529b1ba4f`) | Cron sync state, admin sync logs, and user preferences | `wrangler.jsonc`, `d1/migrations/` | Created |
 | R2 bucket | TBD | Future object/source storage | Future migration doc | Not started |
 
 ## Repo Files
@@ -56,8 +56,10 @@ Record every Cloudflare resource here as it is created.
 | `worker.ts` | Custom Worker entry with `fetch` and `scheduled` handlers |
 | `d1/migrations/0001_sync_state.sql` | D1 schema for the `sync_state` table |
 | `d1/migrations/0002_sync_job_logs.sql` | D1 schema for the `sync_job_logs` table |
+| `d1/migrations/0003_user_preferences.sql` | D1 schema for the `user_preferences` table |
 | `lib/services/sync-state.service.ts` | D1-backed sync-state read/write service with Neon fallback for local development |
 | `lib/services/admin/sync-logs.service.ts` | D1-backed admin sync log read/write service with Neon fallback for local development |
+| `lib/services/user-preferences.service.ts` | D1-backed user preferences read/write service with Neon fallback for local development |
 | `package.json` | Cloudflare scripts and dependencies |
 
 ## Runtime Flow
@@ -68,7 +70,7 @@ Normal HTTP requests:
 2. `worker.ts` delegates to the generated OpenNext handler from `.open-next/worker.js`.
 3. Next.js routes, pages, middleware/proxy behavior, auth, and API handlers run through OpenNext.
 4. Primary app data still goes to Neon through `lib/db/index.ts`.
-5. Cron `sync_state` reads/writes and admin `sync_job_logs` reads/writes go to D1 through `IMMO_SYNC_DB`.
+5. Cron `sync_state`, admin `sync_job_logs`, and `user_preferences` reads/writes go to D1 through `IMMO_SYNC_DB`.
 
 Scheduled cron requests:
 
@@ -230,7 +232,6 @@ Do not start D1/R2 migration until the Cloudflare runtime is usable enough to de
 Likely D1 candidates:
 
 - Auth tables after better-auth adapter compatibility is confirmed.
-- User preferences.
 - Gear presets.
 - Price tracker records.
 - Sync state and sync logs.
@@ -250,6 +251,7 @@ Current D1 migration status:
 |---|---|---|
 | `sync_state` | `immo-web-suite-sync` | First D1 table; used by cron gate/observability |
 | `sync_job_logs` | `immo-web-suite-sync` | Admin sync observability; append-only log storage |
+| `user_preferences` | `immo-web-suite-sync` | User language and dashboard layout |
 
 Keep auth, user-owned records, and market catalog data in Neon until the D1 integration has been exercised in production.
 

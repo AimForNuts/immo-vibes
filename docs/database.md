@@ -25,7 +25,7 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | Item drop locations (enemies, dungeons, world bosses) | `zones` | `enemies`, `dungeons`, `world_bosses` |
 | Zone catalog (name, level requirement) | `zones` | `id`, `name`, `level_required` |
 | Gathering item → zone associations | `item_zones` | `item_hashed_id`, `zone_id` |
-| User settings / dashboard layout | `user_preferences` | `user_id`, `dashboard_layout` |
+| User settings / dashboard layout | D1 `user_preferences` | `user_id`, `dashboard_layout` |
 | User's tracked price alerts | `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
 | Cron sync progress | D1 `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
@@ -247,16 +247,20 @@ Saved gear loadouts per user.
 
 ---
 
-### `user_preferences`
+### D1 `user_preferences`
 
-One row per user, keyed by `user_id`.
+One row per user, keyed by `user_id`. This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/user-preferences.service.ts`.
 
 | Column | Type | Notes |
 |---|---|---|
-| `user_id` | text PK FK | → `user.id` |
+| `user_id` | text PK | User id from better-auth. No D1 foreign key while auth remains in Neon |
 | `language` | text | Default `'en'` |
-| `dashboard_layout` | jsonb | Array of 6 `DashboardCardType` strings |
+| `dashboard_layout` | text JSON | Array of 6 `DashboardCardType` strings |
 | `updated_at` | timestamp | — |
+
+**D1 migration**: `d1/migrations/0003_user_preferences.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `user_preferences` table when D1 is unavailable in Node-based local development.
 
 ---
 
