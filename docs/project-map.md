@@ -39,7 +39,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active dat
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, and `price_tracker` through `lib/services/price-tracker.service.ts`. Neon remains the source for primary app data.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, and `gear_presets` through `lib/services/gear-presets.service.ts`. Neon remains the source for primary app data.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -203,9 +203,10 @@ Gear set builder with combat stat preview and preset save/load.
 | Component — presets | `app/(dashboard)/dashboard/gear/components/PresetManager.tsx` |
 | Hook — character stats | `app/(dashboard)/dashboard/gear/hooks/useCharacterStats.ts` |
 | Hook — item search | `app/(dashboard)/dashboard/gear/hooks/useItemSearch.ts` |
+| Service | `lib/services/gear-presets.service.ts` |
 | Folder docs | `app/(dashboard)/dashboard/gear/README.md` |
 
-**DB tables**: `gearPresets` (read/write), `items` (read for item lookup by hashedId)
+**DB tables**: D1 `gear_presets` (read/write), `items` (Neon read for item lookup by hashedId)
 **External API**: `getCharacterInfo()`, `getAltCharacters()` (populate character selector)
 **Docs**: `docs/game-mechanics/combat-stats.md`, `lib/game-constants.ts` (SLOT_LABELS, CHAR_STAT_MAP)
 
@@ -239,7 +240,7 @@ Dungeon difficulty calculator with character stat comparison, idle time planner,
 | API — admin sync | `app/api/admin/sync-dungeons/route.ts` |
 | API — effects proxy | `app/api/idlemmo/character/[id]/effects/route.ts` |
 
-**DB tables**: `dungeons` (read for dungeon catalog), `gearPresets` (read for preset selector), `characters` (read via `getDbCharacters` for `isMember`/`isPrimary`)
+**DB tables**: `dungeons` (read for dungeon catalog), D1 `gear_presets` (read for preset selector), `characters` (read via `getDbCharacters` for `isMember`/`isPrimary`)
 **External API**: `getDungeons()` (admin sync only), `getCharacterEffects()` (proxied via effects route)
 **Docs**: `docs/game-mechanics/dungeons.md`, `docs/game-mechanics/combat-stats.md`, `docs/database.md`, `docs/api/internal/dungeons-sync.md`, `docs/api/internal/character-effects.md`
 
@@ -385,7 +386,7 @@ Email/password auth via better-auth.
 | `items` | sync-items, sync-prices, sync-inspect, sync-recipes | market, gear, investments, admin |
 | `market_price_history` | sync-prices (cron + admin) | investments history, market price route |
 | D1 `price_tracker` | investments API (user action) | investments page |
-| `gearPresets` | gear actions | gear page, dungeons page |
+| D1 `gear_presets` | gear actions | gear page, dungeons page |
 | D1 `userPreferences` | preferences and locale actions | dashboard, settings |
 | `syncState` | all cron jobs | cron jobs (gating), admin panel |
 | D1 `sync_job_logs` | admin sync routes | admin sync status page |

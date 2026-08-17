@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-17 - Cloudflare D1 gear presets
+
+- **Database**: Added Cloudflare D1 `gear_presets` for saved gear loadouts.
+- **Gear/Dungeons**: Routed preset reads and gear save/update/delete actions through a D1-backed service with Neon fallback for local development.
+
 ### 2026-08-17 - Cloudflare D1 price tracker
 
 - **Database**: Added Cloudflare D1 `price_tracker` for user-tracked investment items.

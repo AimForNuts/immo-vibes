@@ -1,10 +1,11 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { gearPresets, items, dungeons as dungeonsTable } from "@/lib/db/schema";
+import { items, dungeons as dungeonsTable } from "@/lib/db/schema";
 import { getDbCharacters } from "@/lib/services/character-cache";
+import { getGearPresets } from "@/lib/services/gear-presets.service";
 import { STATIC_DUNGEONS, type StaticDungeon } from "./difficulty";
 import { DungeonExplorer } from "./DungeonExplorer";
 
@@ -68,20 +69,12 @@ export default async function DungeonsPage() {
   const hasDifficultyData = dungeons.some((d) => d.difficulty > 0);
 
   // Load user's saved gear presets
-  const presetRows = await db
-    .select()
-    .from(gearPresets)
-    .where(eq(gearPresets.userId, session.user.id))
-    .orderBy(gearPresets.createdAt);
+  const presetRows = await getGearPresets(session.user.id);
 
   // Resolve item details for all preset slots
   const allHashedIds = Array.from(
     new Set(
-      presetRows.flatMap((p) =>
-        Object.values(p.slots as Record<string, { hashedId: string; tier: number }>).map(
-          (s) => s.hashedId
-        )
-      )
+      presetRows.flatMap((p) => Object.values(p.slots).map((s) => s.hashedId))
     )
   );
 
@@ -102,7 +95,7 @@ export default async function DungeonsPage() {
     id: p.id,
     name: p.name,
     weaponStyle: p.weaponStyle,
-    slots: p.slots as Record<string, { hashedId: string; tier: number }>,
+    slots: p.slots,
     characterId: p.characterId ?? undefined,
   }));
 
