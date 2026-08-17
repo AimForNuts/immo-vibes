@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-17 - Cloudflare D1 user preferences
+
+- **Database**: Added Cloudflare D1 `user_preferences` for dashboard layout and language preferences.
+- **Settings**: Routed preference reads/writes through a D1-backed service with Neon fallback for local development.
+
 ### 2026-08-17 - Cloudflare D1 sync logs
 
 - **Database**: Added Cloudflare D1 `sync_job_logs` for admin sync observability.
