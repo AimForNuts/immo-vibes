@@ -33,7 +33,7 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | IdleMMO API typed response docs | `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations` | `key`, `active_schema`, `inferred_schema`, `new_fields` |
 | Saved gear loadouts | D1 `gear_presets` | `user_id`, `slots` (JSON map of slot → `{hashedId, tier}`) |
 | Cached character roster | `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
-| Saved main-pet stats for a character | `character_pets` | `user_id`, `character_hashed_id`, `attack_power`, `protection`, `agility`, `accuracy`, `max_stamina`, `movement_speed`, `critical_chance`, `critical_damage`, `synced_at` |
+| Saved main-pet stats for a character | D1 `character_pets` | `user_id`, `character_hashed_id`, `attack_power`, `protection`, `agility`, `accuracy`, `max_stamina`, `movement_speed`, `critical_chance`, `critical_damage`, `synced_at` |
 | Dungeon catalog (difficulty, duration, loot) | `dungeons` | `id`, `name`, `zone_id`, `difficulty`, `duration_ms`, `loot` |
 | Enemy catalog (name, level, drops) | `enemies` | `id`, `name`, `level`, `zone_id`, `loot` |
 | World boss catalog (name, level, drops) | `world_bosses` | `id`, `name`, `level`, `zone_id`, `loot` |
@@ -304,16 +304,17 @@ Ordered by `idlemmo_id ASC` for a deterministic, game-consistent order.
 
 ---
 
-### `character_pets`
+### D1 `character_pets`
 
 Per-user, per-character saved main-pet stats. One row per `(user_id, character_hashed_id)`.
 Upserted each time the user clicks **Sync Current Pet** on the character detail page.
 Combat stats synced from API are stored directly; optional stats are entered manually by the user.
+This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/character-pets.service.ts`.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
 | `id` | text PK | — | UUID |
-| `user_id` | text FK | — | → `user.id` (cascade delete) |
+| `user_id` | text | — | User id from better-auth. No D1 foreign key while auth remains in Neon |
 | `character_hashed_id` | text | — | IdleMMO character hashed ID |
 | `pet_id` | integer | — | IdleMMO pet-instance integer ID |
 | `name` | text | — | Pet base name |
@@ -326,7 +327,7 @@ Combat stats synced from API are stored directly; optional stats are entered man
 | `agility` | integer | — | Combat stat from API `stats.speed` (direct value) |
 | `accuracy` | integer | ✓ | User-entered accuracy stat |
 | `max_stamina` | integer | ✓ | User-entered max stamina |
-| `movement_speed` | numeric(6,1) | ✓ | User-entered movement speed |
+| `movement_speed` | text | ✓ | User-entered movement speed, serialized as text for D1 |
 | `critical_chance` | integer | ✓ | User-entered critical chance |
 | `critical_damage` | integer | ✓ | User-entered critical damage |
 | `evolution_state` | integer | — | 0–5 |
@@ -336,6 +337,9 @@ Combat stats synced from API are stored directly; optional stats are entered man
 
 **Unique index**: `(user_id, character_hashed_id)` — one pet per character.
 **API routes**: `POST /api/characters/[id]/sync-pet`, `GET /api/characters/[id]/pet-stats`, `PATCH /api/characters/[id]/pet-stats`
+**D1 migration**: `d1/migrations/0006_character_pets.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `character_pets` table when D1 is unavailable in Node-based local development.
 **Docs**: `docs/game-mechanics/pets.md`, `docs/api/internal/pet-stats.md`
 
 ---

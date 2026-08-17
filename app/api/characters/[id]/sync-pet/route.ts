@@ -2,9 +2,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getCharacterPets, type CharacterPet } from "@/lib/idlemmo";
-import { db } from "@/lib/db";
-import { characterPets } from "@/lib/db/schema";
-import { randomUUID } from "crypto";
+import { upsertSyncedCharacterPet } from "@/lib/services/character-pets.service";
 
 async function fetchEquippedPet(
   characterHashedId: string,
@@ -38,46 +36,25 @@ export async function POST(
     return NextResponse.json({ error: "No pet equipped on this character" }, { status: 404 });
   }
 
-  await db
-    .insert(characterPets)
-    .values({
-      id:                     randomUUID(),
-      userId:                 session.user.id,
-      characterHashedId,
-      petId:                  pet.id,
-      name:                   pet.name,
-      customName:             pet.custom_name ?? null,
-      imageUrl:               pet.image_url ?? null,
-      level:                  pet.level,
-      quality:                pet.quality,
-      attackPower:            pet.stats.strength,
-      protection:             pet.stats.defence,
-      agility:                pet.stats.speed,
-      evolutionState:         pet.evolution.state,
-      evolutionMax:           pet.evolution.max,
-      evolutionBonusPerStage: pet.evolution.bonus_per_stage,
-      syncedAt:               new Date(),
-    })
-    .onConflictDoUpdate({
-      target: [characterPets.userId, characterPets.characterHashedId],
-      set: {
-        petId:                  pet.id,
-        name:                   pet.name,
-        customName:             pet.custom_name ?? null,
-        imageUrl:               pet.image_url ?? null,
-        level:                  pet.level,
-        quality:                pet.quality,
-        attackPower:            pet.stats.strength,
-        protection:             pet.stats.defence,
-        agility:                pet.stats.speed,
-        evolutionState:         pet.evolution.state,
-        evolutionMax:           pet.evolution.max,
-        evolutionBonusPerStage: pet.evolution.bonus_per_stage,
-        syncedAt:               new Date(),
-        // accuracy, maxStamina, movementSpeed, criticalChance, criticalDamage
-        // are intentionally omitted — manual fields are never overwritten by sync
-      },
-    });
+  await upsertSyncedCharacterPet({
+    userId: session.user.id,
+    characterHashedId,
+    petId: pet.id,
+    name: pet.name,
+    customName: pet.custom_name ?? null,
+    imageUrl: pet.image_url ?? null,
+    level: pet.level,
+    quality: pet.quality,
+    attackPower: pet.stats.strength,
+    protection: pet.stats.defence,
+    agility: pet.stats.speed,
+    evolutionState: pet.evolution.state,
+    evolutionMax: pet.evolution.max,
+    evolutionBonusPerStage: pet.evolution.bonus_per_stage,
+  });
 
-  return NextResponse.json({ ok: true, pet: { name: pet.name, level: pet.level, quality: pet.quality } });
+  return NextResponse.json({
+    ok: true,
+    pet: { name: pet.name, level: pet.level, quality: pet.quality },
+  });
 }
