@@ -2,10 +2,9 @@
 
 import { cookies } from "next/headers";
 import { routing, type Locale } from "@/i18n/routing";
-import { db } from "@/lib/db";
-import { userPreferences } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { saveUserLanguage } from "@/lib/services/user-preferences.service";
 
 export async function setLocale(locale: Locale) {
   if (!(routing.locales as readonly string[]).includes(locale)) return;
@@ -16,16 +15,6 @@ export async function setLocale(locale: Locale) {
   // Persist to DB if logged in
   const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user?.id) {
-    await db
-      .insert(userPreferences)
-      .values({
-        userId: session.user.id,
-        language: locale,
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: userPreferences.userId,
-        set: { language: locale, updatedAt: new Date() },
-      });
+    await saveUserLanguage({ userId: session.user.id, language: locale });
   }
 }
