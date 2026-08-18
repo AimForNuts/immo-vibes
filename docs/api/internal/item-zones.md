@@ -4,6 +4,9 @@ Admin-only endpoints for associating gatherable items with zones.
 
 Source:
 - `app/api/items/[id]/zones/route.ts`
+- `lib/services/admin/zones.service.ts`
+
+Zone associations live in Cloudflare D1 table `item_zones` through `lib/services/admin/zones.service.ts`, with a Neon fallback for local Node development.
 
 ---
 
