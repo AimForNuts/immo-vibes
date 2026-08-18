@@ -34,7 +34,7 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | Saved gear loadouts | D1 `gear_presets` | `user_id`, `slots` (JSON map of slot → `{hashedId, tier}`) |
 | Cached character roster | D1 `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
 | Saved main-pet stats for a character | D1 `character_pets` | `user_id`, `character_hashed_id`, `attack_power`, `protection`, `agility`, `accuracy`, `max_stamina`, `movement_speed`, `critical_chance`, `critical_damage`, `synced_at` |
-| Dungeon catalog (difficulty, duration, loot) | `dungeons` | `id`, `name`, `zone_id`, `difficulty`, `duration_ms`, `loot` |
+| Dungeon catalog (difficulty, duration, loot) | D1 `dungeons` | `id`, `name`, `zone_id`, `difficulty`, `duration_ms`, `loot` |
 | Enemy catalog (name, level, drops) | `enemies` | `id`, `name`, `level`, `zone_id`, `loot` |
 | World boss catalog (name, level, drops) | `world_bosses` | `id`, `name`, `level`, `zone_id`, `loot` |
 
@@ -348,25 +348,26 @@ This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed
 
 ---
 
-### `dungeons`
+### D1 `dungeons`
 
 Global dungeon catalog. One row per IdleMMO dungeon ID.
 Populated by the admin "Sync Dungeons" action (`POST /api/admin/sync-dungeons`).
 Not per-user — dungeon data is the same for everyone.
+This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/admin/dungeons.service.ts`.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
 | `id` | integer PK | — | IdleMMO dungeon integer ID |
 | `name` | text | — | Display name |
 | `image_url` | text | ✓ | CDN URL |
-| `zone_id` | integer FK → `zones.id` | ✓ | Zone this dungeon belongs to. `ON DELETE SET NULL`. Set manually by admins. |
+| `zone_id` | integer | ✓ | D1 `zones.id`; set manually by admins. No D1 foreign key so sync preserves assignments. |
 | `level_required` | integer | — | Minimum character level. Default 0. |
 | `difficulty` | integer | — | Difficulty score used in combat ratio. Default 0 (unknown). |
 | `duration_ms` | integer | — | Run duration in milliseconds (`length` field from API). Default 0. |
 | `gold_cost` | integer | — | Gold cost to enter. Default 0. |
 | `shards` | integer | — | Shard reward. Default 0. |
-| `loot` | jsonb | ✓ | Array of `DungeonLootItem` — null until synced. |
-| `synced_at` | timestamp | — | When this row was last written. |
+| `loot` | text JSON | ✓ | Array of `DungeonLootItem` — null until synced. |
+| `synced_at` | text timestamp | — | When this row was last written. |
 
 **`DungeonLootItem` shape** (each element in the `loot` array):
 ```ts
@@ -374,6 +375,9 @@ Not per-user — dungeon data is the same for everyone.
 ```
 
 **Admin route**: `POST /api/admin/sync-dungeons`
+**D1 migration**: `d1/migrations/0009_dungeons.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `dungeons` table when D1 is unavailable in Node-based local development.
 **Docs**: `docs/api/internal/dungeons-sync.md`
 
 ---
