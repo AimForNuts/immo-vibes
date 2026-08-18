@@ -39,7 +39,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active dat
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, and `characters` through `lib/services/character-cache.ts`. Neon remains the source for primary app data.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, and `zones`/`item_zones` through `lib/services/admin/zones.service.ts`. Neon remains the source for primary app data.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -84,7 +84,7 @@ Admin-only UI in the market detail panel to associate ORE, LOG, and FISH items w
 | API — item zones | `app/api/items/[id]/zones/route.ts` |
 | Service | `lib/services/admin/zones.service.ts` (`getAllZones`, `getItemZoneIds`, `replaceItemZones`) |
 
-**DB tables**: `zones` (read), `item_zones` (read/write)
+**DB tables**: D1 `zones` (read), D1 `item_zones` (read/write)
 **Requires**: `session.user.role === "admin"`
 **Docs**: `docs/api/internal/item-zones.md`
 
@@ -336,7 +336,7 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `lib/services/admin/users.service.ts` → `getAdminUsers()`, `updateUserEmail()`, `deleteUser()`, `dissociateCharacter()` |
 | | `lib/services/admin/sync-logs.service.ts` → `recordSyncLog()`, `getRecentSyncLogs()` |
 | | `lib/services/admin/api-inspector.service.ts` -> endpoint specs, typed schema inference, schema diffs, observations |
-**DB tables**: `items`, `market_price_history`, D1 `sync_state`, D1 `sync_job_logs`, `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations`, `dungeons`, `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, `characters`
+**DB tables**: `items`, `market_price_history`, D1 `sync_state`, D1 `sync_job_logs`, `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations`, `dungeons`, D1 `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, D1 `characters`
 **External API**: All IdleMMO sync endpoints
 **Requires**: `session.user.role === "admin"`
 **Docs**: `docs/api/internal/admin-items.md`, `docs/api/internal/admin-users.md`, `docs/api/internal/admin-zones.md`, `docs/api/internal/cron-sync.md`, `docs/api/internal/sync-logs.md`, `docs/api/internal/api-inspector.md`
@@ -399,8 +399,8 @@ Email/password auth via better-auth.
 | `dungeons` | admin sync-dungeons route | dungeons page |
 | `enemies` | future sync (placeholder) | admin enemies picker |
 | `world_bosses` | future sync (placeholder) | admin world-bosses picker |
-| `zones` | manually (DB) | zone associations feature |
-| `item_zones` | zone associations admin UI | zone associations feature |
+| D1 `zones` | manually (admin UI) | zone associations feature |
+| D1 `item_zones` | zone associations admin UI | zone associations feature |
 | `user` / `session` / `account` / `verification` | better-auth | auth middleware |
 
 ---

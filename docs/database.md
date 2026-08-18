@@ -23,8 +23,8 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | Which recipe produces a given item | `items` | `recipe_result_hashed_id` (deprecated → join on `recipe.result.hashed_item_id`) |
 | Item store price (NPC shop cost) | `items` | `store_price` |
 | Item drop locations (enemies, dungeons, world bosses) | `zones` | `enemies`, `dungeons`, `world_bosses` |
-| Zone catalog (name, level requirement) | `zones` | `id`, `name`, `level_required` |
-| Gathering item → zone associations | `item_zones` | `item_hashed_id`, `zone_id` |
+| Zone catalog (name, level requirement) | D1 `zones` | `id`, `name`, `level_required` |
+| Gathering item → zone associations | D1 `item_zones` | `item_hashed_id`, `zone_id` |
 | User settings / dashboard layout | D1 `user_preferences` | `user_id`, `dashboard_layout` |
 | User's tracked price alerts | D1 `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
@@ -378,33 +378,41 @@ Not per-user — dungeon data is the same for everyone.
 
 ---
 
-### `zones`
+### D1 `zones`
 
 Global zone catalog. One row per game location. Manually maintained — `level_required` is set by admins.
+This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/admin/zones.service.ts`.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
-| `id` | serial PK | — | Auto-increment |
+| `id` | integer PK | — | Auto-increment |
 | `name` | text | — | Display name (e.g. "Bluebell Hollow") |
 | `level_required` | integer | — | Minimum level to access. Default 0. |
-| `enemies` | jsonb | ✓ | Reserved — typed `ZoneEnemy[]` (populated by future sync). Default `[]`. |
-| `dungeons` | jsonb | ✓ | Reserved — typed `ZoneDungeon[]` (populated by future sync). Default `[]`. |
-| `world_bosses` | jsonb | ✓ | Reserved — typed `ZoneWorldBoss[]` (populated by future sync). Default `[]`. |
+| `enemies` | text JSON | — | Reserved — typed `ZoneEnemy[]` (populated by future sync). Default `[]`. |
+| `dungeons` | text JSON | — | Reserved — typed `ZoneDungeon[]` (populated by future sync). Default `[]`. |
+| `world_bosses` | text JSON | — | Reserved — typed `ZoneWorldBoss[]` (populated by future sync). Default `[]`. |
 
 **Admin routes**: `GET/POST /api/admin/zones`, `GET/PATCH/DELETE /api/admin/zones/[id]`
+**D1 migration**: `d1/migrations/0008_zones.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `zones` table when D1 is unavailable in Node-based local development.
 
 ---
 
-### `item_zones`
+### D1 `item_zones`
 
 Many-to-many join table between gathering items and zones. Admin-managed via the market detail panel.
+This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/admin/zones.service.ts`.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
-| `item_hashed_id` | text PK (part) | — | FK → `items.hashed_id` (cascade delete) |
-| `zone_id` | integer PK (part) | — | FK → `zones.id` (cascade delete) |
+| `item_hashed_id` | text PK (part) | — | Item hash from Neon `items`. No D1 foreign key while catalog remains in Neon |
+| `zone_id` | integer PK (part) | — | D1 `zones.id`; related rows are deleted manually by the zone service |
 
 **Admin routes**: `GET /api/items/[id]/zones`, `PUT /api/items/[id]/zones`
+**D1 migration**: `d1/migrations/0008_zones.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `item_zones` table when D1 is unavailable in Node-based local development.
 
 ---
 

@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-18 - Cloudflare D1 zones
+
+- **Database**: Added Cloudflare D1 `zones` and `item_zones` for admin-managed zone metadata and gathering item associations.
+- **Admin/Market**: Routed zone CRUD and item-zone association reads/writes through the D1-backed zones service with Neon fallback for local development.
+
 ### 2026-08-17 - Cloudflare D1 character cache
 
 - **Database**: Added Cloudflare D1 `characters` for the cached character roster.
