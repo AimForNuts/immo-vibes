@@ -1,6 +1,6 @@
 # Internal API — POST /api/admin/sync-dungeons
 
-Admin-only route that fetches the full dungeon list from the IdleMMO API and upserts it into the `dungeons` DB table.
+Admin-only route that fetches the full dungeon list from the IdleMMO API and upserts it into the D1 `dungeons` DB table through `lib/services/admin/dungeons.service.ts`.
 
 ## Request
 
@@ -47,11 +47,12 @@ No query parameters. No request body.
 2. Maps each `DungeonInfo` to a `dungeons` row:
    - `id`, `name`, `imageUrl`, `location` (from `location.name`), `levelRequired`, `difficulty`, `durationMs` (`length` field from API), `goldCost`, `shards`, `loot` (null if empty array)
 3. `INSERT ... ON CONFLICT (id) DO UPDATE` — safe to re-run
-4. Returns `{ synced: N }`
+4. Existing `zone_id` assignments are preserved by sync.
+5. Returns `{ synced: N }`
 
 ## DB table
 
-`dungeons` — see `docs/database.md`
+D1 `dungeons` — see `docs/database.md`
 
 ## Source
 

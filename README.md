@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-18 - Cloudflare D1 dungeons
+
+- **Database**: Added Cloudflare D1 `dungeons` for the dungeon catalog and loot metadata.
+- **Dungeons/Admin**: Routed dungeon planner reads, admin dungeon listing, and dungeon sync writes through the D1-backed dungeon service with Neon fallback for local development.
+
 ### 2026-08-18 - Cloudflare D1 zones
 
 - **Database**: Added Cloudflare D1 `zones` and `item_zones` for admin-managed zone metadata and gathering item associations.
