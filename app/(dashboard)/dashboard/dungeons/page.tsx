@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import { inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { items, dungeons as dungeonsTable } from "@/lib/db/schema";
+import { items } from "@/lib/db/schema";
 import { getDbCharacters } from "@/lib/services/character-cache";
+import { getStoredDungeons } from "@/lib/services/admin/dungeons.service";
 import { getGearPresets } from "@/lib/services/gear-presets.service";
 import { STATIC_DUNGEONS, type StaticDungeon } from "./difficulty";
 import { DungeonExplorer } from "./DungeonExplorer";
@@ -23,7 +24,7 @@ export default async function DungeonsPage() {
   }));
 
   // Load dungeon data from DB, fall back to STATIC_DUNGEONS
-  const dbDungeons = await db.select().from(dungeonsTable);
+  const dbDungeons = await getStoredDungeons();
 
   let dungeons: StaticDungeon[];
 

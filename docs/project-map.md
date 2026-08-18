@@ -39,7 +39,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active dat
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, and `zones`/`item_zones` through `lib/services/admin/zones.service.ts`. Neon remains the source for primary app data.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, and `dungeons` through `lib/services/admin/dungeons.service.ts`. Neon remains the source for primary app data.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -240,7 +240,7 @@ Dungeon difficulty calculator with character stat comparison, idle time planner,
 | API — admin sync | `app/api/admin/sync-dungeons/route.ts` |
 | API — effects proxy | `app/api/idlemmo/character/[id]/effects/route.ts` |
 
-**DB tables**: `dungeons` (read for dungeon catalog), D1 `gear_presets` (read for preset selector), D1 `characters` (read via `getDbCharacters` for `isMember`/`isPrimary`)
+**DB tables**: D1 `dungeons` (read for dungeon catalog), D1 `gear_presets` (read for preset selector), D1 `characters` (read via `getDbCharacters` for `isMember`/`isPrimary`)
 **External API**: `getDungeons()` (admin sync only), `getCharacterEffects()` (proxied via effects route)
 **Docs**: `docs/game-mechanics/dungeons.md`, `docs/game-mechanics/combat-stats.md`, `docs/database.md`, `docs/api/internal/dungeons-sync.md`, `docs/api/internal/character-effects.md`
 
@@ -336,7 +336,7 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `lib/services/admin/users.service.ts` → `getAdminUsers()`, `updateUserEmail()`, `deleteUser()`, `dissociateCharacter()` |
 | | `lib/services/admin/sync-logs.service.ts` → `recordSyncLog()`, `getRecentSyncLogs()` |
 | | `lib/services/admin/api-inspector.service.ts` -> endpoint specs, typed schema inference, schema diffs, observations |
-**DB tables**: `items`, `market_price_history`, D1 `sync_state`, D1 `sync_job_logs`, `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations`, `dungeons`, D1 `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, D1 `characters`
+**DB tables**: `items`, `market_price_history`, D1 `sync_state`, D1 `sync_job_logs`, `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations`, D1 `dungeons`, D1 `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, D1 `characters`
 **External API**: All IdleMMO sync endpoints
 **Requires**: `session.user.role === "admin"`
 **Docs**: `docs/api/internal/admin-items.md`, `docs/api/internal/admin-users.md`, `docs/api/internal/admin-zones.md`, `docs/api/internal/cron-sync.md`, `docs/api/internal/sync-logs.md`, `docs/api/internal/api-inspector.md`
@@ -396,7 +396,7 @@ Email/password auth via better-auth.
 | `api_schema_observations` | API inspector endpoint runs | API inspector |
 | D1 `characters` | character-cache service | dashboard, characters list |
 | D1 `character_pets` | sync-pet API route (user action) | character detail page |
-| `dungeons` | admin sync-dungeons route | dungeons page |
+| D1 `dungeons` | admin sync-dungeons route | dungeons page |
 | `enemies` | future sync (placeholder) | admin enemies picker |
 | `world_bosses` | future sync (placeholder) | admin world-bosses picker |
 | D1 `zones` | manually (admin UI) | zone associations feature |

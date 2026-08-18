@@ -25,7 +25,7 @@ Phase 1 is runtime migration only.
 | Auth | better-auth remains active against Neon |
 | Cron | Cloudflare Cron Triggers call existing `app/api/cron/*` route handlers |
 | Vercel | Removed from repo config; project can be turned off in Vercel |
-| D1 | `immo-web-suite-sync` stores `sync_state`, `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, `characters`, `zones`, and `item_zones` |
+| D1 | `immo-web-suite-sync` stores `sync_state`, `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, `characters`, `zones`, `item_zones`, and `dungeons` |
 | R2 | Not created yet |
 
 Cloudflare account: `Jogada`
@@ -44,7 +44,7 @@ Record every Cloudflare resource here as it is created.
 | Cron Trigger | `0 2 * * 1` | Weekly recipe sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Cron Trigger | `0 4 * * *` | Daily price sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Custom domain | TBD | Optional future nicer hostname | Cloudflare dashboard / Wrangler | Deferred |
-| D1 database | `immo-web-suite-sync` (`112c46c3-0718-4e3f-8a51-d11529b1ba4f`) | Cron sync state, admin sync logs, user preferences, tracked investments, gear presets, character pets, character roster cache, and zone metadata | `wrangler.jsonc`, `d1/migrations/` | Created |
+| D1 database | `immo-web-suite-sync` (`112c46c3-0718-4e3f-8a51-d11529b1ba4f`) | Cron sync state, admin sync logs, user preferences, tracked investments, gear presets, character pets, character roster cache, zone metadata, and dungeon catalog | `wrangler.jsonc`, `d1/migrations/` | Created |
 | R2 bucket | TBD | Future object/source storage | Future migration doc | Not started |
 
 ## Repo Files
@@ -62,6 +62,7 @@ Record every Cloudflare resource here as it is created.
 | `d1/migrations/0006_character_pets.sql` | D1 schema for the `character_pets` table |
 | `d1/migrations/0007_characters.sql` | D1 schema for the `characters` cache table |
 | `d1/migrations/0008_zones.sql` | D1 schema for the `zones` and `item_zones` tables |
+| `d1/migrations/0009_dungeons.sql` | D1 schema for the `dungeons` table |
 | `lib/services/sync-state.service.ts` | D1-backed sync-state read/write service with Neon fallback for local development |
 | `lib/services/admin/sync-logs.service.ts` | D1-backed admin sync log read/write service with Neon fallback for local development |
 | `lib/services/user-preferences.service.ts` | D1-backed user preferences read/write service with Neon fallback for local development |
@@ -70,6 +71,7 @@ Record every Cloudflare resource here as it is created.
 | `lib/services/character-pets.service.ts` | D1-backed character pet read/write service with Neon fallback for local development |
 | `lib/services/character-cache.ts` | D1-backed character roster cache service with Neon fallback for local development |
 | `lib/services/admin/zones.service.ts` | D1-backed zone metadata and item-zone association service with Neon fallback for local development |
+| `lib/services/admin/dungeons.service.ts` | D1-backed dungeon catalog service with Neon fallback for local development |
 | `package.json` | Cloudflare scripts and dependencies |
 
 ## Runtime Flow
@@ -80,7 +82,7 @@ Normal HTTP requests:
 2. `worker.ts` delegates to the generated OpenNext handler from `.open-next/worker.js`.
 3. Next.js routes, pages, middleware/proxy behavior, auth, and API handlers run through OpenNext.
 4. Primary app data still goes to Neon through `lib/db/index.ts`.
-5. Cron `sync_state`, admin `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, cached `characters`, and zone metadata reads/writes go to D1 through `IMMO_SYNC_DB`.
+5. Cron `sync_state`, admin `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, cached `characters`, zone metadata, and dungeon catalog reads/writes go to D1 through `IMMO_SYNC_DB`.
 
 Scheduled cron requests:
 
@@ -268,6 +270,7 @@ Current D1 migration status:
 | `characters` | `immo-web-suite-sync` | Cached character roster |
 | `zones` | `immo-web-suite-sync` | Admin-managed zone metadata |
 | `item_zones` | `immo-web-suite-sync` | Gathering item to zone associations |
+| `dungeons` | `immo-web-suite-sync` | Dungeon catalog and loot metadata |
 
 Keep auth, user-owned records, and market catalog data in Neon until the D1 integration has been exercised in production.
 
