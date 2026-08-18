@@ -1,10 +1,8 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { dungeons } from "@/lib/db/schema";
 import { getDungeons } from "@/lib/idlemmo";
+import { upsertSyncedDungeons } from "@/lib/services/admin/dungeons.service";
 import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 
 /**
@@ -64,23 +62,7 @@ export async function POST(request: NextRequest) {
   }));
 
   if (rows.length > 0) {
-    await db
-      .insert(dungeons)
-      .values(rows)
-      .onConflictDoUpdate({
-        target: dungeons.id,
-        set: {
-          name:          sql`excluded.name`,
-          imageUrl:      sql`excluded.image_url`,
-          levelRequired: sql`excluded.level_required`,
-          difficulty:    sql`excluded.difficulty`,
-          durationMs:    sql`excluded.duration_ms`,
-          goldCost:      sql`excluded.gold_cost`,
-          shards:        sql`excluded.shards`,
-          loot:          sql`excluded.loot`,
-          syncedAt:      sql`excluded.synced_at`,
-        },
-      });
+    await upsertSyncedDungeons(rows);
   }
 
   await recordSyncLog({
