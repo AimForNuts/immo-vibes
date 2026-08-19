@@ -1,9 +1,9 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { items } from "@/lib/db/schema";
 import { getSyncStateJob, upsertSyncStateJob } from "@/lib/services/sync-state.service";
+import { getMissingRecipeResultItemIds, updateRecipeResult } from "@/lib/services/items.service";
 
 export const maxDuration = 300;
 
@@ -58,7 +58,6 @@ export async function POST(request: NextRequest) {
   const startedAt = new Date();
   await upsertSyncStateJob({ job: "recipes", status: "running", startedAt, completedAt: null });
 
-  const nullCondition = and(eq(items.type, "RECIPE"), isNull(items.recipeResultHashedId));
   const reqHeaders = {
     Authorization: `Bearer ${token}`,
     "User-Agent": "ImmoWebSuite/1.0",
@@ -93,13 +92,7 @@ export async function POST(request: NextRequest) {
 
   // Process all pages within this single invocation
   while (true) {
-    const rows = await db
-      .select({ hashedId: items.hashedId })
-      .from(items)
-      .where(nullCondition)
-      .orderBy(items.hashedId)
-      .limit(PAGE_SIZE)
-      .offset((page - 1) * PAGE_SIZE);
+    const rows = await getMissingRecipeResultItemIds(page, PAGE_SIZE);
 
     if (rows.length === 0) break;
 
@@ -111,10 +104,7 @@ export async function POST(request: NextRequest) {
           const data = await res.json();
           const recipeResultHashedId = data.item?.recipe?.result?.hashed_item_id ?? null;
 
-          await db
-            .update(items)
-            .set({ recipeResultHashedId: recipeResultHashedId ?? NO_RECIPE_SENTINEL })
-            .where(eq(items.hashedId, hashedId));
+          await updateRecipeResult(hashedId, recipeResultHashedId ?? NO_RECIPE_SENTINEL);
 
           if (recipeResultHashedId) populated++; else noData++;
         } else {

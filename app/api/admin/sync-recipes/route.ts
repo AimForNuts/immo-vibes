@@ -1,10 +1,8 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
-import { and, count, eq, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { items } from "@/lib/db/schema";
 import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
+import { countMissingRecipeResults, getMissingRecipeResultItemIds, updateRecipeResult } from "@/lib/services/items.service";
 
 export const maxDuration = 300;
 
@@ -55,12 +53,7 @@ export async function POST(request: NextRequest) {
     userId: session.user.id,
   });
 
-  const nullCondition = and(eq(items.type, "RECIPE"), isNull(items.recipeResultHashedId));
-
-  const [{ value: total }] = await db
-    .select({ value: count() })
-    .from(items)
-    .where(nullCondition);
+  const total = await countMissingRecipeResults();
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -75,13 +68,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ populated: 0, noData: 0, errors: 0, total: 0, page: 1, totalPages: 1 });
   }
 
-  const rows = await db
-    .select({ hashedId: items.hashedId })
-    .from(items)
-    .where(nullCondition)
-    .orderBy(items.hashedId)
-    .limit(pageSize)
-    .offset((page - 1) * pageSize);
+  const rows = await getMissingRecipeResultItemIds(page, pageSize);
 
   const reqHeaders = { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" };
   let populated = 0;
@@ -124,18 +111,12 @@ export async function POST(request: NextRequest) {
         const recipeResultHashedId = data.item?.recipe?.result?.hashed_item_id ?? null;
 
         if (recipeResultHashedId) {
-          await db
-            .update(items)
-            .set({ recipeResultHashedId })
-            .where(eq(items.hashedId, hashedId));
+          await updateRecipeResult(hashedId, recipeResultHashedId);
           populated++;
         } else {
           // API returned no recipe result — mark with sentinel so this item is
           // excluded from future syncs (isNull filter won't select it)
-          await db
-            .update(items)
-            .set({ recipeResultHashedId: NO_RECIPE_SENTINEL })
-            .where(eq(items.hashedId, hashedId));
+          await updateRecipeResult(hashedId, NO_RECIPE_SENTINEL);
           noData++;
         }
       } else {

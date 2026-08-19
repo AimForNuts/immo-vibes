@@ -5,7 +5,8 @@ import { and, desc, eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { items, marketPriceHistory } from "@/lib/db/schema";
+import { marketPriceHistory } from "@/lib/db/schema";
+import { getItemById } from "@/lib/services/items.service";
 
 const IDLEMMO_BASE = "https://api.idle-mmo.com";
 
@@ -62,19 +63,15 @@ export async function GET(
 
   // 2. Tier-1 fallback: read from items.last_sold_price (populated by sync-prices)
   if (tier === 1) {
-    const itemRows = await db
-      .select({ lastSoldPrice: items.lastSoldPrice, lastSoldAt: items.lastSoldAt })
-      .from(items)
-      .where(eq(items.hashedId, id))
-      .limit(1);
+    const item = await getItemById(id);
 
-    if (itemRows.length === 0) {
+    if (!item) {
       return NextResponse.json({ price: null, sold_at: null, quantity: null });
     }
 
     return NextResponse.json({
-      price:    itemRows[0].lastSoldPrice ?? null,
-      sold_at:  itemRows[0].lastSoldAt?.toISOString() ?? null,
+      price:    item.lastSoldPrice ?? null,
+      sold_at:  item.lastSoldAt?.toISOString() ?? null,
       quantity: null,
     });
   }

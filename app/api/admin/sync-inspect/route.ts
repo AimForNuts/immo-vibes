@@ -1,11 +1,9 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
-import { eq, count } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { items } from "@/lib/db/schema";
 import { IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
+import { countItemsByType, getItemIdsByType, updateItemInspectFields } from "@/lib/services/items.service";
 
 export const maxDuration = 300;
 
@@ -62,10 +60,7 @@ export async function POST(request: NextRequest) {
     userId: session.user.id,
   });
 
-  const [{ value: total }] = await db
-    .select({ value: count() })
-    .from(items)
-    .where(eq(items.type, type));
+  const total = await countItemsByType(type);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -80,13 +75,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ synced: 0, skipped: 0, total: 0, page: 1, totalPages: 1 });
   }
 
-  const rows = await db
-    .select({ hashedId: items.hashedId })
-    .from(items)
-    .where(eq(items.type, type))
-    .orderBy(items.hashedId)
-    .limit(pageSize)
-    .offset((page - 1) * pageSize);
+  const rows = await getItemIdsByType(type, page, pageSize);
 
   const reqHeaders = { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" };
   let synced  = 0;
@@ -129,20 +118,17 @@ export async function POST(request: NextRequest) {
       const item = data.item;
       if (!item) { skipped++; continue; }
 
-      await db
-        .update(items)
-        .set({
-          description:   item.description ?? null,
-          isTradeable:   item.is_tradeable ?? null,
-          maxTier:       item.max_tier ?? null,
-          requirements:  item.requirements ?? null,
-          baseStats:     item.stats ?? null,
-          tierModifiers: item.tier_modifiers ?? null,
-          effects:       item.effects ?? null,
-          recipe:        item.recipe ?? null,
-          inspectedAt:   now,
-        })
-        .where(eq(items.hashedId, hashedId));
+      await updateItemInspectFields(hashedId, {
+        description: item.description ?? null,
+        isTradeable: item.is_tradeable ?? null,
+        maxTier: item.max_tier ?? null,
+        requirements: item.requirements ?? null,
+        baseStats: item.stats ?? null,
+        tierModifiers: item.tier_modifiers ?? null,
+        effects: item.effects ?? null,
+        recipe: item.recipe ?? null,
+        inspectedAt: now,
+      });
 
       synced++;
     } catch {
