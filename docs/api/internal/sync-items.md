@@ -1,6 +1,8 @@
 # POST /api/admin/sync-items
 
-Syncs all items of a given equipment type from the IdleMMO API into the local database. Must be run before the Gear Calculator can display items for a slot — the local `items` table is the source of truth for item search.
+Catalog writes are Cloudflare D1-backed through `lib/services/items.service.ts`, with Neon fallback for local Node development.
+
+Syncs all items of a given equipment type from the IdleMMO API into the D1 item catalog. Must be run before the Gear Calculator can display items for a slot; D1 `items` is the source of truth for item search in Cloudflare production.
 
 > Source: `app/api/admin/sync-items/route.ts`
 
@@ -42,7 +44,7 @@ No request body required.
 | Field | Type | Description |
 |---|---|---|
 | `type` | string | Equipment type that was synced (uppercased) |
-| `synced` | integer | Number of items upserted into the local database |
+| `synced` | integer | Number of items upserted into D1 `items` |
 | `page` | integer | Page number that was synced |
 | `totalPages` | integer | Total pages for this type |
 | `remaining` | integer \| null | IdleMMO API requests remaining in the current window (`null` if header absent) |

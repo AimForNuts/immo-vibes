@@ -1,11 +1,9 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { items } from "@/lib/db/schema";
 import { getCharacterInfo, getAltCharacters } from "@/lib/idlemmo";
 import { getGearPresets } from "@/lib/services/gear-presets.service";
+import { getItemsByIds } from "@/lib/services/items.service";
 import { GearCalculator } from "./GearCalculator";
 
 export default async function GearPage() {
@@ -22,18 +20,7 @@ export default async function GearPage() {
   );
 
   // Fetch item details from local catalog for all preset slots
-  const itemRows =
-    allHashedIds.length > 0
-      ? await db
-          .select({
-            hashedId: items.hashedId,
-            name: items.name,
-            quality: items.quality,
-            imageUrl: items.imageUrl,
-          })
-          .from(items)
-          .where(inArray(items.hashedId, allHashedIds))
-      : [];
+  const itemRows = await getItemsByIds(allHashedIds);
 
   const itemsMap: Record<string, { name: string; quality: string; imageUrl: string | null }> = {};
   for (const row of itemRows) {

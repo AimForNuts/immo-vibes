@@ -1,10 +1,8 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { items } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 import { getItemZoneIds, replaceItemZones } from "@/lib/services/admin/zones.service";
+import { itemExists } from "@/lib/services/items.service";
 import { invalidRequest, parseIntegerArrayField, readJsonObject } from "@/lib/validation/api";
 
 async function requireAdmin(req: NextRequest) {
@@ -46,8 +44,7 @@ export async function PUT(
   const { id } = await params;
 
   // Verify item exists
-  const [item] = await db.select({ hashedId: items.hashedId }).from(items).where(eq(items.hashedId, id)).limit(1);
-  if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+  if (!await itemExists(id)) return NextResponse.json({ error: "Item not found" }, { status: 404 });
 
   const body = await readJsonObject(req);
   if (!body.ok) return invalidRequest(body.message);

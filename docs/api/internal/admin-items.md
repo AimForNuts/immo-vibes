@@ -1,11 +1,13 @@
 # Admin Item Routes
 
 Admin-only endpoints for listing local items and editing manually maintained item metadata.
+Item catalog persistence is Cloudflare D1-backed through `lib/services/items.service.ts`, with Neon fallback for local Node development.
 
 Sources:
 - `app/api/admin/items/route.ts`
 - `app/api/admin/items/[id]/store-price/route.ts`
 - `lib/services/admin/items.service.ts`
+- `lib/services/items.service.ts`
 
 All routes require an authenticated session with `session.user.role === "admin"`.
 
@@ -84,5 +86,5 @@ Updates the manually maintained NPC store price for one item.
 
 ### Side Effects
 
-Updates only `items.store_price`. Catalog sync jobs do not clear or overwrite this field.
+Updates only D1 `items.store_price`. Catalog sync jobs do not clear or overwrite this field.
 

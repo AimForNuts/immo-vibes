@@ -1,9 +1,7 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
-import { and, eq, ilike } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { items } from "@/lib/db/schema";
+import { searchCatalogItems } from "@/lib/services/items.service";
 
 export async function GET(request: NextRequest) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -16,18 +14,7 @@ export async function GET(request: NextRequest) {
 
   if (!type) return NextResponse.json({ error: "type is required" }, { status: 400 });
 
-  const filters = [
-    eq(items.type, type),
-    ...(q ? [ilike(items.name, `%${q}%`)] : []),
-    ...(quality ? [eq(items.quality, quality)] : []),
-  ];
-
-  const rows = await db
-    .select()
-    .from(items)
-    .where(and(...filters))
-    .orderBy(items.name)
-    .limit(30);
+  const rows = await searchCatalogItems({ type, q, quality, limit: 30 });
 
   return NextResponse.json({ items: rows });
 }

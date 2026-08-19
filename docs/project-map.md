@@ -39,7 +39,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active dat
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, and API Inspector tables through `lib/services/admin/api-inspector.service.ts`. Neon remains the source for primary app data.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, and `items` through `lib/services/items.service.ts`. Neon remains the source for auth and market price history.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -61,7 +61,7 @@ The item browse/search page with detail panel and recipe cost calculator.
 | Config | `lib/market-config.ts` (tab → item type mapping; `recently_added` uses dateRange API mode) |
 | Folder docs | `app/(dashboard)/dashboard/market/README.md` |
 
-**DB tables**: `items` (read), `market_price_history` (read/write via price route — per-tier prices)
+**DB tables**: D1 `items` (read), `market_price_history` (read/write via price route — per-tier prices)
 **External API**: `GET /v1/item/{id}/market-history?tier=N` — live fallback in price route when tier > 1 is not yet in DB
 **Docs**: `docs/game-mechanics/item-types.md`, `docs/game-mechanics/items.md`, `docs/database.md`
 
@@ -99,7 +99,7 @@ Weekly cron that refreshes the item catalog from the IdleMMO API.
 | Admin route | `app/api/admin/sync-items/route.ts` |
 | IdleMMO client | `lib/idlemmo.ts` → `searchItemsByType()` |
 
-**DB tables**: `items` (upsert catalog fields), `sync_state` (marks job done)
+**DB tables**: D1 `items` (upsert catalog fields), D1 `sync_state` (marks job done)
 **External API**: `GET /v1/item/search?type={type}&page={n}`
 **Schedule**: Monday 00:00 UTC (`0 0 * * 1`)
 **Docs**: `docs/database.md`, `docs/game-mechanics/item-types.md`
@@ -115,7 +115,7 @@ Weekly cron that populates `recipeResultHashedId` for RECIPE-type items.
 | Admin route | `app/api/admin/sync-recipes/route.ts` |
 | IdleMMO client | `lib/idlemmo.ts` → `inspectItem()` |
 
-**DB tables**: `items` (write `recipeResultHashedId`), `sync_state` (gates on items done, marks recipes done)
+**DB tables**: D1 `items` (write `recipeResultHashedId`), D1 `sync_state` (gates on items done, marks recipes done)
 **External API**: `GET /v1/item/{hashedId}/inspect`
 **Schedule**: Monday 02:00 UTC (`0 2 * * 1`)
 **Docs**: `docs/database.md`
@@ -131,7 +131,7 @@ Daily cron that updates market prices, cycling through all items via `priceCheck
 | Admin route | `app/api/admin/sync-prices/route.ts` |
 | IdleMMO client | `lib/idlemmo.ts` |
 
-**DB tables**: `items` (write `lastSoldPrice`, `lastSoldAt`, `priceCheckedAt`), `market_price_history` (insert), `sync_state` (read status)
+**DB tables**: D1 `items` (write `lastSoldPrice`, `lastSoldAt`, `priceCheckedAt`), `market_price_history` (insert), D1 `sync_state` (read status)
 **External API**: `GET /v1/item/{hashedId}/market-history?tier=0&type=listings`
 **Schedule**: Daily 04:00 UTC (`0 4 * * *`) — processes 80 items per run ordered by `priceCheckedAt ASC NULLS FIRST`
 **Docs**: `docs/database.md`, `docs/api/rate-limiting.md`
@@ -146,7 +146,7 @@ Admin-only sync that populates full item stats (combat stats, effects, requireme
 | Admin route | `app/api/admin/sync-inspect/route.ts` |
 | IdleMMO client | `lib/idlemmo.ts` → `inspectItem()` |
 
-**DB tables**: `items` (write inspect fields: `description`, `baseStats`, `tierModifiers`, `effects`, `recipe`, `requirements`, `whereToFind`, `inspectedAt`)
+**DB tables**: D1 `items` (write inspect fields: `description`, `baseStats`, `tierModifiers`, `effects`, `recipe`, `requirements`, `inspectedAt`)
 **External API**: `GET /v1/item/{hashedId}/inspect`
 **Docs**: `docs/database.md`, `docs/game-mechanics/items.md`, `docs/game-mechanics/combat-stats.md`
 
@@ -181,7 +181,7 @@ Batch planner that lets users select Forge recipes and totals the required mater
 | Pure material totals lib | `lib/domain/forge-planner.ts` |
 | Sidebar nav | `components/economy-nav.tsx` |
 
-**DB tables**: `items` (read `recipe` JSONB for Forge recipes)
+**DB tables**: D1 `items` (read `recipe` JSON for Forge recipes)
 **External API**: none
 **Docs**: `docs/database.md`, `docs/game-mechanics/items.md`
 
@@ -206,7 +206,7 @@ Gear set builder with combat stat preview and preset save/load.
 | Service | `lib/services/gear-presets.service.ts` |
 | Folder docs | `app/(dashboard)/dashboard/gear/README.md` |
 
-**DB tables**: D1 `gear_presets` (read/write), `items` (Neon read for item lookup by hashedId)
+**DB tables**: D1 `gear_presets` (read/write), D1 `items` (read for item lookup by hashedId)
 **External API**: `getCharacterInfo()`, `getAltCharacters()` (populate character selector)
 **Docs**: `docs/game-mechanics/combat-stats.md`, `lib/game-constants.ts` (SLOT_LABELS, CHAR_STAT_MAP)
 
@@ -336,7 +336,7 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `lib/services/admin/users.service.ts` → `getAdminUsers()`, `updateUserEmail()`, `deleteUser()`, `dissociateCharacter()` |
 | | `lib/services/admin/sync-logs.service.ts` → `recordSyncLog()`, `getRecentSyncLogs()` |
 | | `lib/services/admin/api-inspector.service.ts` -> endpoint specs, typed schema inference, schema diffs, observations |
-**DB tables**: `items`, `market_price_history`, D1 `sync_state`, D1 `sync_job_logs`, D1 `api_endpoint_specs`, D1 `api_response_schemas`, D1 `api_schema_observations`, D1 `dungeons`, D1 `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, D1 `characters`
+**DB tables**: D1 `items`, `market_price_history`, D1 `sync_state`, D1 `sync_job_logs`, D1 `api_endpoint_specs`, D1 `api_response_schemas`, D1 `api_schema_observations`, D1 `dungeons`, D1 `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, D1 `characters`
 **External API**: All IdleMMO sync endpoints
 **Requires**: `session.user.role === "admin"`
 **Docs**: `docs/api/internal/admin-items.md`, `docs/api/internal/admin-users.md`, `docs/api/internal/admin-zones.md`, `docs/api/internal/cron-sync.md`, `docs/api/internal/sync-logs.md`, `docs/api/internal/api-inspector.md`
@@ -384,7 +384,7 @@ Email/password auth via better-auth.
 
 | Table | Populated by | Read by |
 |---|---|---|
-| `items` | sync-items, sync-prices, sync-inspect, sync-recipes | market, gear, investments, admin |
+| D1 `items` | sync-items, sync-prices, sync-inspect, sync-recipes | market, gear, investments, admin |
 | `market_price_history` | sync-prices (cron + admin) | investments history, market price route |
 | D1 `price_tracker` | investments API (user action) | investments page |
 | D1 `gear_presets` | gear actions | gear page, dungeons page |
