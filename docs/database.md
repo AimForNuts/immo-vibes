@@ -30,7 +30,7 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
 | Cron sync progress | D1 `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
 | Recent sync failures / partial progress | D1 `sync_job_logs` | `job`, `status`, `created_at`, `details` |
-| IdleMMO API typed response docs | `api_endpoint_specs`, `api_response_schemas`, `api_schema_observations` | `key`, `active_schema`, `inferred_schema`, `new_fields` |
+| IdleMMO API typed response docs | D1 `api_endpoint_specs`, D1 `api_response_schemas`, D1 `api_schema_observations` | `key`, `active_schema`, `inferred_schema`, `new_fields` |
 | Saved gear loadouts | D1 `gear_presets` | `user_id`, `slots` (JSON map of slot → `{hashedId, tier}`) |
 | Cached character roster | D1 `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
 | Saved main-pet stats for a character | D1 `character_pets` | `user_id`, `character_hashed_id`, `attack_power`, `protection`, `agility`, `accuracy`, `max_stamina`, `movement_speed`, `critical_chance`, `critical_damage`, `synced_at` |
@@ -179,7 +179,7 @@ Append-only event log for manual admin sync route observability. This table live
 
 ---
 
-### `api_endpoint_specs`
+### D1 `api_endpoint_specs`
 
 Editable admin catalog of curated IdleMMO API endpoints that the API Inspector can call.
 
@@ -194,7 +194,11 @@ Editable admin catalog of curated IdleMMO API endpoints that the API Inspector c
 | `created_at` | timestamp | - | Created time |
 | `updated_at` | timestamp | - | Last edited time |
 
-### `api_response_schemas`
+**D1 migration**: `d1/migrations/0010_api_inspector.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `api_endpoint_specs` table when D1 is unavailable in Node-based local development.
+
+### D1 `api_response_schemas`
 
 One active typed response schema per API Inspector endpoint.
 
@@ -210,7 +214,11 @@ One active typed response schema per API Inspector endpoint.
 | `updated_by_user_id` | text FK | yes | Admin who last changed it |
 | `updated_at` | timestamp | - | Last updated time |
 
-### `api_schema_observations`
+**D1 migration**: `d1/migrations/0010_api_inspector.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `api_response_schemas` table when D1 is unavailable in Node-based local development.
+
+### D1 `api_schema_observations`
 
 Derived metadata for each inspector run. Raw responses are not stored; the UI only exposes the latest raw response from the current run.
 
@@ -234,6 +242,9 @@ Derived metadata for each inspector run. Raw responses are not stored; the UI on
 
 **Service**: `lib/services/admin/api-inspector.service.ts`
 **API routes**: `GET /api/admin/api-inspector`, `POST /api/admin/api-inspector/run`, `PATCH /api/admin/api-inspector/schema`
+**D1 migration**: `d1/migrations/0010_api_inspector.sql`
+**Binding**: `IMMO_SYNC_DB`
+**Local fallback**: the service falls back to the legacy Neon `api_schema_observations` table when D1 is unavailable in Node-based local development.
 
 ---
 

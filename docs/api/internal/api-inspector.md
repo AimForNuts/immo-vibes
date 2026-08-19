@@ -1,6 +1,7 @@
 # Internal API - API Inspector
 
 Admin-only tooling for documenting IdleMMO API response shapes from real calls.
+Persistence lives in Cloudflare D1 (`api_endpoint_specs`, `api_response_schemas`, `api_schema_observations`) through `lib/services/admin/api-inspector.service.ts`, with Neon fallback for local Node development.
 
 Sources:
 - `app/api/admin/api-inspector/route.ts`
@@ -71,7 +72,7 @@ Returns:
 - `diff`: new fields, missing fields, and type conflicts compared with the active schema
 - `observation`: persisted observation metadata
 
-Raw responses are not persisted. The DB stores inferred schemas and diff metadata.
+Raw responses are not persisted. D1 stores inferred schemas and diff metadata.
 
 ## PATCH /api/admin/api-inspector/schema
 

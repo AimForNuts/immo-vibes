@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-19 - Cloudflare D1 API Inspector
+
+- **Database**: Added Cloudflare D1 `api_endpoint_specs`, `api_response_schemas`, and `api_schema_observations` for API Inspector metadata.
+- **Admin**: Routed API Inspector endpoint config, saved schemas, and observation history through the D1-backed service with Neon fallback for local development.
+
 ### 2026-08-18 - Cloudflare D1 dungeons
 
 - **Database**: Added Cloudflare D1 `dungeons` for the dungeon catalog and loot metadata.

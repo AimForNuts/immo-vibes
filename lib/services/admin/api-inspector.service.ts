@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { desc, eq } from "drizzle-orm";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { db } from "@/lib/db";
 import {
   apiEndpointSpecs,
@@ -17,7 +18,61 @@ const BASE_URL = "https://api.idle-mmo.com";
 
 type Primitive = string | number | boolean;
 type EndpointSpecRow = typeof apiEndpointSpecs.$inferSelect;
+type ResponseSchemaRow = typeof apiResponseSchemas.$inferSelect;
 type SchemaObservationRow = typeof apiSchemaObservations.$inferSelect;
+
+type D1Value = string | number | boolean | null;
+
+type D1PreparedStatement = {
+  bind(...values: D1Value[]): D1PreparedStatement;
+  all<T = unknown>(): Promise<{ results: T[] }>;
+  run(): Promise<unknown>;
+};
+
+type D1DatabaseBinding = {
+  prepare(query: string): D1PreparedStatement;
+};
+
+type ApiInspectorCloudflareEnv = {
+  IMMO_SYNC_DB?: D1DatabaseBinding;
+};
+
+type ApiEndpointSpecD1Row = {
+  key: string;
+  label: string;
+  method: string;
+  path_template: string;
+  config: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ApiResponseSchemaD1Row = {
+  endpoint_key: string;
+  inferred_schema: string | null;
+  manual_schema: string | null;
+  active_schema: string | null;
+  deprecated_fields: string;
+  version: number;
+  last_seen_at: string | null;
+  updated_by_user_id: string | null;
+  updated_at: string;
+};
+
+type ApiSchemaObservationD1Row = {
+  id: string;
+  endpoint_key: string;
+  params: string;
+  status_code: number;
+  duration_ms: number;
+  inferred_schema: string;
+  new_fields: string;
+  missing_fields: string;
+  type_conflicts: string;
+  created_by_user_id: string | null;
+  created_at: string;
+};
 
 export type ApiInspectorDiff = {
   newFields: string[];
@@ -251,6 +306,73 @@ const DEFAULT_ENDPOINTS: ApiInspectorSpecConfig[] = [
   },
 ];
 
+function getApiInspectorD1(): D1DatabaseBinding | null {
+  try {
+    return (getCloudflareContext().env as ApiInspectorCloudflareEnv).IMMO_SYNC_DB ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function parseJson<T>(value: string | null, fallback: T): T {
+  if (value === null) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function mapD1Spec(row: ApiEndpointSpecD1Row): EndpointSpecRow {
+  return {
+    key: row.key,
+    label: row.label,
+    method: row.method,
+    pathTemplate: row.path_template,
+    config: parseJson<ApiInspectorSpecConfig>(row.config, {
+      key: row.key,
+      label: row.label,
+      method: "GET",
+      pathTemplate: row.path_template,
+      params: [],
+      ...(row.notes ? { notes: row.notes } : {}),
+    }),
+    notes: row.notes,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+function mapD1Schema(row: ApiResponseSchemaD1Row): ResponseSchemaRow {
+  return {
+    endpointKey: row.endpoint_key,
+    inferredSchema: parseJson<ApiInspectorSchema | null>(row.inferred_schema, null),
+    manualSchema: parseJson<ApiInspectorSchema | null>(row.manual_schema, null),
+    activeSchema: parseJson<ApiInspectorSchema | null>(row.active_schema, null),
+    deprecatedFields: parseJson<string[]>(row.deprecated_fields, []),
+    version: row.version,
+    lastSeenAt: row.last_seen_at ? new Date(row.last_seen_at) : null,
+    updatedByUserId: row.updated_by_user_id,
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+function mapD1Observation(row: ApiSchemaObservationD1Row): SchemaObservationRow {
+  return {
+    id: row.id,
+    endpointKey: row.endpoint_key,
+    params: parseJson<Record<string, string | number | boolean>>(row.params, {}),
+    statusCode: row.status_code,
+    durationMs: row.duration_ms,
+    inferredSchema: parseJson<ApiInspectorSchema>(row.inferred_schema, {}),
+    newFields: parseJson<string[]>(row.new_fields, []),
+    missingFields: parseJson<string[]>(row.missing_fields, []),
+    typeConflicts: parseJson<Array<{ path: string; previous: string; next: string }>>(row.type_conflicts, []),
+    createdByUserId: row.created_by_user_id,
+    createdAt: new Date(row.created_at),
+  };
+}
+
 function hashedCharacterParam(): ApiInspectorParam {
   return {
     name: "hashedId",
@@ -287,8 +409,30 @@ function guildIdParam(): ApiInspectorParam {
 
 export async function ensureDefaultApiEndpointSpecs() {
   const now = new Date();
+  const d1 = getApiInspectorD1();
 
   for (const spec of DEFAULT_ENDPOINTS) {
+    if (d1) {
+      await d1
+        .prepare(
+          `INSERT OR IGNORE INTO api_endpoint_specs
+             (key, label, method, path_template, config, notes, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          spec.key,
+          spec.label,
+          spec.method,
+          spec.pathTemplate,
+          JSON.stringify(spec),
+          spec.notes ?? null,
+          now.toISOString(),
+          now.toISOString()
+        )
+        .run();
+      continue;
+    }
+
     await db
       .insert(apiEndpointSpecs)
       .values({
@@ -308,6 +452,40 @@ export async function ensureDefaultApiEndpointSpecs() {
 export async function getApiInspectorState() {
   try {
     await ensureDefaultApiEndpointSpecs();
+    const d1 = getApiInspectorD1();
+
+    if (d1) {
+      const specs = await d1
+        .prepare(
+          `SELECT key, label, method, path_template, config, notes, created_at, updated_at
+           FROM api_endpoint_specs
+           ORDER BY label ASC`
+        )
+        .all<ApiEndpointSpecD1Row>();
+      const schemas = await d1
+        .prepare(
+          `SELECT endpoint_key, inferred_schema, manual_schema, active_schema,
+                  deprecated_fields, version, last_seen_at, updated_by_user_id, updated_at
+           FROM api_response_schemas`
+        )
+        .all<ApiResponseSchemaD1Row>();
+      const observations = await d1
+        .prepare(
+          `SELECT id, endpoint_key, params, status_code, duration_ms, inferred_schema,
+                  new_fields, missing_fields, type_conflicts, created_by_user_id, created_at
+           FROM api_schema_observations
+           ORDER BY created_at DESC
+           LIMIT 30`
+        )
+        .all<ApiSchemaObservationD1Row>();
+
+      return {
+        specs: specs.results.length > 0 ? specs.results.map(mapD1Spec) : getDefaultEndpointSpecRows(),
+        schemas: schemas.results.map(mapD1Schema),
+        observations: observations.results.map(mapD1Observation),
+        persistenceAvailable: true,
+      };
+    }
 
     const specs = await db.select().from(apiEndpointSpecs).orderBy(apiEndpointSpecs.label);
     const schemas = await db.select().from(apiResponseSchemas);
@@ -337,6 +515,21 @@ export async function getApiInspectorState() {
 export async function getEndpointSpec(key: string) {
   try {
     await ensureDefaultApiEndpointSpecs();
+    const d1 = getApiInspectorD1();
+
+    if (d1) {
+      const { results } = await d1
+        .prepare(
+          `SELECT key, label, method, path_template, config, notes, created_at, updated_at
+           FROM api_endpoint_specs
+           WHERE key = ?
+           LIMIT 1`
+        )
+        .bind(key)
+        .all<ApiEndpointSpecD1Row>();
+      return results[0] ? mapD1Spec(results[0]) : getDefaultEndpointSpecRows().find((row) => row.key === key) ?? null;
+    }
+
     const [spec] = await db.select().from(apiEndpointSpecs).where(eq(apiEndpointSpecs.key, key)).limit(1);
     return spec ?? getDefaultEndpointSpecRows().find((row) => row.key === key) ?? null;
   } catch (error) {
@@ -350,6 +543,35 @@ export async function updateEndpointSpecConfig(
   config: ApiInspectorSpecConfig
 ) {
   const now = new Date();
+  const d1 = getApiInspectorD1();
+
+  if (d1) {
+    await d1
+      .prepare(
+        `UPDATE api_endpoint_specs
+         SET label = ?,
+             method = ?,
+             path_template = ?,
+             config = ?,
+             notes = ?,
+             updated_at = ?
+         WHERE key = ?`
+      )
+      .bind(
+        config.label,
+        config.method,
+        config.pathTemplate,
+        JSON.stringify(config),
+        config.notes ?? null,
+        now.toISOString(),
+        key
+      )
+      .run();
+    const updated = await getEndpointSpec(key);
+    if (!updated) throw new Error("Endpoint not found");
+    return updated;
+  }
+
   const [row] = await db
     .update(apiEndpointSpecs)
     .set({
@@ -461,10 +683,35 @@ export async function runEndpointAndObserve(input: {
   let observation: SchemaObservationRow = observationInput;
   let persistenceAvailable = true;
   try {
-    [observation] = await db
-      .insert(apiSchemaObservations)
-      .values(observationInput)
-      .returning();
+    const d1 = getApiInspectorD1();
+    if (d1) {
+      await d1
+        .prepare(
+          `INSERT INTO api_schema_observations
+             (id, endpoint_key, params, status_code, duration_ms, inferred_schema,
+              new_fields, missing_fields, type_conflicts, created_by_user_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          observationInput.id,
+          observationInput.endpointKey,
+          JSON.stringify(observationInput.params),
+          observationInput.statusCode,
+          observationInput.durationMs,
+          JSON.stringify(observationInput.inferredSchema),
+          JSON.stringify(observationInput.newFields),
+          JSON.stringify(observationInput.missingFields),
+          JSON.stringify(observationInput.typeConflicts),
+          observationInput.createdByUserId,
+          observationInput.createdAt.toISOString()
+        )
+        .run();
+    } else {
+      [observation] = await db
+        .insert(apiSchemaObservations)
+        .values(observationInput)
+        .returning();
+    }
   } catch (error) {
     persistenceAvailable = false;
     console.error("[api-inspector] failed to persist schema observation", error);
@@ -492,6 +739,21 @@ export async function runEndpointAndObserve(input: {
 
 export async function getResponseSchema(endpointKey: string) {
   try {
+    const d1 = getApiInspectorD1();
+    if (d1) {
+      const { results } = await d1
+        .prepare(
+          `SELECT endpoint_key, inferred_schema, manual_schema, active_schema,
+                  deprecated_fields, version, last_seen_at, updated_by_user_id, updated_at
+           FROM api_response_schemas
+           WHERE endpoint_key = ?
+           LIMIT 1`
+        )
+        .bind(endpointKey)
+        .all<ApiResponseSchemaD1Row>();
+      return results[0] ? mapD1Schema(results[0]) : null;
+    }
+
     const [schema] = await db
       .select()
       .from(apiResponseSchemas)
@@ -516,6 +778,44 @@ export async function saveResponseSchema(input: {
     const now = new Date();
     const existing = await getResponseSchema(input.endpointKey);
     const version = (existing?.version ?? 0) + 1;
+    const d1 = getApiInspectorD1();
+
+    if (d1) {
+      await d1
+        .prepare(
+          `INSERT INTO api_response_schemas
+             (endpoint_key, inferred_schema, manual_schema, active_schema, deprecated_fields,
+              version, last_seen_at, updated_by_user_id, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(endpoint_key) DO UPDATE SET
+             inferred_schema = excluded.inferred_schema,
+             manual_schema = excluded.manual_schema,
+             active_schema = excluded.active_schema,
+             deprecated_fields = excluded.deprecated_fields,
+             version = excluded.version,
+             last_seen_at = excluded.last_seen_at,
+             updated_by_user_id = excluded.updated_by_user_id,
+             updated_at = excluded.updated_at`
+        )
+        .bind(
+          input.endpointKey,
+          JSON.stringify(input.inferredSchema ?? existing?.inferredSchema ?? input.activeSchema),
+          input.manualSchema === undefined
+            ? (existing?.manualSchema === null || existing?.manualSchema === undefined ? null : JSON.stringify(existing.manualSchema))
+            : (input.manualSchema === null ? null : JSON.stringify(input.manualSchema)),
+          JSON.stringify(input.activeSchema),
+          JSON.stringify(input.deprecatedFields ?? existing?.deprecatedFields ?? []),
+          version,
+          now.toISOString(),
+          input.userId,
+          now.toISOString()
+        )
+        .run();
+
+      const schema = await getResponseSchema(input.endpointKey);
+      if (!schema) throw new Error("Failed to load saved schema");
+      return { schema, persistenceAvailable: true as const };
+    }
 
     const [schema] = await db
       .insert(apiResponseSchemas)
