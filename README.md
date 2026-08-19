@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-19 - Cloudflare D1 items
+
+- **Database**: Added Cloudflare D1 `items` for the item catalog, inspect metadata, recipe metadata, and tier-1 price cache.
+- **Market/Admin/Sync**: Routed item browsing, item detail, gear/forge/dungeon lookups, and item sync writes through the D1-backed item service with Neon fallback for local development.
+
 ### 2026-08-19 - Cloudflare D1 API Inspector
 
 - **Database**: Added Cloudflare D1 `api_endpoint_specs`, `api_response_schemas`, and `api_schema_observations` for API Inspector metadata.

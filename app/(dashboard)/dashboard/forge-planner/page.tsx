@@ -1,9 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { asc, eq, inArray, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { items, type ItemRecipe } from "@/lib/db/schema";
+import { getForgeRecipeItems, getItemsByIds } from "@/lib/services/items.service";
 import { ForgePlanner } from "./ForgePlanner";
 import type { ForgeRecipeItem } from "./types";
 
@@ -11,21 +9,7 @@ export default async function ForgePlannerPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
-  const rows = await db
-    .select({
-      hashedId: items.hashedId,
-      name: items.name,
-      quality: items.quality,
-      imageUrl: items.imageUrl,
-      recipe: items.recipe,
-    })
-    .from(items)
-    .where(eq(sql<string>`${items.recipe}->>'skill'`, "Forge"))
-    .orderBy(asc(items.name));
-
-  const recipeRows = rows.filter(
-    (row): row is typeof row & { recipe: ItemRecipe } => Boolean(row.recipe?.materials?.length),
-  );
+  const recipeRows = await getForgeRecipeItems();
 
   const resultHashedIds = Array.from(
     new Set(
@@ -35,17 +19,7 @@ export default async function ForgePlannerPage() {
     ),
   );
 
-  const resultRows = resultHashedIds.length > 0
-    ? await db
-        .select({
-          hashedId: items.hashedId,
-          name: items.name,
-          quality: items.quality,
-          imageUrl: items.imageUrl,
-        })
-        .from(items)
-        .where(inArray(items.hashedId, resultHashedIds))
-    : [];
+  const resultRows = await getItemsByIds(resultHashedIds);
 
   const resultsById = new Map(resultRows.map((row) => [row.hashedId, row]));
 

@@ -1,10 +1,8 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { items } from "@/lib/db/schema";
+import { getItemById } from "@/lib/services/items.service";
 
 /**
  * GET /api/market/item/[id]
@@ -23,33 +21,9 @@ export async function GET(
 
   const { id } = await params;
 
-  const rows = await db
-    .select({
-      hashedId:      items.hashedId,
-      name:          items.name,
-      type:          items.type,
-      quality:       items.quality,
-      imageUrl:      items.imageUrl,
-      vendorPrice:   items.vendorPrice,
-      lastSoldPrice: items.lastSoldPrice,
-      lastSoldAt:    items.lastSoldAt,
-      description:   items.description,
-      isTradeable:   items.isTradeable,
-      maxTier:       items.maxTier,
-      requirements:  items.requirements,
-      baseStats:     items.baseStats,
-      tierModifiers: items.tierModifiers,
-      effects:       items.effects,
-      recipe:        items.recipe,
-      storePrice:    items.storePrice,
-    })
-    .from(items)
-    .where(eq(items.hashedId, id))
-    .limit(1);
+  const r = await getItemById(id);
+  if (!r) return NextResponse.json({ item: null });
 
-  if (rows.length === 0) return NextResponse.json({ item: null });
-
-  const r = rows[0];
   return NextResponse.json({
     item: {
       hashed_id:       r.hashedId,

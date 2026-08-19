@@ -2,9 +2,9 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { items } from "@/lib/db/schema";
 import { searchItemsByType, IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 import { upsertSyncStateJob } from "@/lib/services/sync-state.service";
+import { upsertCatalogItems } from "@/lib/services/items.service";
 
 export const maxDuration = 300;
 
@@ -45,30 +45,15 @@ export async function POST(request: NextRequest) {
       const fetched = await searchItemsByType(type, token);
       if (fetched.length === 0) continue;
 
-      await db
-        .insert(items)
-        .values(
-          fetched.map((item) => ({
-            hashedId:    item.hashed_id,
-            name:        item.name,
-            type:        item.type.toUpperCase(),
-            quality:     item.quality.toUpperCase(),
-            imageUrl:    item.image_url ?? null,
-            vendorPrice: item.vendor_price ?? null,
-            syncedAt:    now,
-          }))
-        )
-        .onConflictDoUpdate({
-          target: items.hashedId,
-          set: {
-            name:        sql`excluded.name`,
-            type:        sql`excluded.type`,
-            quality:     sql`excluded.quality`,
-            imageUrl:    sql`excluded.image_url`,
-            vendorPrice: sql`excluded.vendor_price`,
-            syncedAt:    now,
-          },
-        });
+      await upsertCatalogItems(fetched.map((item) => ({
+        hashedId: item.hashed_id,
+        name: item.name,
+        type: item.type.toUpperCase(),
+        quality: item.quality.toUpperCase(),
+        imageUrl: item.image_url ?? null,
+        vendorPrice: item.vendor_price ?? null,
+        syncedAt: now,
+      })));
 
       totalSynced += fetched.length;
     } catch {

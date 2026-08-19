@@ -1,10 +1,11 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
-import { asc, eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
-import { items, marketPriceHistory } from "@/lib/db/schema";
+import { marketPriceHistory } from "@/lib/db/schema";
 import { upsertSyncStateJob } from "@/lib/services/sync-state.service";
+import { getItemsForPriceSync, updateItemPriceFields } from "@/lib/services/items.service";
 
 export const maxDuration = 300;
 
@@ -39,11 +40,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Pick the next PAGE_SIZE items that haven't been checked (or were checked longest ago).
-  const rows = await db
-    .select({ hashedId: items.hashedId })
-    .from(items)
-    .orderBy(asc(items.priceCheckedAt))
-    .limit(PAGE_SIZE);
+  const rows = await getItemsForPriceSync(PAGE_SIZE);
 
   if (rows.length === 0) {
     return NextResponse.json({ synced: 0, skipped: 0, total: 0 });
@@ -96,10 +93,7 @@ export async function POST(request: NextRequest) {
           const price  = tier1.price_per_item as number;
           const soldAt = new Date(tier1.sold_at);
 
-          await db
-            .update(items)
-            .set({ lastSoldPrice: price, lastSoldAt: soldAt, priceCheckedAt: now })
-            .where(eq(items.hashedId, hashedId));
+          await updateItemPriceFields({ hashedId, lastSoldPrice: price, lastSoldAt: soldAt, priceCheckedAt: now });
 
           try {
             await db.insert(marketPriceHistory).values({
@@ -111,10 +105,7 @@ export async function POST(request: NextRequest) {
           synced++;
         } else {
           // No active listing — still mark as checked so it moves to back of queue
-          await db
-            .update(items)
-            .set({ priceCheckedAt: now })
-            .where(eq(items.hashedId, hashedId));
+          await updateItemPriceFields({ hashedId, priceCheckedAt: now });
           skipped++;
         }
 

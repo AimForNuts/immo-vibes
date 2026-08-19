@@ -11,17 +11,17 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 
 | I need… | Table | Key columns |
 |---|---|---|
-| Item name, type, quality, image | `items` | `hashed_id`, `name`, `type`, `quality`, `image_url` |
-| Item vendor price | `items` | `vendor_price` |
-| Item market price (tier 1) | `items` | `last_sold_price`, `last_sold_at` |
+| Item name, type, quality, image | D1 `items` | `hashed_id`, `name`, `type`, `quality`, `image_url` |
+| Item vendor price | D1 `items` | `vendor_price` |
+| Item market price (tier 1) | D1 `items` | `last_sold_price`, `last_sold_at` |
 | Item market price (any tier) | `market_price_history` | `item_hashed_id`, `tier`, `price`, `sold_at` |
-| Item combat stats at tier 1 | `items` | `base_stats` |
+| Item combat stats at tier 1 | D1 `items` | `base_stats` |
 | Item combat stats at tier N | compute client-side | `baseStat + (tier-1) × tierModifiers[stat]` |
-| Item tier range | `items` | `max_tier` (1 = no tiers) |
-| Item effects, requirements | `items` | `effects`, `requirements` |
-| Recipe materials for a RECIPE item | `items` | `recipe` (full JSONB) |
-| Which recipe produces a given item | `items` | `recipe_result_hashed_id` (deprecated → join on `recipe.result.hashed_item_id`) |
-| Item store price (NPC shop cost) | `items` | `store_price` |
+| Item tier range | D1 `items` | `max_tier` (1 = no tiers) |
+| Item effects, requirements | D1 `items` | `effects`, `requirements` |
+| Recipe materials for a RECIPE item | D1 `items` | `recipe` (full JSON) |
+| Which recipe produces a given item | D1 `items` | `recipe_result_hashed_id` (deprecated → join on `recipe.result.hashed_item_id`) |
+| Item store price (NPC shop cost) | D1 `items` | `store_price` |
 | Item drop locations (enemies, dungeons, world bosses) | `zones` | `enemies`, `dungeons`, `world_bosses` |
 | Zone catalog (name, level requirement) | D1 `zones` | `id`, `name`, `level_required` |
 | Gathering item → zone associations | D1 `item_zones` | `item_hashed_id`, `zone_id` |
@@ -42,10 +42,13 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 
 ## Tables
 
-### `items`
+### D1 `items`
 
 One row per unique item in the IdleMMO catalogue.
 Populated in stages by three separate sync jobs.
+This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/items.service.ts`.
+Created by D1 migration `d1/migrations/0011_items.sql`. The service falls back to Neon when the D1 binding is unavailable in local Node-based development.
+JSON-style columns are stored as text in D1 and as `jsonb` in the existing Neon fallback schema.
 
 | Column | Type | Nullable | Populated by | Notes |
 |---|---|---|---|---|

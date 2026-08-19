@@ -1,10 +1,8 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { items } from "@/lib/db/schema";
+import { findRecipeForResult } from "@/lib/services/items.service";
 
 /**
  * GET /api/market/crafted-by/[id]
@@ -23,15 +21,10 @@ export async function GET(
 
   const { id } = await params;
 
-  const rows = await db
-    .select({ hashedId: items.hashedId, name: items.name })
-    .from(items)
-    .where(eq(items.recipeResultHashedId, id))
-    .limit(1);
-
-  if (rows.length === 0) return NextResponse.json({ recipe: null });
+  const recipe = await findRecipeForResult(id);
+  if (!recipe) return NextResponse.json({ recipe: null });
 
   return NextResponse.json({
-    recipe: { hashed_id: rows[0].hashedId, name: rows[0].name },
+    recipe: { hashed_id: recipe.hashedId, name: recipe.name },
   });
 }

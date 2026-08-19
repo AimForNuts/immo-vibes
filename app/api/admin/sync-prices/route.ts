@@ -1,12 +1,12 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
-import { eq, count } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { items, marketPriceHistory } from "@/lib/db/schema";
+import { marketPriceHistory } from "@/lib/db/schema";
 import { IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
+import { countItemsByType, getItemIdsByType, updateItemPriceFields, updateRecipeResult } from "@/lib/services/items.service";
 
 export const maxDuration = 300;
 
@@ -65,10 +65,7 @@ export async function POST(request: NextRequest) {
   });
 
   // Total count for this type (used for totalPages in response)
-  const [{ value: total }] = await db
-    .select({ value: count() })
-    .from(items)
-    .where(eq(items.type, type));
+  const total = await countItemsByType(type);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -84,13 +81,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Paginated item fetch
-  const rows = await db
-    .select({ hashedId: items.hashedId, recipeResultHashedId: items.recipeResultHashedId })
-    .from(items)
-    .where(eq(items.type, type))
-    .orderBy(items.hashedId)
-    .limit(pageSize)
-    .offset((page - 1) * pageSize);
+  const rows = await getItemIdsByType(type, page, pageSize);
 
   const reqHeaders = { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" };
   let synced  = 0;
@@ -144,10 +135,7 @@ export async function POST(request: NextRequest) {
           const price  = tier1.price_per_item as number;
           const soldAt = new Date(tier1.sold_at);
 
-          await db
-            .update(items)
-            .set({ lastSoldPrice: price, lastSoldAt: soldAt, priceCheckedAt: now })
-            .where(eq(items.hashedId, hashedId));
+          await updateItemPriceFields({ hashedId, lastSoldPrice: price, lastSoldAt: soldAt, priceCheckedAt: now });
 
           try {
             await db.insert(marketPriceHistory).values({
@@ -158,10 +146,7 @@ export async function POST(request: NextRequest) {
 
           synced++;
         } else {
-          await db
-            .update(items)
-            .set({ priceCheckedAt: new Date() })
-            .where(eq(items.hashedId, hashedId));
+          await updateItemPriceFields({ hashedId, priceCheckedAt: new Date() });
           skipped++;
         }
 
@@ -191,10 +176,7 @@ export async function POST(request: NextRequest) {
           const inspectData = await inspectRes.json();
           const resultId = inspectData.item?.recipe?.result?.hashed_item_id ?? null;
           if (resultId) {
-            await db
-              .update(items)
-              .set({ recipeResultHashedId: resultId })
-              .where(eq(items.hashedId, hashedId));
+            await updateRecipeResult(hashedId, resultId);
           }
         }
       }
