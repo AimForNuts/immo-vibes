@@ -1,12 +1,10 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { items } from "@/lib/db/schema";
 import { getDbCharacters } from "@/lib/services/character-cache";
 import { getStoredDungeons } from "@/lib/services/admin/dungeons.service";
 import { getGearPresets } from "@/lib/services/gear-presets.service";
+import { getItemsByIds } from "@/lib/services/items.service";
 import { STATIC_DUNGEONS, type StaticDungeon } from "./difficulty";
 import { DungeonExplorer } from "./DungeonExplorer";
 
@@ -79,13 +77,7 @@ export default async function DungeonsPage() {
     )
   );
 
-  const itemRows =
-    allHashedIds.length > 0
-      ? await db
-          .select({ hashedId: items.hashedId, name: items.name, quality: items.quality, imageUrl: items.imageUrl })
-          .from(items)
-          .where(inArray(items.hashedId, allHashedIds))
-      : [];
+  const itemRows = await getItemsByIds(allHashedIds);
 
   const itemsMap: Record<string, { name: string; quality: string; imageUrl: string | null }> = {};
   for (const row of itemRows) {

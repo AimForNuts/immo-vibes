@@ -1,10 +1,8 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { items } from "@/lib/db/schema";
+import { updateStorePrice } from "@/lib/services/items.service";
 
 export async function PATCH(
   request: NextRequest,
@@ -38,15 +36,11 @@ export async function PATCH(
 
   const { id } = await params;
 
-  const updated = await db
-    .update(items)
-    .set({ storePrice })
-    .where(eq(items.hashedId, id))
-    .returning({ storePrice: items.storePrice });
+  const updatedStorePrice = await updateStorePrice(id, storePrice);
 
-  if (updated.length === 0) {
+  if (updatedStorePrice === undefined) {
     return NextResponse.json({ error: "Item not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ store_price: updated[0].storePrice });
+  return NextResponse.json({ store_price: updatedStorePrice });
 }

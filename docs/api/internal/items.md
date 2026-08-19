@@ -1,6 +1,7 @@
 # GET /api/items
 
 Searches the **local item database** (not IdleMMO directly) by equipment type, with optional name and quality filters. Used by the Gear Calculator's item picker.
+Item catalog reads are Cloudflare D1-backed through `lib/services/items.service.ts`, with Neon fallback for local Node development.
 
 > Source: `app/api/items/route.ts`
 
@@ -82,6 +83,6 @@ GET /api/items?type=HELMET&q=ashen&quality=EPIC
 
 ## Data Source
 
-Reads from the local `items` table (Neon Postgres). Data is populated by the admin sync endpoint. Does **not** call the IdleMMO API at request time.
+Reads from D1 `items`. Data is populated by the admin sync endpoint. Does **not** call the IdleMMO API at request time.
 
-**Database table:** `items` (`hashed_id`, `name`, `type`, `quality`, `image_url`, `synced_at`)
+**Database table:** D1 `items` (`hashed_id`, `name`, `type`, `quality`, `image_url`, `synced_at`)
