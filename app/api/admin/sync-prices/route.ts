@@ -1,12 +1,10 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
-import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { marketPriceHistory } from "@/lib/db/schema";
 import { IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 import { countItemsByType, getItemIdsByType, updateItemPriceFields, updateRecipeResult } from "@/lib/services/items.service";
+import { insertMarketPriceHistory } from "@/lib/services/market-price-history.service";
 
 export const maxDuration = 300;
 
@@ -20,7 +18,7 @@ const PAGE_SIZE_MAX     = 200;
  *
  * Fetches the latest market-history entry for one page of items of the given
  * type and updates items.last_sold_price / last_sold_at.
- * Also inserts records into market_price_history for historical tracking.
+ * Also inserts records into D1 market_price_history for historical tracking.
  *
  * Pagination keeps each call within Vercel's 300s maxDuration:
  * at 20 req/min, 80 items ≈ 4 rate-limit windows ≈ 4 min.
@@ -138,10 +136,10 @@ export async function POST(request: NextRequest) {
           await updateItemPriceFields({ hashedId, lastSoldPrice: price, lastSoldAt: soldAt, priceCheckedAt: now });
 
           try {
-            await db.insert(marketPriceHistory).values({
-              id: randomUUID(), itemHashedId: hashedId, tier: 1,
+            await insertMarketPriceHistory({
+              itemHashedId: hashedId, tier: 1,
               price, quantity: tier1.quantity ?? 1, soldAt, recordedAt: now,
-            }).onConflictDoNothing();
+            });
           } catch { /* non-blocking */ }
 
           synced++;
@@ -154,14 +152,14 @@ export async function POST(request: NextRequest) {
         for (const sale of allSales) {
           if (sale.tier === 1 || !sale.price_per_item) continue; // tier 1 already handled
           try {
-            await db.insert(marketPriceHistory).values({
-              id: randomUUID(), itemHashedId: hashedId,
+            await insertMarketPriceHistory({
+              itemHashedId: hashedId,
               tier:       sale.tier, // response tier is already 1-based game tier
               price:      sale.price_per_item as number,
               quantity:   sale.quantity ?? 1,
               soldAt:     new Date(sale.sold_at),
               recordedAt: new Date(),
-            }).onConflictDoNothing();
+            });
           } catch { /* non-blocking */ }
         }
       } else {

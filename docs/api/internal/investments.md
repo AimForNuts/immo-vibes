@@ -1,13 +1,14 @@
 # Internal API — Investments
 
 Authenticated endpoints for user-tracked market items.
-Tracked items are stored in Cloudflare D1 table `price_tracker` through `lib/services/price-tracker.service.ts`; local Node development falls back to the legacy Neon table when D1 is unavailable.
+Tracked items are stored in Cloudflare D1 table `price_tracker` through `lib/services/price-tracker.service.ts`; price history is read from D1 `market_price_history` through `lib/services/market-price-history.service.ts`. Local Node development falls back to the legacy Neon tables when D1 is unavailable.
 
 Sources:
 - `app/api/investments/route.ts`
 - `app/api/investments/[id]/route.ts`
 - `app/api/investments/[id]/history/route.ts`
 - `lib/services/price-tracker.service.ts`
+- `lib/services/market-price-history.service.ts`
 
 ---
 
@@ -70,10 +71,10 @@ Removes a tracked item owned by the current user.
 
 ## GET `/api/investments/[id]/history`
 
-Returns recent market listings for a tracked item by proxying IdleMMO market history.
+Returns recent locally recorded market listings for a tracked item.
 
-**Auth:** Required. User must have an IdleMMO API token configured.
+**Auth:** Required.
 
 **Response 200:** `{ "history": [] }`
 
-**Errors:** Returns `400` when the user has no API token, `404` when the tracked item does not exist for the user, and the upstream IdleMMO status when the proxy request fails.
+**Errors:** Returns `404` when the tracked item does not exist for the user and `500` on unexpected read failures.
