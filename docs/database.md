@@ -14,7 +14,7 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | Item name, type, quality, image | D1 `items` | `hashed_id`, `name`, `type`, `quality`, `image_url` |
 | Item vendor price | D1 `items` | `vendor_price` |
 | Item market price (tier 1) | D1 `items` | `last_sold_price`, `last_sold_at` |
-| Item market price (any tier) | `market_price_history` | `item_hashed_id`, `tier`, `price`, `sold_at` |
+| Item market price (any tier) | D1 `market_price_history` | `item_hashed_id`, `tier`, `price`, `sold_at` |
 | Item combat stats at tier 1 | D1 `items` | `base_stats` |
 | Item combat stats at tier N | compute client-side | `baseStat + (tier-1) × tierModifiers[stat]` |
 | Item tier range | D1 `items` | `max_tier` (1 = no tiers) |
@@ -27,7 +27,7 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | Gathering item → zone associations | D1 `item_zones` | `item_hashed_id`, `zone_id` |
 | User settings / dashboard layout | D1 `user_preferences` | `user_id`, `dashboard_layout` |
 | User's tracked price alerts | D1 `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
-| Historical price series for a chart | `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
+| Historical price series for a chart | D1 `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
 | Cron sync progress | D1 `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
 | Recent sync failures / partial progress | D1 `sync_job_logs` | `job`, `status`, `created_at`, `details` |
 | IdleMMO API typed response docs | D1 `api_endpoint_specs`, D1 `api_response_schemas`, D1 `api_schema_observations` | `key`, `active_schema`, `inferred_schema`, `new_fields` |
@@ -85,11 +85,13 @@ effectiveStat = base_stats[stat] + (tier - 1) × tier_modifiers[stat]
 
 ---
 
-### `market_price_history`
+### D1 `market_price_history`
 
 Append-only price log. One row per unique `(item, tier, sale timestamp)`.
 The IdleMMO API only exposes the latest sale; persisting here builds history longer than the game retains.
 Unique index: `(item_hashed_id, tier, sold_at)`.
+This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/market-price-history.service.ts`.
+Created by D1 migration `d1/migrations/0012_market_price_history.sql`. The service falls back to Neon when the D1 binding is unavailable in local Node-based development.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|

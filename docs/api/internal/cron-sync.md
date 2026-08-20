@@ -33,7 +33,7 @@ The active schedule is:
 
 The retired `POST /api/cron/sync-market` route was removed because it duplicated `sync-items`, was not scheduled, did not update `sync_state`, and its name implied price syncing even though it only refreshed catalog data.
 
-`sync_state` is stored in Cloudflare D1 via `lib/services/sync-state.service.ts`. The item catalog is stored in Cloudflare D1 via `lib/services/items.service.ts`. Both services fall back to Neon when the D1 binding is unavailable in local Node-based development.
+`sync_state` is stored in Cloudflare D1 via `lib/services/sync-state.service.ts`. The item catalog is stored in Cloudflare D1 via `lib/services/items.service.ts`. Market price history is stored in Cloudflare D1 via `lib/services/market-price-history.service.ts`. These services fall back to Neon when the D1 binding is unavailable in local Node-based development.
 
 ---
 
@@ -170,7 +170,7 @@ When there are no local items:
 
 - Updates tier 1 values on D1 `items.last_sold_price`, `items.last_sold_at`, and `items.price_checked_at`.
 - Marks rows with no tier 1 sale as checked by updating D1 `items.price_checked_at`.
-- Inserts tier 1 and higher-tier sales into `market_price_history` with `onConflictDoNothing`.
+- Inserts tier 1 and higher-tier sales into D1 `market_price_history` with duplicate-sale protection.
 - Marks `sync_state.job = "prices"` as `done` for observability.
 
 ---
@@ -188,4 +188,3 @@ Manual admin sync routes write append-only lifecycle events to `sync_job_logs`. 
 | `POST /api/admin/sync-dungeons` | `dungeons` | `started`, `success`, `failed` |
 
 `progress` means the route completed but skipped or errored on part of the batch. Logging failures are caught by the logging service and do not fail the sync request.
-
