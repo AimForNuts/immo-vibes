@@ -72,6 +72,8 @@ https://immo-web-suite.void-presence.workers.dev
 
 The full Cloudflare resource log and operations runbook lives at `docs/deployment/cloudflare.md`.
 
+Recent migration checkpoint: item catalog data and per-tier market price history now live in Cloudflare D1. Neon remains active for better-auth and account data during the final migration stage.
+
 ### Local Cloudflare Preview
 
 ```bash

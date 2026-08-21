@@ -1,12 +1,9 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { and, desc, eq } from "drizzle-orm";
-import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { marketPriceHistory } from "@/lib/db/schema";
 import { getItemById } from "@/lib/services/items.service";
+import { getLatestMarketPrice, insertMarketPriceHistory } from "@/lib/services/market-price-history.service";
 
 const IDLEMMO_BASE = "https://api.idle-mmo.com";
 
@@ -35,29 +32,14 @@ export async function GET(
   const tierParam = request.nextUrl.searchParams.get("tier");
   const tier = tierParam ? Math.max(1, parseInt(tierParam, 10)) : 1;
 
-  // 1. Check market_price_history for the latest price at this tier
-  const historyRows = await db
-    .select({
-      price:     marketPriceHistory.price,
-      soldAt:    marketPriceHistory.soldAt,
-      quantity:  marketPriceHistory.quantity,
-    })
-    .from(marketPriceHistory)
-    .where(
-      and(
-        eq(marketPriceHistory.itemHashedId, id),
-        eq(marketPriceHistory.tier, tier)
-      )
-    )
-    .orderBy(desc(marketPriceHistory.soldAt))
-    .limit(1);
+  // 1. Check stored price history for the latest price at this tier
+  const historyRow = await getLatestMarketPrice({ itemHashedId: id, tier });
 
-  if (historyRows.length > 0) {
-    const row = historyRows[0];
+  if (historyRow) {
     return NextResponse.json({
-      price:    row.price,
-      sold_at:  row.soldAt.toISOString(),
-      quantity: row.quantity,
+      price:    historyRow.price,
+      sold_at:  historyRow.soldAt.toISOString(),
+      quantity: historyRow.quantity,
     });
   }
 
@@ -114,15 +96,14 @@ export async function GET(
 
     // Persist so subsequent requests are served from the DB
     try {
-      await db.insert(marketPriceHistory).values({
-        id:           randomUUID(),
+      await insertMarketPriceHistory({
         itemHashedId: id,
         tier,
         price,
         quantity,
         soldAt,
-        recordedAt:   new Date(),
-      }).onConflictDoNothing();
+        recordedAt: new Date(),
+      });
     } catch { /* non-blocking */ }
 
     return NextResponse.json({ price, sold_at: soldAt.toISOString(), quantity });

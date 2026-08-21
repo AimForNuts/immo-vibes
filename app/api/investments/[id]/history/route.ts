@@ -3,14 +3,12 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { getTrackedPriceItem } from "@/lib/services/price-tracker.service";
-
-const BASE = "https://api.idle-mmo.com";
+import { listMarketPriceHistory } from "@/lib/services/market-price-history.service";
 
 /**
  * GET /api/investments/[id]/history
  *
- * Returns recent market listings for a tracked item.
- * Proxies to IdleMMO GET /v1/item/{hashedId}/market-history?tier={tier}&type=listings
+ * Returns recent locally recorded market listings for a tracked item.
  *
  * Docs: docs/api/internal/investments.md
  */
@@ -21,9 +19,6 @@ export async function GET(
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const token = session.user.idlemmoToken;
-  if (!token) return NextResponse.json({ error: "No API token" }, { status: 400 });
-
   const { id } = await params;
 
   const tracked = await getTrackedPriceItem({ id, userId: session.user.id });
@@ -31,31 +26,11 @@ export async function GET(
   if (!tracked) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   try {
-    const res = await fetch(
-      `${BASE}/v1/item/${tracked.itemHashedId}/market-history?tier=${tracked.tier - 1}&type=listings`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "User-Agent": "ImmoWebSuite/1.0",
-        },
-        next: { revalidate: 30 },
-      }
-    );
-
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: `IdleMMO API returned ${res.status}` },
-        { status: res.status }
-      );
-    }
-
-    const data = await res.json();
-    // Normalise: IdleMMO returns { data: [...] } with price/quantity/created_at fields
-    const history = (data.data ?? []).map((entry: { price: number; quantity: number; created_at: string }) => ({
-      price: entry.price,
-      quantity: entry.quantity,
-      fetchedAt: entry.created_at,
-    }));
+    const history = await listMarketPriceHistory({
+      itemHashedId: tracked.itemHashedId,
+      tier: tracked.tier,
+      limit: 90,
+    });
 
     return NextResponse.json({ history });
   } catch (e) {

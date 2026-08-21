@@ -154,7 +154,7 @@ Admin-only routes. These require an authenticated admin session unless noted oth
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/api/admin/sync-items` | Sync item catalog data from IdleMMO. |
-| `POST` | `/api/admin/sync-prices` | Sync market prices into `items` and `market_price_history`. |
+| `POST` | `/api/admin/sync-prices` | Sync market prices into D1 `items` and D1 `market_price_history`. |
 | `POST` | `/api/admin/sync-recipes` | Populate recipe result metadata for recipe items. |
 | `POST` | `/api/admin/sync-inspect` | Sync inspect data: stats, effects, requirements, recipes, tiers. |
 | `POST` | `/api/admin/sync-dungeons` | Sync dungeon catalog and loot data from IdleMMO. |

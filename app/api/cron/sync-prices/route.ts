@@ -1,11 +1,10 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
-import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
-import { marketPriceHistory } from "@/lib/db/schema";
 import { upsertSyncStateJob } from "@/lib/services/sync-state.service";
 import { getItemsForPriceSync, updateItemPriceFields } from "@/lib/services/items.service";
+import { insertMarketPriceHistory } from "@/lib/services/market-price-history.service";
 
 export const maxDuration = 300;
 
@@ -96,10 +95,10 @@ export async function POST(request: NextRequest) {
           await updateItemPriceFields({ hashedId, lastSoldPrice: price, lastSoldAt: soldAt, priceCheckedAt: now });
 
           try {
-            await db.insert(marketPriceHistory).values({
-              id: randomUUID(), itemHashedId: hashedId, tier: 1,
+            await insertMarketPriceHistory({
+              itemHashedId: hashedId, tier: 1,
               price, quantity: tier1.quantity ?? 1, soldAt, recordedAt: now,
-            }).onConflictDoNothing();
+            });
           } catch { /* non-blocking */ }
 
           synced++;
@@ -113,14 +112,14 @@ export async function POST(request: NextRequest) {
         for (const sale of allSales) {
           if (sale.tier === 1 || !sale.price_per_item) continue; // tier 1 already handled
           try {
-            await db.insert(marketPriceHistory).values({
-              id: randomUUID(), itemHashedId: hashedId,
+            await insertMarketPriceHistory({
+              itemHashedId: hashedId,
               tier:       sale.tier, // response tier is already 1-based game tier
               price:      sale.price_per_item as number,
               quantity:   sale.quantity ?? 1,
               soldAt:     new Date(sale.sold_at),
               recordedAt: now,
-            }).onConflictDoNothing();
+            });
           } catch { /* non-blocking */ }
         }
       } else {
