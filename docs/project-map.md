@@ -39,7 +39,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active dat
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, `items` through `lib/services/items.service.ts`, and `market_price_history` through `lib/services/market-price-history.service.ts`. Neon remains the source for auth.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores better-auth tables through `lib/auth.ts` and `lib/services/auth-users.service.ts`, `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, `items` through `lib/services/items.service.ts`, and `market_price_history` through `lib/services/market-price-history.service.ts`. Neon remains as a local/build fallback while final legacy tables are retired.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -290,9 +290,10 @@ Account settings and IdleMMO API key configuration.
 | Page | `app/(dashboard)/dashboard/settings/page.tsx` |
 | Components | `components/settings-account-form.tsx` |
 | Server actions | `app/actions/account.ts`, `app/actions/locale.ts` |
+| Account service | `lib/services/auth-users.service.ts` |
 | Preferences service | `lib/services/user-preferences.service.ts` → `saveUserLanguage()` |
 
-**DB tables**: `user` (read/write `idlemmoToken`, `idlemmoCharacterId`, `name`), D1 `userPreferences` (write `language`)
+**DB tables**: D1 `user` (read/write `idlemmoToken`, `idlemmoCharacterId`, `name`), D1 `userPreferences` (write `language`)
 
 ---
 
@@ -333,10 +334,10 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | Services | `lib/services/admin/items.service.ts` → `getAdminItems()` |
 | | `lib/services/admin/dungeons.service.ts` → `getAdminDungeons()` |
 | | `lib/services/admin/zones.service.ts` → `getAdminZones()`, `getZoneDetail()`, CRUD, associations |
-| | `lib/services/admin/users.service.ts` → `getAdminUsers()`, `updateUserEmail()`, `deleteUser()`, `dissociateCharacter()` |
+| | `lib/services/admin/users.service.ts` → re-exports D1-backed user helpers from `lib/services/auth-users.service.ts` |
 | | `lib/services/admin/sync-logs.service.ts` → `recordSyncLog()`, `getRecentSyncLogs()` |
 | | `lib/services/admin/api-inspector.service.ts` -> endpoint specs, typed schema inference, schema diffs, observations |
-**DB tables**: D1 `items`, D1 `market_price_history`, D1 `sync_state`, D1 `sync_job_logs`, D1 `api_endpoint_specs`, D1 `api_response_schemas`, D1 `api_schema_observations`, D1 `dungeons`, D1 `zones`, `enemies`, `world_bosses`, `zone_resources`, `user`, D1 `characters`
+**DB tables**: D1 `items`, D1 `market_price_history`, D1 `sync_state`, D1 `sync_job_logs`, D1 `api_endpoint_specs`, D1 `api_response_schemas`, D1 `api_schema_observations`, D1 `dungeons`, D1 `zones`, `enemies`, `world_bosses`, `zone_resources`, D1 `user`, D1 `characters`
 **External API**: All IdleMMO sync endpoints
 **Requires**: `session.user.role === "admin"`
 **Docs**: `docs/api/internal/admin-items.md`, `docs/api/internal/admin-users.md`, `docs/api/internal/admin-zones.md`, `docs/api/internal/cron-sync.md`, `docs/api/internal/sync-logs.md`, `docs/api/internal/api-inspector.md`
@@ -357,7 +358,9 @@ Email/password auth via better-auth.
 | Password reset | `app/reset-password/page.tsx`, `components/reset-password-form.tsx` |
 | Password reset email delivery | `lib/services/password-reset-email.ts` |
 
-**DB tables**: `user`, `session`, `account`, `verification`
+**DB tables**: D1 `user`, D1 `session`, D1 `account`, D1 `verification`
+**D1 migration**: `d1/migrations/0013_auth.sql`
+**Account service**: `lib/services/auth-users.service.ts`
 **External services**: Resend API when `RESEND_API_KEY` and `PASSWORD_RESET_EMAIL_FROM` are configured; development logs reset links when email is not configured.
 **Docs**: better-auth — use context7 before modifying
 
@@ -401,7 +404,7 @@ Email/password auth via better-auth.
 | `world_bosses` | future sync (placeholder) | admin world-bosses picker |
 | D1 `zones` | manually (admin UI) | zone associations feature |
 | D1 `item_zones` | zone associations admin UI | zone associations feature |
-| `user` / `session` / `account` / `verification` | better-auth | auth middleware |
+| D1 `user` / `session` / `account` / `verification` | better-auth | auth middleware |
 
 ---
 

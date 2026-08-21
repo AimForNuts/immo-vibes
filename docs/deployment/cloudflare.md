@@ -15,17 +15,17 @@ Temporary broken login or data access is acceptable during migration windows bec
 
 ## Current Phase
 
-Phase 1 is runtime migration only.
+Phase 2 is data migration to D1. The production app now keeps auth and migrated app data in Cloudflare D1; Neon remains configured as a local/build fallback while the last legacy tables are retired.
 
 | Area | Current state |
 |---|---|
 | Hosting/runtime | Cloudflare Workers via OpenNext at `https://immo-web-suite.void-presence.workers.dev` |
-| Database | Neon PostgreSQL remains active for auth while migrated app data uses D1 |
-| ORM | Drizzle remains active |
-| Auth | better-auth remains active against Neon |
+| Database | Cloudflare D1 stores better-auth tables and migrated app data; Neon remains available as fallback for Node-based local development and not-yet-retired legacy tables |
+| ORM | Drizzle remains active for Neon fallback paths |
+| Auth | better-auth uses D1 binding `IMMO_SYNC_DB` in production |
 | Cron | Cloudflare Cron Triggers call existing `app/api/cron/*` route handlers |
 | Vercel | Removed from repo config; project can be turned off in Vercel |
-| D1 | `immo-web-suite-sync` stores `sync_state`, `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, `characters`, `zones`, `item_zones`, `dungeons`, API Inspector tables, `items`, and `market_price_history` |
+| D1 | `immo-web-suite-sync` stores better-auth tables, `sync_state`, `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, `characters`, `zones`, `item_zones`, `dungeons`, API Inspector tables, `items`, and `market_price_history` |
 | R2 | Not created yet |
 
 Cloudflare account: `Jogada`
@@ -44,7 +44,7 @@ Record every Cloudflare resource here as it is created.
 | Cron Trigger | `0 2 * * 1` | Weekly recipe sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Cron Trigger | `0 4 * * *` | Daily price sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Custom domain | TBD | Optional future nicer hostname | Cloudflare dashboard / Wrangler | Deferred |
-| D1 database | `immo-web-suite-sync` (`112c46c3-0718-4e3f-8a51-d11529b1ba4f`) | Cron sync state, admin sync logs, user preferences, tracked investments, gear presets, character pets, character roster cache, zone metadata, dungeon catalog, API Inspector metadata, item catalog, and market price history | `wrangler.jsonc`, `d1/migrations/` | Created |
+| D1 database | `immo-web-suite-sync` (`112c46c3-0718-4e3f-8a51-d11529b1ba4f`) | better-auth tables, cron sync state, admin sync logs, user preferences, tracked investments, gear presets, character pets, character roster cache, zone metadata, dungeon catalog, API Inspector metadata, item catalog, and market price history | `wrangler.jsonc`, `d1/migrations/` | Created |
 | R2 bucket | TBD | Future object/source storage | Future migration doc | Not started |
 
 ## Repo Files
@@ -66,6 +66,8 @@ Record every Cloudflare resource here as it is created.
 | `d1/migrations/0010_api_inspector.sql` | D1 schema for the API Inspector metadata tables |
 | `d1/migrations/0011_items.sql` | D1 schema for the `items` catalog table |
 | `d1/migrations/0012_market_price_history.sql` | D1 schema for the `market_price_history` table |
+| `d1/migrations/0013_auth.sql` | D1 schema for better-auth `user`, `session`, `account`, and `verification` tables |
+| `lib/services/auth-users.service.ts` | D1-backed user/account settings and admin user service with Neon fallback for local development |
 | `lib/services/sync-state.service.ts` | D1-backed sync-state read/write service with Neon fallback for local development |
 | `lib/services/admin/sync-logs.service.ts` | D1-backed admin sync log read/write service with Neon fallback for local development |
 | `lib/services/user-preferences.service.ts` | D1-backed user preferences read/write service with Neon fallback for local development |
@@ -87,8 +89,8 @@ Normal HTTP requests:
 1. Cloudflare Worker receives the request.
 2. `worker.ts` delegates to the generated OpenNext handler from `.open-next/worker.js`.
 3. Next.js routes, pages, middleware/proxy behavior, auth, and API handlers run through OpenNext.
-4. Primary app data still goes to Neon through `lib/db/index.ts`.
-5. Cron `sync_state`, admin `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, cached `characters`, zone metadata, dungeon catalog, API Inspector metadata, item catalog, and market price history reads/writes go to D1 through `IMMO_SYNC_DB`.
+4. better-auth and migrated app data read/write through D1 binding `IMMO_SYNC_DB`.
+5. Neon access through `lib/db/index.ts` remains only for local fallback paths and legacy tables that have not been retired.
 
 Scheduled cron requests:
 
@@ -106,7 +108,7 @@ Set these as Cloudflare Worker secrets. Do not put real values in `wrangler.json
 
 | Secret | Required now | Purpose |
 |---|---:|---|
-| `DATABASE_URL` | Yes | Neon PostgreSQL connection string |
+| `DATABASE_URL` | Yes for now | Neon PostgreSQL fallback connection string and remaining legacy-table access |
 | `BETTER_AUTH_SECRET` | Yes | better-auth signing/encryption secret |
 | `BETTER_AUTH_URL` | Yes | Public base URL used by better-auth |
 | `CRON_SECRET` | Yes | Protects cron route handlers |
@@ -249,7 +251,7 @@ Do not start D1/R2 migration until the Cloudflare runtime is usable enough to de
 
 Likely D1 candidates:
 
-- Auth tables after better-auth adapter compatibility is confirmed.
+- Auth tables. Done: D1 `user`, `session`, `account`, and `verification` through better-auth direct D1 support plus `lib/services/auth-users.service.ts`.
 - Gear presets.
 - Price tracker records.
 - Sync state and sync logs.
@@ -282,8 +284,12 @@ Current D1 migration status:
 | `api_schema_observations` | `immo-web-suite-sync` | API Inspector observation history |
 | `items` | `immo-web-suite-sync` | Item catalog, inspect metadata, tier-1 price cache, and recipe metadata |
 | `market_price_history` | `immo-web-suite-sync` | Append-only per-tier market price history |
+| `user` | `immo-web-suite-sync` | better-auth user profile plus `role`, `idlemmo_token`, and `idlemmo_character_id` |
+| `session` | `immo-web-suite-sync` | better-auth sessions |
+| `account` | `immo-web-suite-sync` | better-auth credentials/accounts |
+| `verification` | `immo-web-suite-sync` | better-auth verification and password reset records |
 
-Keep auth, user-owned records, and market catalog data in Neon until the D1 integration has been exercised in production.
+Neon is still configured until remaining legacy fallback usage is retired and production has been exercised on D1.
 
 ## Known Warnings
 
