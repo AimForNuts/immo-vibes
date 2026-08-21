@@ -20,12 +20,12 @@ Phase 1 is runtime migration only.
 | Area | Current state |
 |---|---|
 | Hosting/runtime | Cloudflare Workers via OpenNext at `https://immo-web-suite.void-presence.workers.dev` |
-| Database | Neon PostgreSQL remains active for primary app data |
+| Database | Neon PostgreSQL remains active for auth while migrated app data uses D1 |
 | ORM | Drizzle remains active |
 | Auth | better-auth remains active against Neon |
 | Cron | Cloudflare Cron Triggers call existing `app/api/cron/*` route handlers |
 | Vercel | Removed from repo config; project can be turned off in Vercel |
-| D1 | `immo-web-suite-sync` stores `sync_state`, `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, `characters`, `zones`, `item_zones`, `dungeons`, API Inspector tables, and `items` |
+| D1 | `immo-web-suite-sync` stores `sync_state`, `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, `characters`, `zones`, `item_zones`, `dungeons`, API Inspector tables, `items`, and `market_price_history` |
 | R2 | Not created yet |
 
 Cloudflare account: `Jogada`
@@ -44,7 +44,7 @@ Record every Cloudflare resource here as it is created.
 | Cron Trigger | `0 2 * * 1` | Weekly recipe sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Cron Trigger | `0 4 * * *` | Daily price sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Custom domain | TBD | Optional future nicer hostname | Cloudflare dashboard / Wrangler | Deferred |
-| D1 database | `immo-web-suite-sync` (`112c46c3-0718-4e3f-8a51-d11529b1ba4f`) | Cron sync state, admin sync logs, user preferences, tracked investments, gear presets, character pets, character roster cache, zone metadata, dungeon catalog, API Inspector metadata, and item catalog | `wrangler.jsonc`, `d1/migrations/` | Created |
+| D1 database | `immo-web-suite-sync` (`112c46c3-0718-4e3f-8a51-d11529b1ba4f`) | Cron sync state, admin sync logs, user preferences, tracked investments, gear presets, character pets, character roster cache, zone metadata, dungeon catalog, API Inspector metadata, item catalog, and market price history | `wrangler.jsonc`, `d1/migrations/` | Created |
 | R2 bucket | TBD | Future object/source storage | Future migration doc | Not started |
 
 ## Repo Files
@@ -65,6 +65,7 @@ Record every Cloudflare resource here as it is created.
 | `d1/migrations/0009_dungeons.sql` | D1 schema for the `dungeons` table |
 | `d1/migrations/0010_api_inspector.sql` | D1 schema for the API Inspector metadata tables |
 | `d1/migrations/0011_items.sql` | D1 schema for the `items` catalog table |
+| `d1/migrations/0012_market_price_history.sql` | D1 schema for the `market_price_history` table |
 | `lib/services/sync-state.service.ts` | D1-backed sync-state read/write service with Neon fallback for local development |
 | `lib/services/admin/sync-logs.service.ts` | D1-backed admin sync log read/write service with Neon fallback for local development |
 | `lib/services/user-preferences.service.ts` | D1-backed user preferences read/write service with Neon fallback for local development |
@@ -76,6 +77,7 @@ Record every Cloudflare resource here as it is created.
 | `lib/services/admin/dungeons.service.ts` | D1-backed dungeon catalog service with Neon fallback for local development |
 | `lib/services/admin/api-inspector.service.ts` | D1-backed API Inspector metadata service with Neon fallback for local development |
 | `lib/services/items.service.ts` | D1-backed item catalog service with Neon fallback for local development |
+| `lib/services/market-price-history.service.ts` | D1-backed market price history service with Neon fallback for local development |
 | `package.json` | Cloudflare scripts and dependencies |
 
 ## Runtime Flow
@@ -86,7 +88,7 @@ Normal HTTP requests:
 2. `worker.ts` delegates to the generated OpenNext handler from `.open-next/worker.js`.
 3. Next.js routes, pages, middleware/proxy behavior, auth, and API handlers run through OpenNext.
 4. Primary app data still goes to Neon through `lib/db/index.ts`.
-5. Cron `sync_state`, admin `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, cached `characters`, zone metadata, dungeon catalog, API Inspector metadata, and item catalog reads/writes go to D1 through `IMMO_SYNC_DB`.
+5. Cron `sync_state`, admin `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, cached `characters`, zone metadata, dungeon catalog, API Inspector metadata, item catalog, and market price history reads/writes go to D1 through `IMMO_SYNC_DB`.
 
 Scheduled cron requests:
 
@@ -279,6 +281,7 @@ Current D1 migration status:
 | `api_response_schemas` | `immo-web-suite-sync` | API Inspector saved schemas |
 | `api_schema_observations` | `immo-web-suite-sync` | API Inspector observation history |
 | `items` | `immo-web-suite-sync` | Item catalog, inspect metadata, tier-1 price cache, and recipe metadata |
+| `market_price_history` | `immo-web-suite-sync` | Append-only per-tier market price history |
 
 Keep auth, user-owned records, and market catalog data in Neon until the D1 integration has been exercised in production.
 
