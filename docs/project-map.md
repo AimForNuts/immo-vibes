@@ -26,7 +26,7 @@ Dedicated project specs and improvement backlog for planning future work.
 **Use when**: planning feature iterations, onboarding to the product surface, choosing next improvements, or checking which docs need to be expanded.
 
 ### Deployment & Cron
-Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active database during the first Cloudflare runtime phase; D1 and R2 are future migration targets.
+Runtime deployment uses Cloudflare Workers/OpenNext. Production runtime data is Cloudflare D1-backed; Neon remains only for Node-based local/build fallback paths while R2 is a future storage target.
 
 | Layer | Files |
 |---|---|
@@ -39,7 +39,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Neon remains the active dat
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores better-auth tables through `lib/auth.ts` and `lib/services/auth-users.service.ts`, `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, `items` through `lib/services/items.service.ts`, and `market_price_history` through `lib/services/market-price-history.service.ts`. Neon remains as a local/build fallback while final legacy tables are retired.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores better-auth tables through `lib/auth.ts` and `lib/services/auth-users.service.ts`, `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, `items` through `lib/services/items.service.ts`, and `market_price_history` through `lib/services/market-price-history.service.ts`. Neon remains as a local/build fallback only.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -58,6 +58,7 @@ The item browse/search page with detail panel and recipe cost calculator.
 | API — item detail | `app/api/market/item/[id]/route.ts` |
 | API — price | `app/api/market/price/[id]/route.ts` |
 | API — crafted-by | `app/api/market/crafted-by/[id]/route.ts` |
+| API — drop zones | `app/api/market/zones/route.ts` |
 | Config | `lib/market-config.ts` (tab → item type mapping; `recently_added` uses dateRange API mode) |
 | Folder docs | `app/(dashboard)/dashboard/market/README.md` |
 
@@ -82,7 +83,7 @@ Admin-only UI in the market detail panel to associate ORE, LOG, and FISH items w
 | Modal component | `app/(dashboard)/dashboard/market/components/ZonePickerModal.tsx` |
 | API — slim zone list | `app/api/admin/zones/route.ts` (`?slim=true` query param) |
 | API — item zones | `app/api/items/[id]/zones/route.ts` |
-| Service | `lib/services/admin/zones.service.ts` (`getAllZones`, `getItemZoneIds`, `replaceItemZones`) |
+| Service | `lib/services/admin/zones.service.ts` (`getAllZones`, `getZonesForDroppedItem`, `getItemZoneIds`, `replaceItemZones`) |
 
 **DB tables**: D1 `zones` (read), D1 `item_zones` (read/write)
 **Requires**: `session.user.role === "admin"`
