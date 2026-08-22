@@ -4,6 +4,7 @@ import {
   getUserIdlemmoToken,
   runEndpointAndObserve,
 } from "@/lib/services/admin/api-inspector.service";
+import { storeApiInspectorSnapshot } from "@/lib/services/admin/api-inspector-r2-snapshots.service";
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -34,9 +35,29 @@ export async function POST(request: Request) {
       userId: session.user.id,
       token,
     });
+    let snapshot: { bucket: string; key: string } | null = null;
+
+    try {
+      snapshot = await storeApiInspectorSnapshot({
+        endpointKey: body.endpointKey,
+        path: result.path,
+        params: result.observation.params,
+        statusCode: result.observation.statusCode,
+        durationMs: result.observation.durationMs,
+        observationId: result.observation.id,
+        createdAt: result.observation.createdAt,
+        createdByUserId: result.observation.createdByUserId,
+        response: result.response,
+        inferredSchema: result.inferredSchema,
+        diff: result.diff,
+      });
+    } catch (error) {
+      console.error("[api-inspector] failed to persist R2 snapshot", error);
+    }
 
     return NextResponse.json({
       ...result,
+      snapshot,
       observation: {
         ...result.observation,
         createdAt: result.observation.createdAt.toISOString(),

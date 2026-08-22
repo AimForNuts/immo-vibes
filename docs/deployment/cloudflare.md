@@ -15,7 +15,7 @@ Temporary broken login or data access is acceptable during migration windows bec
 
 ## Current Phase
 
-Phase 3 R2 foundation is in progress. The app keeps auth and application data in Cloudflare D1, and the first R2 bucket exists for future source/object storage.
+Phase 3 R2 adoption is in progress. The app keeps auth and application data in Cloudflare D1, and the first R2-backed flow archives API Inspector raw response snapshots.
 
 | Area | Current state |
 |---|---|
@@ -26,7 +26,7 @@ Phase 3 R2 foundation is in progress. The app keeps auth and application data in
 | Cron | Cloudflare Cron Triggers call existing `app/api/cron/*` route handlers |
 | Vercel | Removed from repo config and no longer part of production |
 | D1 | `immo-web-suite-sync` stores better-auth tables, `sync_state`, `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, `characters`, `zones`, `item_zones`, `dungeons`, API Inspector tables, `items`, and `market_price_history` |
-| R2 | `immo-web-suite-sources` exists and is bound as `IMMO_SOURCES_BUCKET`; no app data has moved into it yet |
+| R2 | `immo-web-suite-sources` exists and is bound as `IMMO_SOURCES_BUCKET`; API Inspector writes raw response snapshots to it |
 
 Cloudflare account: `Jogada`
 
@@ -45,7 +45,7 @@ Record every Cloudflare resource here as it is created.
 | Cron Trigger | `0 4 * * *` | Daily price sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Custom domain | TBD | Optional future nicer hostname | Cloudflare dashboard / Wrangler | Deferred |
 | D1 database | `immo-web-suite-sync` (`112c46c3-0718-4e3f-8a51-d11529b1ba4f`) | better-auth tables, cron sync state, admin sync logs, user preferences, tracked investments, gear presets, character pets, character roster cache, zone metadata, dungeon catalog, API Inspector metadata, item catalog, and market price history | `wrangler.jsonc`, `d1/migrations/` | Created |
-| R2 bucket | `immo-web-suite-sources` | Future object/source storage for imported/exported snapshots, raw source payloads, and backup artifacts | `wrangler.jsonc`, `lib/storage/r2.ts` | Created |
+| R2 bucket | `immo-web-suite-sources` | API Inspector raw response snapshots and future object/source storage for imported/exported snapshots, raw source payloads, and backup artifacts | `wrangler.jsonc`, `lib/storage/r2.ts` | Created |
 
 ## Repo Files
 
@@ -80,6 +80,7 @@ Record every Cloudflare resource here as it is created.
 | `lib/services/admin/zones.service.ts` | D1-backed zone metadata and item-zone association service |
 | `lib/services/admin/dungeons.service.ts` | D1-backed dungeon catalog service |
 | `lib/services/admin/api-inspector.service.ts` | D1-backed API Inspector metadata service |
+| `lib/services/admin/api-inspector-r2-snapshots.service.ts` | R2-backed API Inspector raw response snapshot service |
 | `lib/services/items.service.ts` | D1-backed item catalog service |
 | `lib/services/market-price-history.service.ts` | D1-backed market price history service |
 | `package.json` | Cloudflare scripts and dependencies |
@@ -207,7 +208,7 @@ Current bucket:
 
 | Bucket | Binding | Purpose | Status |
 |---|---|---|---|
-| `immo-web-suite-sources` | `IMMO_SOURCES_BUCKET` | Future source snapshots and object/archive storage | Created, empty by design |
+| `immo-web-suite-sources` | `IMMO_SOURCES_BUCKET` | API Inspector raw response snapshots and future source/archive storage | Created |
 
 Create another bucket:
 
@@ -227,6 +228,12 @@ When adding an R2-backed feature:
 2. Keep object-key construction in a service/domain module, not in UI components.
 3. Access the bucket through `lib/storage/r2.ts`.
 4. Document the object prefix, owner service, and cleanup policy in this runbook.
+
+Current R2 object prefixes:
+
+| Prefix | Owner | Contents | Cleanup policy |
+|---|---|---|---|
+| `api-inspector/<endpoint-key>/<YYYY-MM-DD>/` | `lib/services/admin/api-inspector-r2-snapshots.service.ts` | Raw IdleMMO API Inspector responses with metadata, inferred schema, and schema diff | Manual for now; keep while endpoint documentation is still evolving |
 
 After deploy, verify:
 
@@ -279,7 +286,7 @@ Codex also needs these project decisions/values:
 
 ## Later D1/R2 Planning Notes
 
-Cloudflare runtime and D1 migration are usable in production. R2 foundation is now created, but no existing app data has been moved into R2 yet.
+Cloudflare runtime and D1 migration are usable in production. R2 foundation exists, and API Inspector raw response snapshots are the first R2-backed data flow.
 
 Likely D1 candidates:
 
