@@ -20,8 +20,8 @@ const PAGE_SIZE_MAX     = 200;
  * type and updates items.last_sold_price / last_sold_at.
  * Also inserts records into D1 market_price_history for historical tracking.
  *
- * Pagination keeps each call within Vercel's 300s maxDuration:
- * at 20 req/min, 80 items ≈ 4 rate-limit windows ≈ 4 min.
+ * Pagination keeps each call short enough for Worker request reliability:
+ * at 20 req/min, 80 items is about 4 rate-limit windows, or 4 min.
  *
  * Rate-limit aware: reads X-RateLimit-Remaining and X-RateLimit-Reset from
  * every response and waits exactly as long as the API instructs.

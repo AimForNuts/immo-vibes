@@ -4,7 +4,7 @@ This document is the source of truth for Cloudflare resources created for ImmoWe
 
 ## Migration Goal
 
-Move ImmoWeb Suite from Vercel to Cloudflare in practical stages:
+ImmoWeb Suite now runs on Cloudflare. This document tracks the Cloudflare resources and the remaining Cloudflare-native migration stages:
 
 1. Cloudflare Workers/OpenNext runtime and Cloudflare Cron Triggers.
 2. Use the free Cloudflare `workers.dev` hostname as the production URL.
@@ -24,7 +24,7 @@ Phase 2 data migration is complete. The app keeps auth and application data in C
 | ORM | None for app persistence; services use D1 SQL directly |
 | Auth | better-auth uses D1 binding `IMMO_SYNC_DB` in production |
 | Cron | Cloudflare Cron Triggers call existing `app/api/cron/*` route handlers |
-| Vercel | Removed from repo config; project can be turned off in Vercel |
+| Vercel | Removed from repo config and no longer part of production |
 | D1 | `immo-web-suite-sync` stores better-auth tables, `sync_state`, `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, `characters`, `zones`, `item_zones`, `dungeons`, API Inspector tables, `items`, and `market_price_history` |
 | R2 | Not created yet |
 
@@ -120,6 +120,8 @@ Currently set on Worker `immo-web-suite`:
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
 - `CRON_SECRET`
+
+Legacy `DATABASE_URL` was removed from Worker secrets after the D1 cutover; do not recreate it unless a future branch intentionally reintroduces a non-D1 data source.
 
 Set a secret:
 
@@ -218,9 +220,8 @@ Latest smoke test against `https://immo-web-suite.void-presence.workers.dev`:
 2. Set all required secrets.
 3. Update `BETTER_AUTH_URL` to the `workers.dev` production URL.
 4. Smoke test login and dashboard.
-5. Turn off or delete the Vercel project to stop old Vercel cron executions.
-6. Update external bookmarks/links to the `workers.dev` URL.
-7. Watch Worker logs for D1/auth/runtime errors.
+5. Update external bookmarks/links to the `workers.dev` URL.
+6. Watch Worker logs for D1/auth/runtime errors.
 
 ## What Codex Needs To Create Cloudflare Resources
 
@@ -241,7 +242,7 @@ Codex also needs these project decisions/values:
 | Production hostname | Currently `https://immo-web-suite.void-presence.workers.dev` |
 | Whether to add a custom domain later | Optional cleanup only |
 | Secret values | Runtime DB/auth/cron/email behavior |
-| Vercel shutdown timing | Turn off/delete the Vercel project after Cloudflare smoke checks pass |
+| Legacy provider cleanup | Keep Vercel disconnected; remove old provider state when found |
 
 ## Later D1/R2 Planning Notes
 

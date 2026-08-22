@@ -203,7 +203,7 @@ Related docs:
 
 ### `cron/`
 
-Cron-triggered routes called by Vercel. All current cron route handlers export `POST` and are protected by `CRON_SECRET`.
+Cron-triggered routes called by Cloudflare Cron Triggers through `worker.ts`. All current cron route handlers export `POST` and are protected by `CRON_SECRET`.
 
 | Method | Path | Schedule | Purpose |
 |---|---|---|---|
