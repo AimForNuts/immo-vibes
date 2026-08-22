@@ -18,6 +18,12 @@
       "migrations_dir": "d1/migrations"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "IMMO_SOURCES_BUCKET",
+      "bucket_name": "immo-web-suite-sources"
+    }
+  ],
   "observability": {
     "enabled": true
   },
