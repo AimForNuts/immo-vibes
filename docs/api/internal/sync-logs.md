@@ -61,6 +61,6 @@ Manual admin sync routes write lifecycle events:
 | `recipes` | `POST /api/admin/sync-recipes` | `started`, `success`, `progress`, `skipped` |
 | `dungeons` | `POST /api/admin/sync-dungeons` | `started`, `success`, `failed` |
 
-`sync_job_logs` is stored in Cloudflare D1 through `lib/services/admin/sync-logs.service.ts`. The service falls back to Neon when the D1 binding is unavailable in local Node-based development.
+`sync_job_logs` is stored in Cloudflare D1 through `lib/services/admin/sync-logs.service.ts`.
 
 The logging helper catches insert failures and logs them server-side so a logging outage does not block the sync job itself.

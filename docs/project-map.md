@@ -26,7 +26,7 @@ Dedicated project specs and improvement backlog for planning future work.
 **Use when**: planning feature iterations, onboarding to the product surface, choosing next improvements, or checking which docs need to be expanded.
 
 ### Deployment & Cron
-Runtime deployment uses Cloudflare Workers/OpenNext. Production runtime data is Cloudflare D1-backed; Neon remains only for Node-based local/build fallback paths while R2 is a future storage target.
+Runtime deployment uses Cloudflare Workers/OpenNext. Runtime data is Cloudflare D1-backed while R2 is a future storage target.
 
 | Layer | Files |
 |---|---|
@@ -39,7 +39,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Production runtime data is 
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores better-auth tables through `lib/auth.ts` and `lib/services/auth-users.service.ts`, `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, `items` through `lib/services/items.service.ts`, and `market_price_history` through `lib/services/market-price-history.service.ts`. Neon remains as a local/build fallback only.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores better-auth tables through `lib/auth.ts` and `lib/services/auth-users.service.ts`, `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, `items` through `lib/services/items.service.ts`, and `market_price_history` through `lib/services/market-price-history.service.ts`.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -371,8 +371,8 @@ Email/password auth via better-auth.
 
 | File | What it provides |
 |---|---|
-| `lib/db/schema.ts` | All Drizzle table definitions and TS types |
-| `lib/db/index.ts` | `db` — Drizzle client (Neon serverless) |
+| `lib/db/schema.ts` | Shared TypeScript-only data shapes used by D1 services and UI types |
+| `lib/db/d1.ts` | Cloudflare D1 binding helper and minimal D1 statement types |
 | `lib/idlemmo.ts` | IdleMMO API client — all external API functions and interfaces |
 | `lib/idlemmo-queue.ts` | Client-side rate-limit queue for browser API calls |
 | `lib/game-constants.ts` | `QUALITY_COLORS`, `SLOT_LABELS`, `CHAR_STAT_MAP`, `STATUS_DOT_COLOR` |
@@ -430,7 +430,7 @@ Playwright tests that verify key pages load without a 500 error against the prod
 | `playwright.config.ts` | Playwright configuration — base URL, projects, storageState path |
 | `e2e/auth.setup.ts` | One-time login fixture — saves session to `playwright/.auth/user.json` |
 | `e2e/smoke.spec.ts` | Smoke tests: unauthenticated redirect check + authenticated page load checks |
-| `.github/workflows/ci.yml` | CI/CD workflow — runs type check, build, Neon and D1 migrations, deploys `master` to Cloudflare Workers, and smoke-tests Cloudflare production |
+| `.github/workflows/ci.yml` | CI/CD workflow — runs type check, build, D1 migrations, deploys `master` to Cloudflare Workers, and smoke-tests Cloudflare production |
 
 **Secrets required** (already in GitHub repo): `E2E_EMAIL`, `E2E_PASSWORD`
 
