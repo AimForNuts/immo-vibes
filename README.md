@@ -12,7 +12,7 @@ Built with Next.js 16, better-auth, Drizzle ORM, and shadcn/ui. Supports multipl
 |---|---|
 | Framework | Next.js 16 App Router |
 | Auth | better-auth (username plugin) |
-| Database | Neon PostgreSQL + Drizzle ORM; Cloudflare D1 for migrated edge-native tables |
+| Database | Cloudflare D1 for migrated production data; Neon PostgreSQL + Drizzle ORM for fallback/legacy paths |
 | Runtime | Cloudflare Workers/OpenNext |
 | UI | shadcn/ui (base-ui variant) + Tailwind CSS |
 | i18n | next-intl (`localePrefix: "never"`) |
@@ -62,7 +62,7 @@ After registering, go to **Settings** and enter your IdleMMO API token and prima
 
 ## Cloudflare Migration
 
-The app is migrating to Cloudflare in stages. The first stage moves the Next.js runtime and cron scheduling to Cloudflare Workers/OpenNext while leaving Neon PostgreSQL untouched. Later stages can move relational data to D1 and object/source storage to R2.
+The app is migrating to Cloudflare in stages. Runtime, cron scheduling, auth, and migrated application tables now run on Cloudflare Workers/OpenNext and D1. Neon remains configured while final fallback/legacy paths are retired; object/source storage can move to R2 later.
 
 Current production URL:
 
@@ -72,7 +72,7 @@ https://immo-web-suite.void-presence.workers.dev
 
 The full Cloudflare resource log and operations runbook lives at `docs/deployment/cloudflare.md`.
 
-Recent migration checkpoint: item catalog data and per-tier market price history now live in Cloudflare D1. Neon remains active for better-auth and account data during the final migration stage.
+Recent migration checkpoint: better-auth tables, item catalog data, per-tier market price history, and user-owned app records now live in Cloudflare D1 in production.
 
 ### Local Cloudflare Preview
 

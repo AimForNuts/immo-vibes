@@ -1,9 +1,8 @@
 # Database Schema Reference
 
-Postgres via Neon remains the primary application database, managed by Drizzle ORM. Schema source: `lib/db/schema.ts`.
-Migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrate`.
+Cloudflare D1 is the production database for migrated app data and better-auth tables. D1 migrations live in `d1/migrations/` and are applied with Wrangler.
 
-Cloudflare D1 is being introduced incrementally for small Cloudflare-native data. D1 migrations live in `d1/migrations/` and are applied with Wrangler.
+Postgres via Neon remains configured for local/build fallback paths and legacy tables that have not been retired. Its Drizzle schema source is `lib/db/schema.ts`; migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrate`.
 
 ---
 
@@ -35,6 +34,8 @@ Cloudflare D1 is being introduced incrementally for small Cloudflare-native data
 | Cached character roster | D1 `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
 | Saved main-pet stats for a character | D1 `character_pets` | `user_id`, `character_hashed_id`, `attack_power`, `protection`, `agility`, `accuracy`, `max_stamina`, `movement_speed`, `critical_chance`, `critical_damage`, `synced_at` |
 | Dungeon catalog (difficulty, duration, loot) | D1 `dungeons` | `id`, `name`, `zone_id`, `difficulty`, `duration_ms`, `loot` |
+| User account/profile and IdleMMO token | D1 `user` | `id`, `email`, `role`, `idlemmo_token`, `idlemmo_character_id` |
+| Auth sessions/accounts/verifications | D1 `session`, D1 `account`, D1 `verification` | better-auth managed columns |
 | Enemy catalog (name, level, drops) | `enemies` | `id`, `name`, `level`, `zone_id`, `loot` |
 | World boss catalog (name, level, drops) | `world_bosses` | `id`, `name`, `level`, `zone_id`, `loot` |
 
@@ -487,9 +488,21 @@ Composite PK: `(zone_id, item_hashed_id)`
 
 ---
 
-### Auth tables (`user`, `session`, `account`, `verification`)
+### D1 Auth tables (`user`, `session`, `account`, `verification`)
 
-Managed by **better-auth**. Do not write to these directly — use `auth.api.*` methods.
+Managed by **better-auth** against Cloudflare D1 database `immo-web-suite-sync` in production.
+Created by D1 migration `d1/migrations/0013_auth.sql`.
+Local Node-based development falls back to the legacy Neon Drizzle adapter when the D1 binding is unavailable.
+
+Do not write to session/account/verification rows directly. Use `auth.api.*` methods.
+App-owned user profile fields (`name`, `email`, `role`, `idlemmo_token`, `idlemmo_character_id`) are updated through `lib/services/auth-users.service.ts`.
+
+| Table | Key columns | Notes |
+|---|---|---|
+| `user` | `id`, `name`, `email`, `email_verified`, `username`, `display_username`, `role`, `idlemmo_token`, `idlemmo_character_id`, `created_at`, `updated_at` | better-auth user row plus app role and IdleMMO token fields |
+| `session` | `id`, `token`, `user_id`, `expires_at`, `ip_address`, `user_agent`, `created_at`, `updated_at` | better-auth sessions; `user_id` cascades from `user` |
+| `account` | `id`, `account_id`, `provider_id`, `user_id`, `password`, token fields, timestamps | better-auth credentials/accounts; `user_id` cascades from `user` |
+| `verification` | `id`, `identifier`, `value`, `expires_at`, timestamps | better-auth verification/password reset data |
 
 ---
 

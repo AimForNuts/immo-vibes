@@ -2,11 +2,9 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { user } from "@/lib/db/schema";
 import { checkAuthToken } from "@/lib/idlemmo";
+import { updateCurrentUserName, updateIdleMMOSettings } from "@/lib/services/auth-users.service";
 
 export async function updateDisplayName(name: string) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -15,7 +13,7 @@ export async function updateDisplayName(name: string) {
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Name cannot be empty.");
 
-  await db.update(user).set({ name: trimmed }).where(eq(user.id, session.user.id));
+  await updateCurrentUserName(session.user.id, trimmed);
 }
 
 export async function saveIdleMMOSettings(formData: FormData) {
@@ -26,10 +24,11 @@ export async function saveIdleMMOSettings(formData: FormData) {
 
   if (!token) {
     // Clearing the token also clears the character
-    await db
-      .update(user)
-      .set({ idlemmoToken: null, idlemmoCharacterId: null })
-      .where(eq(user.id, session.user.id));
+    await updateIdleMMOSettings({
+      userId: session.user.id,
+      token: null,
+      characterId: null,
+    });
     redirect("/dashboard/settings");
   }
 
@@ -39,13 +38,11 @@ export async function saveIdleMMOSettings(formData: FormData) {
     throw new Error("Invalid API token — could not authenticate with IdleMMO.");
   }
 
-  await db
-    .update(user)
-    .set({
-      idlemmoToken:       token,
-      idlemmoCharacterId: authResult.character.hashed_id,
-    })
-    .where(eq(user.id, session.user.id));
+  await updateIdleMMOSettings({
+    userId: session.user.id,
+    token,
+    characterId: authResult.character.hashed_id,
+  });
 
   redirect("/dashboard/settings");
 }

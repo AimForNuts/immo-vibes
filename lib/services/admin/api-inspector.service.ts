@@ -6,8 +6,8 @@ import {
   apiEndpointSpecs,
   apiResponseSchemas,
   apiSchemaObservations,
-  user,
 } from "@/lib/db/schema";
+import { getUserIdlemmoToken as getAuthUserIdlemmoToken } from "@/lib/services/auth-users.service";
 import type {
   ApiInspectorParam,
   ApiInspectorSchema,
@@ -588,12 +588,7 @@ export async function updateEndpointSpecConfig(
 }
 
 export async function getUserIdlemmoToken(userId: string) {
-  const [row] = await db
-    .select({ idlemmoToken: user.idlemmoToken })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-  return row?.idlemmoToken ?? null;
+  return getAuthUserIdlemmoToken(userId);
 }
 
 export function coerceParamValue(param: ApiInspectorParam, value: unknown): Primitive {
