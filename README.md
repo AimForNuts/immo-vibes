@@ -155,6 +155,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-22 - API Inspector R2 snapshots
+
+- **Storage**: API Inspector runs now archive raw IdleMMO responses to R2 under `api-inspector/<endpoint-key>/<date>/`.
+- **Docs**: Documented the first R2-backed data flow in the Cloudflare runbook and internal API docs.
+
 ### 2026-08-22 - Cloudflare R2 foundation
 
 - **Storage**: Created R2 bucket `immo-web-suite-sources` and bound it to the Worker as `IMMO_SOURCES_BUCKET`.
