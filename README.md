@@ -2,7 +2,7 @@
 
 A companion dashboard for [IdleMMO](https://idle-mmo.com) — track your characters, gear, skills, and economy in one place.
 
-Built with Next.js 16, better-auth, Cloudflare D1, and shadcn/ui. Supports multiple languages (English and Portuguese) with locale stored in a cookie and synced to the database.
+Built with Next.js 16, better-auth, Cloudflare D1, Cloudflare R2, and shadcn/ui. Supports multiple languages (English and Portuguese) with locale stored in a cookie and synced to the database.
 
 ---
 
@@ -13,6 +13,7 @@ Built with Next.js 16, better-auth, Cloudflare D1, and shadcn/ui. Supports multi
 | Framework | Next.js 16 App Router |
 | Auth | better-auth (username plugin) |
 | Database | Cloudflare D1 |
+| Object storage | Cloudflare R2 |
 | Runtime | Cloudflare Workers/OpenNext |
 | UI | shadcn/ui (base-ui variant) + Tailwind CSS |
 | i18n | next-intl (`localePrefix: "never"`) |
@@ -61,7 +62,7 @@ After registering, go to **Settings** and enter your IdleMMO API token and prima
 
 ## Cloudflare Migration
 
-The app runs on Cloudflare Workers/OpenNext with Cloudflare D1 as its database. Object/source storage can move to R2 later.
+The app runs on Cloudflare Workers/OpenNext with Cloudflare D1 as its database and an R2 bucket bound for future source/object storage.
 
 Current production URL:
 
@@ -71,7 +72,7 @@ https://immo-web-suite.void-presence.workers.dev
 
 The full Cloudflare resource log and operations runbook lives at `docs/deployment/cloudflare.md`.
 
-Recent migration checkpoint: Neon/Postgres and Drizzle have been removed from the application; all app/auth persistence is Cloudflare D1-backed.
+Recent migration checkpoint: Neon/Postgres and Drizzle have been removed from the application; all app/auth persistence is Cloudflare D1-backed, and R2 foundation is ready for future source/archive data.
 
 ### Local Cloudflare Preview
 
@@ -119,7 +120,8 @@ app/
 components/         — Shared UI components
 lib/
   auth.ts           — better-auth configuration
-  db/               — Drizzle schema and client
+  db/               — Cloudflare D1 helper and shared data shapes
+  storage/          — Cloudflare R2 binding helpers
   idlemmo.ts        — IdleMMO API client
 i18n/               — next-intl routing and request config
 messages/           — Translation files (en.json, pt.json)
@@ -152,6 +154,12 @@ Start with these docs when planning or iterating:
 ---
 
 ## Recent Changes
+
+### 2026-08-22 - Cloudflare R2 foundation
+
+- **Storage**: Created R2 bucket `immo-web-suite-sources` and bound it to the Worker as `IMMO_SOURCES_BUCKET`.
+- **Runtime**: Added a server-side R2 helper for future source/object storage features.
+- **Docs**: Updated the Cloudflare runbook and project map with the R2 resource ledger.
 
 ### 2026-08-22 - Cloudflare cleanup
 
