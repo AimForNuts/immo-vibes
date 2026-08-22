@@ -153,6 +153,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-22 - Cloudflare cleanup
+
+- **Deployment**: Removed the leftover Worker `DATABASE_URL` secret and unused Vercel asset.
+- **Docs**: Reworded active cron/rate-limit notes for Cloudflare Workers instead of Vercel.
+
 ### 2026-08-22 - Removed Neon/Postgres
 
 - **Database**: Removed the Neon/Postgres client, Drizzle schema/migrations, fallback service branches, and direct `DATABASE_URL` dependency.

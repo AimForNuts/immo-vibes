@@ -34,7 +34,7 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
-# vercel
+# deployment provider local state
 .vercel
 
 # typescript
@@ -44,8 +44,6 @@ next-env.d.ts
 # local env
 .env.local
 local.db
-
-.vercel
 
 # local / generated files
 .wrangler/

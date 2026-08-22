@@ -46,7 +46,7 @@ IF status != 200 and != 429:
 
 ## Reference implementation
 
-Used in `app/api/admin/sync-prices/route.ts` and `scripts/test-sync-prices.mjs`:
+Used in `app/api/admin/sync-prices/route.ts`:
 
 ```typescript
 const MAX_RETRIES = 10;
@@ -56,7 +56,7 @@ async function rateLimitedFetch(url: string): Promise<Response> {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (rl.remaining !== null && rl.remaining <= 0) {
       const waitMs = Math.max(1000, rl.resetAt * 1000 - Date.now() + 500);
-      await sleep(waitMs); // use ticking sleep in scripts for visibility
+      await sleep(waitMs);
     }
 
     const res = await fetch(url, { headers, cache: "no-store" });
@@ -84,15 +84,15 @@ async function rateLimitedFetch(url: string): Promise<Response> {
 - After hitting 429, the API typically needs **~57–58 seconds** to reset
 - Effective throughput: ~20 items/minute
 
-### Vercel `maxDuration` implications
+### Batch sizing implications
 
-| Items in type | Est. time | Fits in 300s? |
+| Items in type | Est. time | Operational fit |
 |---|---|---|
-| ≤ 80 | ≤ 4 min | Yes |
+| ≤ 80 | ≤ 4 min | Good default |
 | ~100 | ~5 min | Borderline |
-| ≥ 120 | > 6 min | No |
+| ≥ 120 | > 6 min | Split across requests |
 
-Types above ~100 items (e.g. `CHEST` 158, `RECIPE` 370) will exceed Vercel's `maxDuration = 300`. Vercel terminates the function and the browser sees a network error — not an infinite loop. The code is correct; it is an infrastructure constraint.
+Types above ~100 items (e.g. `CHEST` 158, `RECIPE` 370) should be split across paginated requests. The limiting factor is the IdleMMO API rate window plus keeping Cloudflare Worker requests short enough to debug and retry cleanly.
 
 ## Applies to
 
@@ -102,4 +102,3 @@ All routes and scripts that call the IdleMMO API in a loop:
 |---|---|
 | `app/api/admin/sync-prices/route.ts` | Inline `rateLimitedFetch` |
 | `lib/idlemmo.ts` — `searchItemsByType` | Inline fetch loop with same headers |
-| `scripts/test-sync-prices.mjs` | `rateLimitedFetch` + ticking sleep for visibility |
