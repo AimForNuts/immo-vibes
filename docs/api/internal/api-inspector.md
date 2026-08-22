@@ -1,7 +1,7 @@
 # Internal API - API Inspector
 
 Admin-only tooling for documenting IdleMMO API response shapes from real calls.
-Persistence lives in Cloudflare D1 (`api_endpoint_specs`, `api_response_schemas`, `api_schema_observations`) through `lib/services/admin/api-inspector.service.ts`, with Neon fallback for local Node development.
+Persistence lives in Cloudflare D1 (`api_endpoint_specs`, `api_response_schemas`, `api_schema_observations`) through `lib/services/admin/api-inspector.service.ts`.
 
 Sources:
 - `app/api/admin/api-inspector/route.ts`

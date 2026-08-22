@@ -25,7 +25,7 @@ The app currently focuses on:
 | Framework | Next.js 16 App Router |
 | Runtime UI | React 19 |
 | Auth | better-auth with Drizzle adapter and username plugin |
-| Database | Neon PostgreSQL |
+| Database | Cloudflare D1 |
 | ORM | Drizzle ORM |
 | Styling | Tailwind CSS, shadcn/ui base-ui variant |
 | Icons | lucide-react |
@@ -34,7 +34,7 @@ The app currently focuses on:
 | Tests | Vitest unit/integration tests, Playwright smoke tests |
 | Deploy | Vercel, including scheduled cron routes |
 
-Important repo constraint: before modifying Next.js, better-auth, Drizzle, shadcn/ui v4, or Neon serverless code, consult the version-specific docs required by `AGENTS.md`.
+Important repo constraint: before modifying Next.js, better-auth, Cloudflare D1 access, or shadcn/ui v4 code, consult the version-specific docs required by `AGENTS.md`.
 
 ---
 
