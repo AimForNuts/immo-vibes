@@ -3,9 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { getCharacterInfo } from "@/lib/idlemmo";
-import { db } from "@/lib/db";
-import { characterPets } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { getStoredCharacterPet } from "@/lib/services/character-pets.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, Swords, Users, Zap, PawPrint } from "lucide-react";
@@ -73,21 +71,15 @@ export default async function CharacterDetailPage({
   if (!token) redirect("/dashboard/settings");
 
   // Fetch saved pet from DB in parallel with character info
-  const [charResult, savedPetRows] = await Promise.allSettled([
+  const [charResult, savedPetResult] = await Promise.allSettled([
     getCharacterInfo(id, token),
-    db
-      .select()
-      .from(characterPets)
-      .where(
-        and(
-          eq(characterPets.userId, session.user.id),
-          eq(characterPets.characterHashedId, id)
-        )
-      )
-      .limit(1),
+    getStoredCharacterPet({
+      userId: session.user.id,
+      characterHashedId: id,
+    }),
   ]);
 
-  const savedPet = savedPetRows.status === "fulfilled" ? (savedPetRows.value[0] ?? null) : null;
+  const savedPet = savedPetResult.status === "fulfilled" ? savedPetResult.value : null;
 
   let char;
   try {
