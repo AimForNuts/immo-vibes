@@ -1,7 +1,7 @@
 # GET /api/items
 
 Searches the **local item database** (not IdleMMO directly) by equipment type, with optional name and quality filters. Used by the Gear Calculator's item picker.
-Item catalog reads are Cloudflare D1-backed through `lib/services/items.service.ts`, with Neon fallback for local Node development.
+Item catalog reads are Cloudflare D1-backed through `lib/services/items.service.ts`.
 
 > Source: `app/api/items/route.ts`
 

@@ -2,7 +2,7 @@
 
 A companion dashboard for [IdleMMO](https://idle-mmo.com) — track your characters, gear, skills, and economy in one place.
 
-Built with Next.js 16, better-auth, Drizzle ORM, and shadcn/ui. Supports multiple languages (English and Portuguese) with locale stored in a cookie and synced to the database.
+Built with Next.js 16, better-auth, Cloudflare D1, and shadcn/ui. Supports multiple languages (English and Portuguese) with locale stored in a cookie and synced to the database.
 
 ---
 
@@ -12,7 +12,7 @@ Built with Next.js 16, better-auth, Drizzle ORM, and shadcn/ui. Supports multipl
 |---|---|
 | Framework | Next.js 16 App Router |
 | Auth | better-auth (username plugin) |
-| Database | Cloudflare D1 for migrated production data; Neon PostgreSQL + Drizzle ORM for fallback/legacy paths |
+| Database | Cloudflare D1 |
 | Runtime | Cloudflare Workers/OpenNext |
 | UI | shadcn/ui (base-ui variant) + Tailwind CSS |
 | i18n | next-intl (`localePrefix: "never"`) |
@@ -33,17 +33,16 @@ npm install
 Copy `.env.example` to `.env.local` and fill in:
 
 ```
-DATABASE_URL=         # Neon PostgreSQL connection string
 BETTER_AUTH_SECRET=   # Random secret for better-auth
 BETTER_AUTH_URL=      # Base URL (e.g. http://localhost:3000)
 RESEND_API_KEY=       # Optional; sends password recovery emails in production
 PASSWORD_RESET_EMAIL_FROM= # Optional; from address for password recovery emails
 ```
 
-### 3. Push the database schema
+### 3. Apply D1 migrations
 
 ```bash
-npx drizzle-kit push
+npx wrangler d1 migrations apply immo-web-suite-sync --local
 ```
 
 ### 4. Run the dev server
@@ -62,7 +61,7 @@ After registering, go to **Settings** and enter your IdleMMO API token and prima
 
 ## Cloudflare Migration
 
-The app is migrating to Cloudflare in stages. Runtime, cron scheduling, auth, and migrated application tables now run on Cloudflare Workers/OpenNext and D1. Neon remains configured while final fallback/legacy paths are retired; object/source storage can move to R2 later.
+The app runs on Cloudflare Workers/OpenNext with Cloudflare D1 as its database. Object/source storage can move to R2 later.
 
 Current production URL:
 
@@ -72,7 +71,7 @@ https://immo-web-suite.void-presence.workers.dev
 
 The full Cloudflare resource log and operations runbook lives at `docs/deployment/cloudflare.md`.
 
-Recent migration checkpoint: better-auth tables, item catalog data, per-tier market price history, and user-owned app records now live in Cloudflare D1 in production.
+Recent migration checkpoint: Neon/Postgres and Drizzle have been removed from the application; all app/auth persistence is Cloudflare D1-backed.
 
 ### Local Cloudflare Preview
 
@@ -91,7 +90,6 @@ npm run deploy
 Required Cloudflare secrets:
 
 ```
-DATABASE_URL
 BETTER_AUTH_SECRET
 BETTER_AUTH_URL
 CRON_SECRET
@@ -102,7 +100,7 @@ PASSWORD_RESET_EMAIL_FROM
 Set secrets with Wrangler, for example:
 
 ```bash
-npx wrangler secret put DATABASE_URL
+npx wrangler secret put BETTER_AUTH_SECRET
 ```
 
 `wrangler.jsonc` owns Cloudflare Cron Triggers.
@@ -155,60 +153,66 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-22 - Removed Neon/Postgres
+
+- **Database**: Removed the Neon/Postgres client, Drizzle schema/migrations, fallback service branches, and direct `DATABASE_URL` dependency.
+- **Runtime**: All app and auth persistence now uses Cloudflare D1 through the `IMMO_SYNC_DB` binding.
+- **CI/CD**: Deployment applies only D1 migrations before Cloudflare Workers deploy.
+
 ### 2026-08-22 - Cloudflare production data cutover
 
 - **Runtime**: Removed the remaining direct Neon reads from production routes/pages; market drop zones and character pet stats now go through D1-backed services.
-- **Docs**: Updated Cloudflare/database docs to reflect D1 as the production data owner, with Neon retained only for local/build fallback paths.
+- **Docs**: Updated Cloudflare/database docs to reflect D1 as the production data owner.
 
 ### 2026-08-19 - Cloudflare D1 items
 
 - **Database**: Added Cloudflare D1 `items` for the item catalog, inspect metadata, recipe metadata, and tier-1 price cache.
-- **Market/Admin/Sync**: Routed item browsing, item detail, gear/forge/dungeon lookups, and item sync writes through the D1-backed item service with Neon fallback for local development.
+- **Market/Admin/Sync**: Routed item browsing, item detail, gear/forge/dungeon lookups, and item sync writes through the D1-backed item service.
 
 ### 2026-08-19 - Cloudflare D1 API Inspector
 
 - **Database**: Added Cloudflare D1 `api_endpoint_specs`, `api_response_schemas`, and `api_schema_observations` for API Inspector metadata.
-- **Admin**: Routed API Inspector endpoint config, saved schemas, and observation history through the D1-backed service with Neon fallback for local development.
+- **Admin**: Routed API Inspector endpoint config, saved schemas, and observation history through the D1-backed service.
 
 ### 2026-08-18 - Cloudflare D1 dungeons
 
 - **Database**: Added Cloudflare D1 `dungeons` for the dungeon catalog and loot metadata.
-- **Dungeons/Admin**: Routed dungeon planner reads, admin dungeon listing, and dungeon sync writes through the D1-backed dungeon service with Neon fallback for local development.
+- **Dungeons/Admin**: Routed dungeon planner reads, admin dungeon listing, and dungeon sync writes through the D1-backed dungeon service.
 
 ### 2026-08-18 - Cloudflare D1 zones
 
 - **Database**: Added Cloudflare D1 `zones` and `item_zones` for admin-managed zone metadata and gathering item associations.
-- **Admin/Market**: Routed zone CRUD and item-zone association reads/writes through the D1-backed zones service with Neon fallback for local development.
+- **Admin/Market**: Routed zone CRUD and item-zone association reads/writes through the D1-backed zones service.
 
 ### 2026-08-17 - Cloudflare D1 character cache
 
 - **Database**: Added Cloudflare D1 `characters` for the cached character roster.
-- **Dashboard/Characters**: Routed cached roster reads and refresh writes through the D1-backed character cache service with Neon fallback for local development.
+- **Dashboard/Characters**: Routed cached roster reads and refresh writes through the D1-backed character cache service.
 
 ### 2026-08-17 - Cloudflare D1 character pets
 
 - **Database**: Added Cloudflare D1 `character_pets` for saved character pet stats.
-- **Characters**: Routed pet sync and manual pet stat reads/writes through a D1-backed service with Neon fallback for local development.
+- **Characters**: Routed pet sync and manual pet stat reads/writes through a D1-backed service.
 
 ### 2026-08-17 - Cloudflare D1 gear presets
 
 - **Database**: Added Cloudflare D1 `gear_presets` for saved gear loadouts.
-- **Gear/Dungeons**: Routed preset reads and gear save/update/delete actions through a D1-backed service with Neon fallback for local development.
+- **Gear/Dungeons**: Routed preset reads and gear save/update/delete actions through a D1-backed service.
 
 ### 2026-08-17 - Cloudflare D1 price tracker
 
 - **Database**: Added Cloudflare D1 `price_tracker` for user-tracked investment items.
-- **Investments**: Routed tracked item list/add/delete and history lookup ownership checks through a D1-backed service with Neon fallback for local development.
+- **Investments**: Routed tracked item list/add/delete and history lookup ownership checks through a D1-backed service.
 
 ### 2026-08-17 - Cloudflare D1 user preferences
 
 - **Database**: Added Cloudflare D1 `user_preferences` for dashboard layout and language preferences.
-- **Settings**: Routed preference reads/writes through a D1-backed service with Neon fallback for local development.
+- **Settings**: Routed preference reads/writes through a D1-backed service.
 
 ### 2026-08-17 - Cloudflare D1 sync logs
 
 - **Database**: Added Cloudflare D1 `sync_job_logs` for admin sync observability.
-- **Admin**: Routed manual sync log reads/writes through a D1-backed service with Neon fallback for local development.
+- **Admin**: Routed manual sync log reads/writes through a D1-backed service.
 
 ### 2026-08-17 - Cloudflare D1 migrations in CI
 
@@ -218,14 +222,14 @@ Start with these docs when planning or iterating:
 ### 2026-08-16 - Cloudflare D1 sync state
 
 - **Database**: Added Cloudflare D1 database `immo-web-suite-sync` for cron `sync_state`.
-- **Cron**: Routed automated cron state reads/writes through a D1-backed service with Neon fallback for local development.
+- **Cron**: Routed automated cron state reads/writes through a D1-backed service.
 - **Docs**: Updated the Cloudflare runbook and database reference for the first D1 table.
 
 ### 2026-08-16 - Cloudflare runtime migration scaffold
 
 - **Deployment**: Added OpenNext/Cloudflare Workers config, Wrangler scripts, and a custom Worker entry for Cloudflare Cron Triggers.
 - **Runtime**: Bumped Next.js to `16.2.11` to satisfy the current OpenNext Cloudflare adapter peer range.
-- **Migration**: Documented the staged path: Cloudflare runtime first, Neon retained for now, D1/R2 later.
+- **Migration**: Documented the staged path: Cloudflare runtime first, D1/R2 later.
 
 ### 2026-08-16 - API inspector
 

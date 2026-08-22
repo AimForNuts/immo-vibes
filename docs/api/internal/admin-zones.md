@@ -8,7 +8,7 @@ Sources:
 - `lib/services/admin/zones.service.ts`
 
 All routes require an authenticated session with `session.user.role === "admin"`.
-Zone rows live in Cloudflare D1 table `zones` through `lib/services/admin/zones.service.ts`, with a Neon fallback for local Node development.
+Zone rows live in Cloudflare D1 table `zones` through `lib/services/admin/zones.service.ts`.
 
 ---
 
@@ -193,5 +193,5 @@ Empty response body.
 
 ### Side Effects
 
-Deletes the `zones` row. Related `item_zones` rows are deleted by the zone service because `items` still lives in Neon while zone associations live in D1.
+Deletes the `zones` row. Related `item_zones` rows are deleted by the zone service.
 

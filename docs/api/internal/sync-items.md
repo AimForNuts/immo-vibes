@@ -1,6 +1,6 @@
 # POST /api/admin/sync-items
 
-Catalog writes are Cloudflare D1-backed through `lib/services/items.service.ts`, with Neon fallback for local Node development.
+Catalog writes are Cloudflare D1-backed through `lib/services/items.service.ts`.
 
 Syncs all items of a given equipment type from the IdleMMO API into the D1 item catalog. Must be run before the Gear Calculator can display items for a slot; D1 `items` is the source of truth for item search in Cloudflare production.
 

@@ -106,26 +106,26 @@ Skip this checklist only for trivial one-liner fixes. For everything else it is 
 
 # Database & Migrations
 
-Schema source: `lib/db/schema.ts` — full reference at `docs/database.md`.
+Production persistence is Cloudflare D1. Shared TypeScript-only data shapes live in `lib/db/schema.ts`; full table reference is in `docs/database.md`.
 **Read `docs/database.md` before writing any code that queries or modifies the database.**
 
 ## Migration workflow
 
-1. Edit `lib/db/schema.ts`
-2. Generate the migration from the worktree (requires symlinking `node_modules`):
+1. Add an append-only SQL migration under `d1/migrations/`.
+2. Review the SQL carefully; D1 is the production source of truth.
+3. CI applies remote D1 migrations on `master` before deployment:
    ```bash
-   ln -s ../immo_web_suite/node_modules ./node_modules
-   cp ../immo_web_suite/.env.local .env.local
-   node_modules/.bin/drizzle-kit generate --name="describe_the_change"
-   rm node_modules .env.local
+   npx wrangler d1 migrations apply immo-web-suite-sync --remote
    ```
-3. Review the generated `.sql` file in `lib/db/migrations/`
-4. Apply to production: `node_modules/.bin/drizzle-kit migrate` (run from main repo after merge)
+4. For local preview data, apply locally:
+   ```bash
+   npx wrangler d1 migrations apply immo-web-suite-sync --local
+   ```
 
 ## Rules
 
-- **Never push schema changes without a migration.** Adding a column to `schema.ts` without a corresponding migration file leaves the live DB out of sync.
-- If a table was added to `schema.ts` without a tracked migration (already exists in the DB), use `CREATE TABLE IF NOT EXISTS` in the generated SQL to prevent a duplicate-table error on apply.
+- **Never push table changes without a D1 migration.** Updating TypeScript types without a corresponding migration leaves the live DB out of sync.
+- If a table was added without a tracked migration but already exists in D1, use `CREATE TABLE IF NOT EXISTS` in the SQL to prevent duplicate-table errors on apply.
 - Keep `docs/database.md` current whenever the schema changes — update the table, the quick-lookup section, and the sync pipeline diagram.
 - Migrations are append-only — never edit or delete an existing `.sql` file.
 
@@ -182,7 +182,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## MCP tools (context7)
 Requires Claude Code restart to activate the MCP server. Once active, two tools become available:
-- `resolve-library-id` — find the context7 ID for a library (e.g. "next.js", "drizzle-orm")
+- `resolve-library-id` — find the context7 ID for a library (e.g. "next.js")
 - `query-docs` — fetch version-pinned docs and code examples for that library
 
-**ALWAYS use context7 before writing code that touches**: Next.js App Router APIs, better-auth config, Drizzle ORM queries, shadcn/ui v4 components, @neondatabase/serverless. Do NOT rely on training data for these — this codebase runs a version with breaking changes. "I feel confident" is not sufficient justification to skip.
+**ALWAYS use context7 before writing code that touches**: Next.js App Router APIs, better-auth config, Cloudflare D1 access patterns, shadcn/ui v4 components. Do NOT rely on training data for these — this codebase runs versions with breaking changes. "I feel confident" is not sufficient justification to skip.
