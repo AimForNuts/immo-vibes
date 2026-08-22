@@ -1,6 +1,6 @@
 # GET /api/market
 
-Item catalog reads are Cloudflare D1-backed through `lib/services/items.service.ts`, with Neon fallback for local Node development.
+Item catalog reads are Cloudflare D1-backed through `lib/services/items.service.ts`.
 
 DB-backed item browser used by the Market Browser. It does not call the IdleMMO API, so there is no rate-limit risk. Items must be synced via the admin sync before they appear here.
 

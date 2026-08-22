@@ -33,7 +33,7 @@ The active schedule is:
 
 The retired `POST /api/cron/sync-market` route was removed because it duplicated `sync-items`, was not scheduled, did not update `sync_state`, and its name implied price syncing even though it only refreshed catalog data.
 
-`sync_state` is stored in Cloudflare D1 via `lib/services/sync-state.service.ts`. The item catalog is stored in Cloudflare D1 via `lib/services/items.service.ts`. Market price history is stored in Cloudflare D1 via `lib/services/market-price-history.service.ts`. These services fall back to Neon when the D1 binding is unavailable in local Node-based development.
+`sync_state` is stored in Cloudflare D1 via `lib/services/sync-state.service.ts`. The item catalog is stored in Cloudflare D1 via `lib/services/items.service.ts`. Market price history is stored in Cloudflare D1 via `lib/services/market-price-history.service.ts`.
 
 ---
 

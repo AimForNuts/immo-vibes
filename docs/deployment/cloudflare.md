@@ -9,19 +9,19 @@ Move ImmoWeb Suite from Vercel to Cloudflare in practical stages:
 1. Cloudflare Workers/OpenNext runtime and Cloudflare Cron Triggers.
 2. Use the free Cloudflare `workers.dev` hostname as the production URL.
 3. D1 and R2 adoption where they make the app simpler to own.
-4. Neon removal after data migration is complete.
+4. R2 adoption for future object/source storage.
 
 Temporary broken login or data access is acceptable during migration windows because this is currently a single-user hobby project. Prefer fast, understandable checkpoints over elaborate zero-downtime compatibility layers.
 
 ## Current Phase
 
-Phase 2 is data migration to D1. The production app now keeps auth and migrated app data in Cloudflare D1; Neon remains configured only for Node-based local/build fallback paths.
+Phase 2 data migration is complete. The app keeps auth and application data in Cloudflare D1.
 
 | Area | Current state |
 |---|---|
 | Hosting/runtime | Cloudflare Workers via OpenNext at `https://immo-web-suite.void-presence.workers.dev` |
-| Database | Cloudflare D1 stores better-auth tables and migrated app data; Neon remains available as fallback for Node-based local development/builds |
-| ORM | Drizzle remains active for Neon fallback paths |
+| Database | Cloudflare D1 stores better-auth tables and application data |
+| ORM | None for app persistence; services use D1 SQL directly |
 | Auth | better-auth uses D1 binding `IMMO_SYNC_DB` in production |
 | Cron | Cloudflare Cron Triggers call existing `app/api/cron/*` route handlers |
 | Vercel | Removed from repo config; project can be turned off in Vercel |
@@ -67,19 +67,20 @@ Record every Cloudflare resource here as it is created.
 | `d1/migrations/0011_items.sql` | D1 schema for the `items` catalog table |
 | `d1/migrations/0012_market_price_history.sql` | D1 schema for the `market_price_history` table |
 | `d1/migrations/0013_auth.sql` | D1 schema for better-auth `user`, `session`, `account`, and `verification` tables |
-| `lib/services/auth-users.service.ts` | D1-backed user/account settings and admin user service with Neon fallback for local development |
-| `lib/services/sync-state.service.ts` | D1-backed sync-state read/write service with Neon fallback for local development |
-| `lib/services/admin/sync-logs.service.ts` | D1-backed admin sync log read/write service with Neon fallback for local development |
-| `lib/services/user-preferences.service.ts` | D1-backed user preferences read/write service with Neon fallback for local development |
-| `lib/services/price-tracker.service.ts` | D1-backed investment tracker read/write service with Neon fallback for local development |
-| `lib/services/gear-presets.service.ts` | D1-backed gear preset read/write service with Neon fallback for local development |
-| `lib/services/character-pets.service.ts` | D1-backed character pet read/write service with Neon fallback for local development |
-| `lib/services/character-cache.ts` | D1-backed character roster cache service with Neon fallback for local development |
-| `lib/services/admin/zones.service.ts` | D1-backed zone metadata and item-zone association service with Neon fallback for local development |
-| `lib/services/admin/dungeons.service.ts` | D1-backed dungeon catalog service with Neon fallback for local development |
-| `lib/services/admin/api-inspector.service.ts` | D1-backed API Inspector metadata service with Neon fallback for local development |
-| `lib/services/items.service.ts` | D1-backed item catalog service with Neon fallback for local development |
-| `lib/services/market-price-history.service.ts` | D1-backed market price history service with Neon fallback for local development |
+| `lib/db/d1.ts` | Cloudflare D1 binding helper |
+| `lib/services/auth-users.service.ts` | D1-backed user/account settings and admin user service |
+| `lib/services/sync-state.service.ts` | D1-backed sync-state read/write service |
+| `lib/services/admin/sync-logs.service.ts` | D1-backed admin sync log read/write service |
+| `lib/services/user-preferences.service.ts` | D1-backed user preferences read/write service |
+| `lib/services/price-tracker.service.ts` | D1-backed investment tracker read/write service |
+| `lib/services/gear-presets.service.ts` | D1-backed gear preset read/write service |
+| `lib/services/character-pets.service.ts` | D1-backed character pet read/write service |
+| `lib/services/character-cache.ts` | D1-backed character roster cache service |
+| `lib/services/admin/zones.service.ts` | D1-backed zone metadata and item-zone association service |
+| `lib/services/admin/dungeons.service.ts` | D1-backed dungeon catalog service |
+| `lib/services/admin/api-inspector.service.ts` | D1-backed API Inspector metadata service |
+| `lib/services/items.service.ts` | D1-backed item catalog service |
+| `lib/services/market-price-history.service.ts` | D1-backed market price history service |
 | `package.json` | Cloudflare scripts and dependencies |
 
 ## Runtime Flow
@@ -90,7 +91,7 @@ Normal HTTP requests:
 2. `worker.ts` delegates to the generated OpenNext handler from `.open-next/worker.js`.
 3. Next.js routes, pages, middleware/proxy behavior, auth, and API handlers run through OpenNext.
 4. better-auth and migrated app data read/write through D1 binding `IMMO_SYNC_DB`.
-5. Neon access through `lib/db/index.ts` remains only for Node-based local/build fallback paths.
+5. Services access D1 through the `IMMO_SYNC_DB` binding.
 
 Scheduled cron requests:
 
@@ -108,7 +109,6 @@ Set these as Cloudflare Worker secrets. Do not put real values in `wrangler.json
 
 | Secret | Required now | Purpose |
 |---|---:|---|
-| `DATABASE_URL` | Yes for now | Neon PostgreSQL fallback connection string for Node-based local/build paths |
 | `BETTER_AUTH_SECRET` | Yes | better-auth signing/encryption secret |
 | `BETTER_AUTH_URL` | Yes | Public base URL used by better-auth |
 | `CRON_SECRET` | Yes | Protects cron route handlers |
@@ -117,7 +117,6 @@ Set these as Cloudflare Worker secrets. Do not put real values in `wrangler.json
 
 Currently set on Worker `immo-web-suite`:
 
-- `DATABASE_URL`
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
 - `CRON_SECRET`
@@ -125,7 +124,7 @@ Currently set on Worker `immo-web-suite`:
 Set a secret:
 
 ```bash
-npx wrangler secret put DATABASE_URL
+npx wrangler secret put BETTER_AUTH_SECRET
 ```
 
 ## Local Commands
@@ -159,7 +158,7 @@ npm run deploy
 
 ## GitHub Actions CD
 
-`.github/workflows/ci.yml` deploys to Cloudflare Workers on pushes to `master` after type check, build, Neon migrations, and Cloudflare D1 migrations pass. Pull requests run CI and smoke tests but do not deploy production or apply migrations.
+`.github/workflows/ci.yml` deploys to Cloudflare Workers on pushes to `master` after type check, build, and Cloudflare D1 migrations pass. Pull requests run CI and smoke tests but do not deploy production or apply migrations.
 
 The workflow uses Node.js 22 because current Wrangler releases require Node.js 22 or newer.
 
@@ -169,7 +168,6 @@ Required GitHub Actions repository secrets:
 |---|---|
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account that owns Worker `immo-web-suite` |
 | `CLOUDFLARE_API_TOKEN` | Wrangler deploy authentication |
-| `DATABASE_URL` | Build-time and migration database access |
 | `BETTER_AUTH_SECRET` | Build/runtime auth config |
 | `BETTER_AUTH_URL` | Build-time auth URL fallback |
 | `NEXT_PUBLIC_APP_URL` | Build-time client auth URL fallback |
@@ -222,7 +220,7 @@ Latest smoke test against `https://immo-web-suite.void-presence.workers.dev`:
 4. Smoke test login and dashboard.
 5. Turn off or delete the Vercel project to stop old Vercel cron executions.
 6. Update external bookmarks/links to the `workers.dev` URL.
-7. Watch Worker logs and Neon connection behavior.
+7. Watch Worker logs for D1/auth/runtime errors.
 
 ## What Codex Needs To Create Cloudflare Resources
 
@@ -289,7 +287,7 @@ Current D1 migration status:
 | `account` | `immo-web-suite-sync` | better-auth credentials/accounts |
 | `verification` | `immo-web-suite-sync` | better-auth verification and password reset records |
 
-Neon is still configured until remaining legacy fallback usage is retired and production has been exercised on D1.
+Neon/Postgres and Drizzle have been removed from the application. D1 is the persistence source of truth.
 
 ## Known Warnings
 

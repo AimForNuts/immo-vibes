@@ -1,7 +1,7 @@
 # Admin Item Routes
 
 Admin-only endpoints for listing local items and editing manually maintained item metadata.
-Item catalog persistence is Cloudflare D1-backed through `lib/services/items.service.ts`, with Neon fallback for local Node development.
+Item catalog persistence is Cloudflare D1-backed through `lib/services/items.service.ts`.
 
 Sources:
 - `app/api/admin/items/route.ts`

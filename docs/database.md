@@ -1,8 +1,6 @@
 # Database Schema Reference
 
-Cloudflare D1 is the production database for migrated app data and better-auth tables. D1 migrations live in `d1/migrations/` and are applied with Wrangler.
-
-Postgres via Neon remains configured for Node-based local/build fallback paths. Its Drizzle schema source is `lib/db/schema.ts`; migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrate`.
+Cloudflare D1 is the database for app data and better-auth tables. D1 migrations live in `d1/migrations/` and are applied with Wrangler. Shared TypeScript-only data shapes live in `lib/db/schema.ts`.
 
 ---
 
@@ -48,9 +46,8 @@ Postgres via Neon remains configured for Node-based local/build fallback paths. 
 One row per unique item in the IdleMMO catalogue.
 Populated in stages by three separate sync jobs.
 This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/items.service.ts`.
-Created by D1 migration `d1/migrations/0011_items.sql`. The service falls back to Neon when the D1 binding is unavailable in local Node-based development.
-JSON-style columns are stored as text in D1 and as `jsonb` in the existing Neon fallback schema.
-
+Created by D1 migration `d1/migrations/0011_items.sql`.
+JSON-style columns are stored as text in D1.\r\n
 | Column | Type | Nullable | Populated by | Notes |
 |---|---|---|---|---|
 | `hashed_id` | text PK | — | sync-items | IdleMMO item identifier |
@@ -92,7 +89,7 @@ Append-only price log. One row per unique `(item, tier, sale timestamp)`.
 The IdleMMO API only exposes the latest sale; persisting here builds history longer than the game retains.
 Unique index: `(item_hashed_id, tier, sold_at)`.
 This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/market-price-history.service.ts`.
-Created by D1 migration `d1/migrations/0012_market_price_history.sql`. The service falls back to Neon when the D1 binding is unavailable in local Node-based development.
+Created by D1 migration `d1/migrations/0012_market_price_history.sql`.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
@@ -136,7 +133,6 @@ Per-user list of items the user is watching. Display only — does not drive any
 
 **D1 migration**: `d1/migrations/0004_price_tracker.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `price_tracker` table when D1 is unavailable in Node-based local development.
 
 ---
 
@@ -155,7 +151,6 @@ Tracks progress of automated cron jobs and gates downstream syncs. This table no
 
 **D1 migration**: `d1/migrations/0001_sync_state.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `sync_state` table when D1 is unavailable in Node-based local development.
 
 ---
 
@@ -181,7 +176,6 @@ Append-only event log for manual admin sync route observability. This table live
 **API route**: `GET /api/admin/sync-logs`
 **D1 migration**: `d1/migrations/0002_sync_job_logs.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `sync_job_logs` table when D1 is unavailable in Node-based local development.
 
 ---
 
@@ -202,7 +196,6 @@ Editable admin catalog of curated IdleMMO API endpoints that the API Inspector c
 
 **D1 migration**: `d1/migrations/0010_api_inspector.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `api_endpoint_specs` table when D1 is unavailable in Node-based local development.
 
 ### D1 `api_response_schemas`
 
@@ -222,7 +215,6 @@ One active typed response schema per API Inspector endpoint.
 
 **D1 migration**: `d1/migrations/0010_api_inspector.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `api_response_schemas` table when D1 is unavailable in Node-based local development.
 
 ### D1 `api_schema_observations`
 
@@ -250,7 +242,6 @@ Derived metadata for each inspector run. Raw responses are not stored; the UI on
 **API routes**: `GET /api/admin/api-inspector`, `POST /api/admin/api-inspector/run`, `PATCH /api/admin/api-inspector/schema`
 **D1 migration**: `d1/migrations/0010_api_inspector.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `api_schema_observations` table when D1 is unavailable in Node-based local development.
 
 ---
 
@@ -274,7 +265,6 @@ Saved gear loadouts per user. This table lives in Cloudflare D1 database `immo-w
 
 **D1 migration**: `d1/migrations/0005_gear_presets.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `gear_presets` table when D1 is unavailable in Node-based local development.
 
 ---
 
@@ -291,7 +281,6 @@ One row per user, keyed by `user_id`. This table lives in Cloudflare D1 database
 
 **D1 migration**: `d1/migrations/0003_user_preferences.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `user_preferences` table when D1 is unavailable in Node-based local development.
 
 ---
 
@@ -321,7 +310,6 @@ This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed
 **Service**: `lib/services/character-cache.ts` → `getCachedCharacters()`
 **D1 migration**: `d1/migrations/0007_characters.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `characters` table when D1 is unavailable in Node-based local development.
 
 ---
 
@@ -360,7 +348,6 @@ This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed
 **API routes**: `POST /api/characters/[id]/sync-pet`, `GET /api/characters/[id]/pet-stats`, `PATCH /api/characters/[id]/pet-stats`
 **D1 migration**: `d1/migrations/0006_character_pets.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `character_pets` table when D1 is unavailable in Node-based local development.
 **Docs**: `docs/game-mechanics/pets.md`, `docs/api/internal/pet-stats.md`
 
 ---
@@ -394,7 +381,6 @@ This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed
 **Admin route**: `POST /api/admin/sync-dungeons`
 **D1 migration**: `d1/migrations/0009_dungeons.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `dungeons` table when D1 is unavailable in Node-based local development.
 **Docs**: `docs/api/internal/dungeons-sync.md`
 
 ---
@@ -416,7 +402,6 @@ This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed
 **Admin routes**: `GET/POST /api/admin/zones`, `GET/PATCH/DELETE /api/admin/zones/[id]`
 **D1 migration**: `d1/migrations/0008_zones.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `zones` table when D1 is unavailable in Node-based local development.
 
 ---
 
@@ -433,7 +418,6 @@ This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed
 **Admin routes**: `GET /api/items/[id]/zones`, `PUT /api/items/[id]/zones`
 **D1 migration**: `d1/migrations/0008_zones.sql`
 **Binding**: `IMMO_SYNC_DB`
-**Local fallback**: the service falls back to the legacy Neon `item_zones` table when D1 is unavailable in Node-based local development.
 
 ---
 
@@ -492,7 +476,6 @@ Composite PK: `(zone_id, item_hashed_id)`
 
 Managed by **better-auth** against Cloudflare D1 database `immo-web-suite-sync` in production.
 Created by D1 migration `d1/migrations/0013_auth.sql`.
-Local Node-based development falls back to the legacy Neon Drizzle adapter when the D1 binding is unavailable.
 
 Do not write to session/account/verification rows directly. Use `auth.api.*` methods.
 App-owned user profile fields (`name`, `email`, `role`, `idlemmo_token`, `idlemmo_character_id`) are updated through `lib/services/auth-users.service.ts`.

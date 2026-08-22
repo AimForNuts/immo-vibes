@@ -1,7 +1,7 @@
 # Internal API — Investments
 
 Authenticated endpoints for user-tracked market items.
-Tracked items are stored in Cloudflare D1 table `price_tracker` through `lib/services/price-tracker.service.ts`; price history is read from D1 `market_price_history` through `lib/services/market-price-history.service.ts`. Local Node development falls back to the legacy Neon tables when D1 is unavailable.
+Tracked items are stored in Cloudflare D1 table `price_tracker` through `lib/services/price-tracker.service.ts`; price history is read from D1 `market_price_history` through `lib/services/market-price-history.service.ts`.
 
 Sources:
 - `app/api/investments/route.ts`
