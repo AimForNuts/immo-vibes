@@ -18,8 +18,8 @@ const PAGE_SIZE_MAX     = 100;
  * Fetches inspect data (stats, effects, recipe, requirements) for one page of
  * items of the given type and writes them to the DB inspect fields.
  *
- * Pagination keeps each call within Vercel's 300s maxDuration:
- * at 20 req/min, 40 items ≈ 2 rate-limit windows ≈ 2 min.
+ * Pagination keeps each call short enough for Worker request reliability:
+ * at 20 req/min, 40 items is about 2 rate-limit windows, or 2 min.
  *
  * Rate-limit aware: reads X-RateLimit-Remaining and X-RateLimit-Reset from
  * every response and waits exactly as long as the API instructs.
