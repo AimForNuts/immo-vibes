@@ -155,6 +155,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-22 - Cloudflare production data cutover
+
+- **Runtime**: Removed the remaining direct Neon reads from production routes/pages; market drop zones and character pet stats now go through D1-backed services.
+- **Docs**: Updated Cloudflare/database docs to reflect D1 as the production data owner, with Neon retained only for local/build fallback paths.
+
 ### 2026-08-19 - Cloudflare D1 items
 
 - **Database**: Added Cloudflare D1 `items` for the item catalog, inspect metadata, recipe metadata, and tier-1 price cache.

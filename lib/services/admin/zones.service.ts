@@ -51,6 +51,15 @@ export type ZoneDetail = {
   worldBosses: ZoneWorldBoss[];
 };
 
+export type ZoneItemDropResult = {
+  id: number;
+  name: string;
+  level_required: number;
+  enemies?: Array<{ name: string; level: number }>;
+  dungeons?: Array<{ name: string }>;
+  world_bosses?: Array<{ name: string }>;
+};
+
 function getZonesD1(): D1DatabaseBinding | null {
   try {
     return (getCloudflareContext().env as ZonesCloudflareEnv).IMMO_SYNC_DB ?? null;
@@ -274,6 +283,59 @@ export async function getAllZones(): Promise<{ id: number; name: string }[]> {
     .select({ id: zones.id, name: zones.name })
     .from(zones)
     .orderBy(zones.levelRequired);
+}
+
+export async function getZonesForDroppedItem(itemHashedId: string): Promise<ZoneItemDropResult[]> {
+  const d1 = getZonesD1();
+  const allZones = d1
+    ? (await d1
+        .prepare("SELECT id, name, level_required, enemies, dungeons, world_bosses FROM zones")
+        .all<ZoneD1Row>()).results.map(mapZoneDetail)
+    : (await db.select().from(zones)).map((zone) => ({
+        id: zone.id,
+        name: zone.name,
+        levelRequired: zone.levelRequired,
+        enemies: zone.enemies ?? [],
+        dungeons: zone.dungeons ?? [],
+        worldBosses: zone.worldBosses ?? [],
+      }));
+
+  return allZones.reduce<ZoneItemDropResult[]>((acc, zone) => {
+    let matched = false;
+    const result: ZoneItemDropResult = {
+      id: zone.id,
+      name: zone.name,
+      level_required: zone.levelRequired,
+    };
+
+    const matchedEnemies = zone.enemies.filter((enemy) => enemy.drops.includes(itemHashedId));
+    if (matchedEnemies.length > 0) {
+      matched = true;
+      result.enemies = matchedEnemies.map((enemy) => ({
+        name: enemy.name,
+        level: enemy.level,
+      }));
+    }
+
+    const matchedDungeons = zone.dungeons.filter((dungeon) =>
+      dungeon.drops?.includes(itemHashedId)
+    );
+    if (matchedDungeons.length > 0) {
+      matched = true;
+      result.dungeons = matchedDungeons.map((dungeon) => ({ name: dungeon.name }));
+    }
+
+    const matchedWorldBosses = zone.worldBosses.filter((worldBoss) =>
+      worldBoss.drops?.includes(itemHashedId)
+    );
+    if (matchedWorldBosses.length > 0) {
+      matched = true;
+      result.world_bosses = matchedWorldBosses.map((worldBoss) => ({ name: worldBoss.name }));
+    }
+
+    if (matched) acc.push(result);
+    return acc;
+  }, []);
 }
 
 export async function getItemZoneIds(itemHashedId: string): Promise<number[]> {
