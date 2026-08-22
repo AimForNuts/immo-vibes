@@ -1,10 +1,9 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
-import { db } from "@/lib/db";
 import { upsertSyncStateJob } from "@/lib/services/sync-state.service";
 import { getItemsForPriceSync, updateItemPriceFields } from "@/lib/services/items.service";
 import { insertMarketPriceHistory } from "@/lib/services/market-price-history.service";
+import { getFirstAdminIdleMMOToken } from "@/lib/services/auth-users.service";
 
 export const maxDuration = 300;
 
@@ -30,10 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const adminRow = await db.execute(
-    sql`SELECT idlemmo_token FROM "user" WHERE role = 'admin' AND idlemmo_token IS NOT NULL LIMIT 1`
-  );
-  const token = (adminRow.rows[0] as { idlemmo_token: string } | undefined)?.idlemmo_token;
+  const token = await getFirstAdminIdleMMOToken();
   if (!token) {
     return NextResponse.json({ error: "No admin IdleMMO token configured" }, { status: 500 });
   }
