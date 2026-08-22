@@ -22,8 +22,8 @@ const NO_RECIPE_SENTINEL = "NONE";
  * Only processes items with recipe_result_hashed_id IS NULL — already-populated
  * items are skipped entirely (no API call), so this is safe to re-run.
  *
- * Pagination keeps each call within Vercel's 300s maxDuration:
- * at 20 req/min, 80 items ≈ 4 rate-limit windows ≈ 4 min.
+ * Pagination keeps each call short enough for Worker request reliability:
+ * at 20 req/min, 80 items is about 4 rate-limit windows, or 4 min.
  *
  * Response: { populated, noData, errors, total, page, totalPages }
  *   total     — RECIPE items still missing recipe_result_hashed_id at call time

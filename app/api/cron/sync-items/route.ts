@@ -16,7 +16,7 @@ export const maxDuration = 300;
  * Runs Monday 00:00 UTC. Marks sync_state job='items' done on completion
  * so the downstream recipes cron can gate on it.
  *
- * Protected by CRON_SECRET (set automatically by Vercel).
+ * Protected by CRON_SECRET and invoked by Cloudflare Cron Triggers.
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
