@@ -2,12 +2,14 @@
 
 Admin-only tooling for documenting IdleMMO API response shapes from real calls.
 Persistence lives in Cloudflare D1 (`api_endpoint_specs`, `api_response_schemas`, `api_schema_observations`) through `lib/services/admin/api-inspector.service.ts`.
+Raw response snapshots are archived to Cloudflare R2 bucket `immo-web-suite-sources` through `lib/services/admin/api-inspector-r2-snapshots.service.ts`.
 
 Sources:
 - `app/api/admin/api-inspector/route.ts`
 - `app/api/admin/api-inspector/run/route.ts`
 - `app/api/admin/api-inspector/schema/route.ts`
 - `lib/services/admin/api-inspector.service.ts`
+- `lib/services/admin/api-inspector-r2-snapshots.service.ts`
 
 All routes require `session.user.role === "admin"`.
 
@@ -71,8 +73,17 @@ Returns:
 - `inferredSchema`: typed schema inferred from the response
 - `diff`: new fields, missing fields, and type conflicts compared with the active schema
 - `observation`: persisted observation metadata
+- `snapshot`: R2 snapshot metadata when the raw response archive write succeeds, otherwise `null`
 
-Raw responses are not persisted. D1 stores inferred schemas and diff metadata.
+Raw responses are returned to the UI and archived best-effort to R2. D1 stores inferred schemas and diff metadata. R2 write failures are logged server-side but do not fail the inspector run.
+
+R2 object keys use this prefix:
+
+```text
+api-inspector/<endpoint-key>/<YYYY-MM-DD>/<timestamp>-<observation-id>.json
+```
+
+Each object contains `metadata`, `inferredSchema`, `diff`, and `response` fields. IdleMMO bearer tokens are not stored in the snapshot.
 
 ## PATCH /api/admin/api-inspector/schema
 
