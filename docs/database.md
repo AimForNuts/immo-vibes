@@ -2,7 +2,7 @@
 
 Cloudflare D1 is the production database for migrated app data and better-auth tables. D1 migrations live in `d1/migrations/` and are applied with Wrangler.
 
-Postgres via Neon remains configured for local/build fallback paths and legacy tables that have not been retired. Its Drizzle schema source is `lib/db/schema.ts`; migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrate`.
+Postgres via Neon remains configured for Node-based local/build fallback paths. Its Drizzle schema source is `lib/db/schema.ts`; migrations live in `lib/db/migrations/` and are applied with `drizzle-kit migrate`.
 
 ---
 
@@ -122,7 +122,7 @@ Per-user list of items the user is watching. Display only — does not drive any
 | Column | Type | Notes |
 |---|---|---|
 | `id` | text PK | UUID |
-| `user_id` | text | User id from better-auth. No D1 foreign key while auth remains in Neon |
+| `user_id` | text | User id from better-auth. No D1 foreign key to keep user-owned app tables loosely coupled from auth lifecycle |
 | `item_hashed_id` | text | Item being tracked |
 | `item_name` | text | Denormalised for fast display |
 | `item_quality` | text | Denormalised |
@@ -170,7 +170,7 @@ Append-only event log for manual admin sync route observability. This table live
 | `status` | text | - | `started`, `progress`, `success`, `failed`, or `skipped` |
 | `message` | text | - | Human-readable status summary |
 | `details` | text JSON | yes | Counts, paging info, error messages, or route-specific context |
-| `user_id` | text | yes | Admin user who started the manual sync. No D1 foreign key while auth remains in Neon |
+| `user_id` | text | yes | Admin user who started the manual sync. No D1 foreign key to preserve append-only logs if a user is deleted |
 | `created_at` | timestamp | - | Event creation time |
 
 **Indexes**:
@@ -261,7 +261,7 @@ Saved gear loadouts per user. This table lives in Cloudflare D1 database `immo-w
 | Column | Type | Notes |
 |---|---|---|
 | `id` | text PK | UUID |
-| `user_id` | text | User id from better-auth. No D1 foreign key while auth remains in Neon |
+| `user_id` | text | User id from better-auth. No D1 foreign key to keep saved app data loosely coupled from auth lifecycle |
 | `name` | text | Display name |
 | `character_id` | text | Optional — ties preset to a specific character |
 | `weapon_style` | text | e.g. `'dual'` / `'single'` |
@@ -284,7 +284,7 @@ One row per user, keyed by `user_id`. This table lives in Cloudflare D1 database
 
 | Column | Type | Notes |
 |---|---|---|
-| `user_id` | text PK | User id from better-auth. No D1 foreign key while auth remains in Neon |
+| `user_id` | text PK | User id from better-auth. No D1 foreign key to keep preferences loosely coupled from auth lifecycle |
 | `language` | text | Default `'en'` |
 | `dashboard_layout` | text JSON | Array of 6 `DashboardCardType` strings |
 | `updated_at` | timestamp | — |
@@ -303,7 +303,7 @@ This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
-| `user_id` | text PK (part) | — | User id from better-auth. No D1 foreign key while auth remains in Neon |
+| `user_id` | text PK (part) | — | User id from better-auth. No D1 foreign key to keep cached character data loosely coupled from auth lifecycle |
 | `hashed_id` | text PK (part) | — | IdleMMO character identifier |
 | `idlemmo_id` | integer | — | IdleMMO integer ID — used for `ORDER BY idlemmo_id ASC` |
 | `name` | text | — | Character display name |
@@ -335,7 +335,7 @@ This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
 | `id` | text PK | — | UUID |
-| `user_id` | text | — | User id from better-auth. No D1 foreign key while auth remains in Neon |
+| `user_id` | text | — | User id from better-auth. No D1 foreign key to keep saved pet data loosely coupled from auth lifecycle |
 | `character_hashed_id` | text | — | IdleMMO character hashed ID |
 | `pet_id` | integer | — | IdleMMO pet-instance integer ID |
 | `name` | text | — | Pet base name |
@@ -427,7 +427,7 @@ This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
-| `item_hashed_id` | text PK (part) | — | Item hash from Neon `items`. No D1 foreign key while catalog remains in Neon |
+| `item_hashed_id` | text PK (part) | — | Item hash from D1 `items`. No D1 foreign key so associations can be preserved independently of catalog refreshes |
 | `zone_id` | integer PK (part) | — | D1 `zones.id`; related rows are deleted manually by the zone service |
 
 **Admin routes**: `GET /api/items/[id]/zones`, `PUT /api/items/[id]/zones`

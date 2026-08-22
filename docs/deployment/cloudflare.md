@@ -15,12 +15,12 @@ Temporary broken login or data access is acceptable during migration windows bec
 
 ## Current Phase
 
-Phase 2 is data migration to D1. The production app now keeps auth and migrated app data in Cloudflare D1; Neon remains configured as a local/build fallback while the last legacy tables are retired.
+Phase 2 is data migration to D1. The production app now keeps auth and migrated app data in Cloudflare D1; Neon remains configured only for Node-based local/build fallback paths.
 
 | Area | Current state |
 |---|---|
 | Hosting/runtime | Cloudflare Workers via OpenNext at `https://immo-web-suite.void-presence.workers.dev` |
-| Database | Cloudflare D1 stores better-auth tables and migrated app data; Neon remains available as fallback for Node-based local development and not-yet-retired legacy tables |
+| Database | Cloudflare D1 stores better-auth tables and migrated app data; Neon remains available as fallback for Node-based local development/builds |
 | ORM | Drizzle remains active for Neon fallback paths |
 | Auth | better-auth uses D1 binding `IMMO_SYNC_DB` in production |
 | Cron | Cloudflare Cron Triggers call existing `app/api/cron/*` route handlers |
@@ -90,7 +90,7 @@ Normal HTTP requests:
 2. `worker.ts` delegates to the generated OpenNext handler from `.open-next/worker.js`.
 3. Next.js routes, pages, middleware/proxy behavior, auth, and API handlers run through OpenNext.
 4. better-auth and migrated app data read/write through D1 binding `IMMO_SYNC_DB`.
-5. Neon access through `lib/db/index.ts` remains only for local fallback paths and legacy tables that have not been retired.
+5. Neon access through `lib/db/index.ts` remains only for Node-based local/build fallback paths.
 
 Scheduled cron requests:
 
@@ -108,7 +108,7 @@ Set these as Cloudflare Worker secrets. Do not put real values in `wrangler.json
 
 | Secret | Required now | Purpose |
 |---|---:|---|
-| `DATABASE_URL` | Yes for now | Neon PostgreSQL fallback connection string and remaining legacy-table access |
+| `DATABASE_URL` | Yes for now | Neon PostgreSQL fallback connection string for Node-based local/build paths |
 | `BETTER_AUTH_SECRET` | Yes | better-auth signing/encryption secret |
 | `BETTER_AUTH_URL` | Yes | Public base URL used by better-auth |
 | `CRON_SECRET` | Yes | Protects cron route handlers |
