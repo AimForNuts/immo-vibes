@@ -15,7 +15,7 @@ Temporary broken login or data access is acceptable during migration windows bec
 
 ## Current Phase
 
-Phase 2 data migration is complete. The app keeps auth and application data in Cloudflare D1.
+Phase 3 R2 foundation is in progress. The app keeps auth and application data in Cloudflare D1, and the first R2 bucket exists for future source/object storage.
 
 | Area | Current state |
 |---|---|
@@ -26,7 +26,7 @@ Phase 2 data migration is complete. The app keeps auth and application data in C
 | Cron | Cloudflare Cron Triggers call existing `app/api/cron/*` route handlers |
 | Vercel | Removed from repo config and no longer part of production |
 | D1 | `immo-web-suite-sync` stores better-auth tables, `sync_state`, `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, `characters`, `zones`, `item_zones`, `dungeons`, API Inspector tables, `items`, and `market_price_history` |
-| R2 | Not created yet |
+| R2 | `immo-web-suite-sources` exists and is bound as `IMMO_SOURCES_BUCKET`; no app data has moved into it yet |
 
 Cloudflare account: `Jogada`
 
@@ -45,7 +45,7 @@ Record every Cloudflare resource here as it is created.
 | Cron Trigger | `0 4 * * *` | Daily price sync | `wrangler.jsonc`, `worker.ts` | Created |
 | Custom domain | TBD | Optional future nicer hostname | Cloudflare dashboard / Wrangler | Deferred |
 | D1 database | `immo-web-suite-sync` (`112c46c3-0718-4e3f-8a51-d11529b1ba4f`) | better-auth tables, cron sync state, admin sync logs, user preferences, tracked investments, gear presets, character pets, character roster cache, zone metadata, dungeon catalog, API Inspector metadata, item catalog, and market price history | `wrangler.jsonc`, `d1/migrations/` | Created |
-| R2 bucket | TBD | Future object/source storage | Future migration doc | Not started |
+| R2 bucket | `immo-web-suite-sources` | Future object/source storage for imported/exported snapshots, raw source payloads, and backup artifacts | `wrangler.jsonc`, `lib/storage/r2.ts` | Created |
 
 ## Repo Files
 
@@ -68,6 +68,7 @@ Record every Cloudflare resource here as it is created.
 | `d1/migrations/0012_market_price_history.sql` | D1 schema for the `market_price_history` table |
 | `d1/migrations/0013_auth.sql` | D1 schema for better-auth `user`, `session`, `account`, and `verification` tables |
 | `lib/db/d1.ts` | Cloudflare D1 binding helper |
+| `lib/storage/r2.ts` | Cloudflare R2 `IMMO_SOURCES_BUCKET` binding helper |
 | `lib/services/auth-users.service.ts` | D1-backed user/account settings and admin user service |
 | `lib/services/sync-state.service.ts` | D1-backed sync-state read/write service |
 | `lib/services/admin/sync-logs.service.ts` | D1-backed admin sync log read/write service |
@@ -92,6 +93,7 @@ Normal HTTP requests:
 3. Next.js routes, pages, middleware/proxy behavior, auth, and API handlers run through OpenNext.
 4. better-auth and migrated app data read/write through D1 binding `IMMO_SYNC_DB`.
 5. Services access D1 through the `IMMO_SYNC_DB` binding.
+6. Future source/object storage can access R2 through the `IMMO_SOURCES_BUCKET` binding.
 
 Scheduled cron requests:
 
@@ -178,6 +180,8 @@ Required GitHub Actions repository secrets:
 
 The deploy job pins the production URL to `https://immo-web-suite.void-presence.workers.dev` for `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL`.
 
+The `CLOUDFLARE_API_TOKEN` used by CI must include account-level `Workers R2 Storage: Edit` permission while the Worker has active R2 bindings or when bucket operations are run through Wrangler.
+
 ### D1 Migrations
 
 D1 migrations live in `d1/migrations/` and are applied by the `Run DB migrations` GitHub Actions job before production deploy:
@@ -194,6 +198,35 @@ When adding a D1 table:
 2. Bind or reuse the D1 database in `wrangler.jsonc`.
 3. Run the migration against remote D1 before production traffic depends on it, or merge through CI and let the `Run DB migrations` job apply it.
 4. Document the table and ownership in this runbook and `docs/database.md`.
+
+### R2 Buckets
+
+R2 buckets are created with Wrangler and bound through `wrangler.jsonc`.
+
+Current bucket:
+
+| Bucket | Binding | Purpose | Status |
+|---|---|---|---|
+| `immo-web-suite-sources` | `IMMO_SOURCES_BUCKET` | Future source snapshots and object/archive storage | Created, empty by design |
+
+Create another bucket:
+
+```bash
+npx wrangler r2 bucket create <bucket-name>
+```
+
+List buckets:
+
+```bash
+npx wrangler r2 bucket list
+```
+
+When adding an R2-backed feature:
+
+1. Reuse `IMMO_SOURCES_BUCKET` unless the data has a clearly separate lifecycle or access policy.
+2. Keep object-key construction in a service/domain module, not in UI components.
+3. Access the bucket through `lib/storage/r2.ts`.
+4. Document the object prefix, owner service, and cleanup policy in this runbook.
 
 After deploy, verify:
 
@@ -246,7 +279,7 @@ Codex also needs these project decisions/values:
 
 ## Later D1/R2 Planning Notes
 
-Do not start D1/R2 migration until the Cloudflare runtime is usable enough to debug from production logs.
+Cloudflare runtime and D1 migration are usable in production. R2 foundation is now created, but no existing app data has been moved into R2 yet.
 
 Likely D1 candidates:
 
@@ -262,7 +295,7 @@ Likely R2 candidates:
 - Large API response archives if API Inspector grows beyond relational storage.
 - Generated reports or backup artifacts.
 
-Keep the first D1/R2 phase intentionally small. A good first target is non-critical app-owned data such as `user_preferences` or sync logs, not the entire market catalog.
+Keep the first R2 data phase intentionally small. A good first target is non-critical source/archive data, not the relational market catalog.
 
 Current D1 migration status:
 

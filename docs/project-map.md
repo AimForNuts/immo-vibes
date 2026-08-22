@@ -26,7 +26,7 @@ Dedicated project specs and improvement backlog for planning future work.
 **Use when**: planning feature iterations, onboarding to the product surface, choosing next improvements, or checking which docs need to be expanded.
 
 ### Deployment & Cron
-Runtime deployment uses Cloudflare Workers/OpenNext. Runtime data is Cloudflare D1-backed while R2 is a future storage target.
+Runtime deployment uses Cloudflare Workers/OpenNext. Runtime data is Cloudflare D1-backed, and R2 is bound for future source/object storage.
 
 | Layer | Files |
 |---|---|
@@ -34,12 +34,15 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Runtime data is Cloudflare 
 | Cloudflare adapter config | `open-next.config.ts` |
 | Cloudflare Worker config | `wrangler.jsonc` |
 | Cloudflare Worker entry | `worker.ts` |
+| Cloudflare R2 helper | `lib/storage/r2.ts` |
 | E2E smoke config | `playwright.config.ts` |
 | Cloudflare runbook | `docs/deployment/cloudflare.md` |
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
 **D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores better-auth tables through `lib/auth.ts` and `lib/services/auth-users.service.ts`, `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, `items` through `lib/services/items.service.ts`, and `market_price_history` through `lib/services/market-price-history.service.ts`.
+
+**R2 ownership**: `immo-web-suite-sources` is bound as `IMMO_SOURCES_BUCKET` for future source/object storage. Access the binding through `lib/storage/r2.ts`; no current feature writes objects yet.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -373,6 +376,7 @@ Email/password auth via better-auth.
 |---|---|
 | `lib/db/schema.ts` | Shared TypeScript-only data shapes used by D1 services and UI types |
 | `lib/db/d1.ts` | Cloudflare D1 binding helper and minimal D1 statement types |
+| `lib/storage/r2.ts` | Cloudflare R2 `IMMO_SOURCES_BUCKET` binding helper |
 | `lib/idlemmo.ts` | IdleMMO API client — all external API functions and interfaces |
 | `lib/idlemmo-queue.ts` | Client-side rate-limit queue for browser API calls |
 | `lib/game-constants.ts` | `QUALITY_COLORS`, `SLOT_LABELS`, `CHAR_STAT_MAP`, `STATUS_DOT_COLOR` |
