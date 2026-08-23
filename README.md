@@ -155,6 +155,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-23 - Production cleanup
+
+- **Docs**: Updated current project specs to Cloudflare Workers, D1, R2, and Cloudflare Cron.
+- **Migration**: Marked pre-Cloudflare planning docs as historical so old Vercel/Neon/Drizzle notes are not mistaken for active guidance.
+
 ### 2026-08-23 - R2 lifecycle cleanup
 
 - **Storage**: Added R2 lifecycle rules for bucket `immo-web-suite-sources`.
