@@ -42,7 +42,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Runtime data is Cloudflare 
 
 **D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores better-auth tables through `lib/auth.ts` and `lib/services/auth-users.service.ts`, `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, `items` through `lib/services/items.service.ts`, and `market_price_history` through `lib/services/market-price-history.service.ts`.
 
-**R2 ownership**: `immo-web-suite-sources` is bound as `IMMO_SOURCES_BUCKET` for source/object storage. Access the binding through `lib/storage/r2.ts`. API Inspector writes raw response snapshots under `api-inspector/<endpoint-key>/<YYYY-MM-DD>/` through `lib/services/admin/api-inspector-r2-snapshots.service.ts`.
+**R2 ownership**: `immo-web-suite-sources` is bound as `IMMO_SOURCES_BUCKET` for source/object storage. Access the binding through `lib/storage/r2.ts`. API Inspector writes raw response snapshots under `api-inspector/<endpoint-key>/<YYYY-MM-DD>/` through `lib/services/admin/api-inspector-r2-snapshots.service.ts`. Sync routes write source snapshots under `sync/<job>/<source>/<YYYY-MM-DD>/` through `lib/services/sync-r2-snapshots.service.ts`.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
@@ -104,6 +104,7 @@ Weekly cron that refreshes the item catalog from the IdleMMO API.
 | IdleMMO client | `lib/idlemmo.ts` → `searchItemsByType()` |
 
 **DB tables**: D1 `items` (upsert catalog fields), D1 `sync_state` (marks job done)
+**R2 objects**: `sync/items/<source>/<YYYY-MM-DD>/<type>/...` stores parsed item-search payloads.
 **External API**: `GET /v1/item/search?type={type}&page={n}`
 **Schedule**: Monday 00:00 UTC (`0 0 * * 1`)
 **Docs**: `docs/database.md`, `docs/game-mechanics/item-types.md`
@@ -136,6 +137,7 @@ Daily cron that updates market prices, cycling through all items via `priceCheck
 | IdleMMO client | `lib/idlemmo.ts` |
 
 **DB tables**: D1 `items` (write `lastSoldPrice`, `lastSoldAt`, `priceCheckedAt`), D1 `market_price_history` (insert), D1 `sync_state` (read status)
+**R2 objects**: `sync/prices/<source>/<YYYY-MM-DD>/<type?>/<hashed-id>/...` stores parsed market-history payloads.
 **External API**: `GET /v1/item/{hashedId}/market-history?tier=0&type=listings`
 **Schedule**: Daily 04:00 UTC (`0 4 * * *`) — processes 80 items per run ordered by `priceCheckedAt ASC NULLS FIRST`
 **Docs**: `docs/database.md`, `docs/api/rate-limiting.md`
@@ -151,6 +153,7 @@ Admin-only sync that populates full item stats (combat stats, effects, requireme
 | IdleMMO client | `lib/idlemmo.ts` → `inspectItem()` |
 
 **DB tables**: D1 `items` (write inspect fields: `description`, `baseStats`, `tierModifiers`, `effects`, `recipe`, `requirements`, `inspectedAt`)
+**R2 objects**: `sync/inspect/admin/<YYYY-MM-DD>/<type>/<page>/<hashed-id>/...` stores parsed inspect payloads.
 **External API**: `GET /v1/item/{hashedId}/inspect`
 **Docs**: `docs/database.md`, `docs/game-mechanics/items.md`, `docs/game-mechanics/combat-stats.md`
 
@@ -343,7 +346,7 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `lib/services/admin/api-inspector.service.ts` -> endpoint specs, typed schema inference, schema diffs, observations |
 | | `lib/services/admin/api-inspector-r2-snapshots.service.ts` -> R2 raw response snapshot archival |
 **DB tables**: D1 `items`, D1 `market_price_history`, D1 `sync_state`, D1 `sync_job_logs`, D1 `api_endpoint_specs`, D1 `api_response_schemas`, D1 `api_schema_observations`, D1 `dungeons`, D1 `zones`, `enemies`, `world_bosses`, `zone_resources`, D1 `user`, D1 `characters`
-**R2 objects**: `api-inspector/<endpoint-key>/<YYYY-MM-DD>/<timestamp>-<observation-id>.json` stores raw API Inspector responses plus metadata, inferred schema, and diff.
+**R2 objects**: `api-inspector/<endpoint-key>/<YYYY-MM-DD>/<timestamp>-<observation-id>.json` stores raw API Inspector responses plus metadata, inferred schema, and diff. Admin sync routes store successful source payloads under `sync/<job>/admin/<YYYY-MM-DD>/`.
 **External API**: All IdleMMO sync endpoints
 **Requires**: `session.user.role === "admin"`
 **Docs**: `docs/api/internal/admin-items.md`, `docs/api/internal/admin-users.md`, `docs/api/internal/admin-zones.md`, `docs/api/internal/cron-sync.md`, `docs/api/internal/sync-logs.md`, `docs/api/internal/api-inspector.md`
@@ -379,6 +382,7 @@ Email/password auth via better-auth.
 | `lib/db/schema.ts` | Shared TypeScript-only data shapes used by D1 services and UI types |
 | `lib/db/d1.ts` | Cloudflare D1 binding helper and minimal D1 statement types |
 | `lib/storage/r2.ts` | Cloudflare R2 `IMMO_SOURCES_BUCKET` binding helper |
+| `lib/services/sync-r2-snapshots.service.ts` | Sync source snapshot archival to R2 |
 | `lib/services/admin/api-inspector-r2-snapshots.service.ts` | API Inspector raw response snapshot archival to R2 |
 | `lib/idlemmo.ts` | IdleMMO API client — all external API functions and interfaces |
 | `lib/idlemmo-queue.ts` | Client-side rate-limit queue for browser API calls |

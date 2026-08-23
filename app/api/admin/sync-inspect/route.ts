@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 import { countItemsByType, getItemIdsByType, updateItemInspectFields } from "@/lib/services/items.service";
+import { storeSyncSnapshotBestEffort } from "@/lib/services/sync-r2-snapshots.service";
 
 export const maxDuration = 300;
 
@@ -115,6 +116,16 @@ export async function POST(request: NextRequest) {
       if (!res.ok) { skipped++; continue; }
 
       const data = await res.json();
+      await storeSyncSnapshotBestEffort({
+        job: "inspect",
+        source: "admin",
+        itemType: type,
+        page,
+        hashedId,
+        userId: session.user.id,
+        payload: data,
+        metadata: { statusCode: res.status },
+      });
       const item = data.item;
       if (!item) { skipped++; continue; }
 
