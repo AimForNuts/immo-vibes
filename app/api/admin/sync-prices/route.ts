@@ -5,6 +5,7 @@ import { IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 import { countItemsByType, getItemIdsByType, updateItemPriceFields, updateRecipeResult } from "@/lib/services/items.service";
 import { insertMarketPriceHistory } from "@/lib/services/market-price-history.service";
+import { storeSyncSnapshotBestEffort } from "@/lib/services/sync-r2-snapshots.service";
 
 export const maxDuration = 300;
 
@@ -124,6 +125,16 @@ export async function POST(request: NextRequest) {
 
       if (priceRes.ok) {
         const data     = await priceRes.json();
+        await storeSyncSnapshotBestEffort({
+          job: "prices",
+          source: "admin",
+          itemType: type,
+          page,
+          hashedId,
+          userId: session.user.id,
+          payload: data,
+          metadata: { statusCode: priceRes.status },
+        });
         const allSales = Array.isArray(data.latest_sold) ? data.latest_sold : [];
         // API returns 1-based tiers in latest_sold (tier=1 → game tier 1)
         const tier1    = allSales.find((s: { tier: number }) => s.tier === 1) ?? null;
@@ -172,6 +183,16 @@ export async function POST(request: NextRequest) {
         const inspectRes = await rateLimitedFetch(`${BASE}/v1/item/${hashedId}/inspect`);
         if (inspectRes.ok) {
           const inspectData = await inspectRes.json();
+          await storeSyncSnapshotBestEffort({
+            job: "recipes",
+            source: "admin",
+            itemType: type,
+            page,
+            hashedId,
+            userId: session.user.id,
+            payload: inspectData,
+            metadata: { statusCode: inspectRes.status, triggeredBy: "prices" },
+          });
           const resultId = inspectData.item?.recipe?.result?.hashed_item_id ?? null;
           if (resultId) {
             await updateRecipeResult(hashedId, resultId);

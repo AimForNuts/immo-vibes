@@ -155,6 +155,11 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-08-23 - Sync R2 snapshots
+
+- **Storage**: Sync jobs now archive successful IdleMMO source payloads to R2 under `sync/<job>/<source>/<date>/`.
+- **Runtime**: Snapshot writes are best-effort and do not block D1 sync progress.
+
 ### 2026-08-22 - API Inspector R2 snapshots
 
 - **Storage**: API Inspector runs now archive raw IdleMMO responses to R2 under `api-inspector/<endpoint-key>/<date>/`.

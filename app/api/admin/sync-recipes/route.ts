@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 import { countMissingRecipeResults, getMissingRecipeResultItemIds, updateRecipeResult } from "@/lib/services/items.service";
+import { storeSyncSnapshotBestEffort } from "@/lib/services/sync-r2-snapshots.service";
 
 export const maxDuration = 300;
 
@@ -108,6 +109,15 @@ export async function POST(request: NextRequest) {
 
       if (res.ok) {
         const data                 = await res.json();
+        await storeSyncSnapshotBestEffort({
+          job: "recipes",
+          source: "admin",
+          page,
+          hashedId,
+          userId: session.user.id,
+          payload: data,
+          metadata: { statusCode: res.status },
+        });
         const recipeResultHashedId = data.item?.recipe?.result?.hashed_item_id ?? null;
 
         if (recipeResultHashedId) {

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { getDungeons } from "@/lib/idlemmo";
 import { upsertSyncedDungeons } from "@/lib/services/admin/dungeons.service";
 import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
+import { storeSyncSnapshotBestEffort } from "@/lib/services/sync-r2-snapshots.service";
 
 /**
  * POST /api/admin/sync-dungeons
@@ -34,6 +35,13 @@ export async function POST(request: NextRequest) {
   let apiDungeons;
   try {
     apiDungeons = await getDungeons(token);
+    await storeSyncSnapshotBestEffort({
+      job: "dungeons",
+      source: "admin",
+      userId: session.user.id,
+      payload: apiDungeons,
+      metadata: { synced: apiDungeons.length },
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     await recordSyncLog({
