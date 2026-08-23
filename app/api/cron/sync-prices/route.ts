@@ -4,6 +4,7 @@ import { upsertSyncStateJob } from "@/lib/services/sync-state.service";
 import { getItemsForPriceSync, updateItemPriceFields } from "@/lib/services/items.service";
 import { insertMarketPriceHistory } from "@/lib/services/market-price-history.service";
 import { getFirstAdminIdleMMOToken } from "@/lib/services/auth-users.service";
+import { storeSyncSnapshotBestEffort } from "@/lib/services/sync-r2-snapshots.service";
 
 export const maxDuration = 300;
 
@@ -80,6 +81,13 @@ export async function POST(request: NextRequest) {
 
       if (res.ok) {
         const data     = await res.json();
+        await storeSyncSnapshotBestEffort({
+          job: "prices",
+          source: "cron",
+          hashedId,
+          payload: data,
+          metadata: { statusCode: res.status },
+        });
         const allSales = Array.isArray(data.latest_sold) ? data.latest_sold : [];
         // API returns 1-based tiers in latest_sold (tier=1 → game tier 1)
         const tier1    = allSales.find((s: { tier: number }) => s.tier === 1) ?? null;

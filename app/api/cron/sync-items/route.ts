@@ -4,6 +4,7 @@ import { searchItemsByType, IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 import { upsertSyncStateJob } from "@/lib/services/sync-state.service";
 import { upsertCatalogItems } from "@/lib/services/items.service";
 import { getFirstAdminIdleMMOToken } from "@/lib/services/auth-users.service";
+import { storeSyncSnapshotBestEffort } from "@/lib/services/sync-r2-snapshots.service";
 
 export const maxDuration = 300;
 
@@ -40,6 +41,13 @@ export async function POST(request: NextRequest) {
     try {
       const fetched = await searchItemsByType(type, token);
       if (fetched.length === 0) continue;
+      await storeSyncSnapshotBestEffort({
+        job: "items",
+        source: "cron",
+        itemType: type,
+        payload: fetched,
+        metadata: { synced: fetched.length },
+      });
 
       await upsertCatalogItems(fetched.map((item) => ({
         hashedId: item.hashed_id,

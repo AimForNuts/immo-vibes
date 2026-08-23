@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { searchItemsByTypePage, IDLEMMO_ITEM_TYPES, RateLimitError } from "@/lib/idlemmo";
 import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 import { upsertCatalogItems } from "@/lib/services/items.service";
+import { storeSyncSnapshotBestEffort } from "@/lib/services/sync-r2-snapshots.service";
 
 export const maxDuration = 60;
 
@@ -43,6 +44,18 @@ export async function POST(request: NextRequest) {
   let fetched: Awaited<ReturnType<typeof searchItemsByTypePage>>;
   try {
     fetched = await searchItemsByTypePage(type, page, token);
+    await storeSyncSnapshotBestEffort({
+      job: "items",
+      source: "admin",
+      itemType: type,
+      page,
+      userId: session.user.id,
+      payload: fetched,
+      metadata: {
+        synced: fetched.items.length,
+        totalPages: fetched.pagination.last_page,
+      },
+    });
   } catch (e) {
     if (e instanceof RateLimitError) {
       await recordSyncLog({
