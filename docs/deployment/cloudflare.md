@@ -26,7 +26,7 @@ Phase 3 R2 adoption is in progress. The app keeps auth and application data in C
 | Cron | Cloudflare Cron Triggers call existing `app/api/cron/*` route handlers |
 | Vercel | Removed from repo config and no longer part of production |
 | D1 | `immo-web-suite-sync` stores better-auth tables, `sync_state`, `sync_job_logs`, `user_preferences`, `price_tracker`, `gear_presets`, `character_pets`, `characters`, `zones`, `item_zones`, `dungeons`, API Inspector tables, `items`, and `market_price_history` |
-| R2 | `immo-web-suite-sources` exists and is bound as `IMMO_SOURCES_BUCKET`; API Inspector and sync jobs write raw/source snapshots to it |
+| R2 | `immo-web-suite-sources` exists and is bound as `IMMO_SOURCES_BUCKET`; API Inspector and sync jobs write raw/source snapshots to it with prefix-scoped lifecycle cleanup |
 
 Cloudflare account: `Jogada`
 
@@ -46,6 +46,8 @@ Record every Cloudflare resource here as it is created.
 | Custom domain | TBD | Optional future nicer hostname | Cloudflare dashboard / Wrangler | Deferred |
 | D1 database | `immo-web-suite-sync` (`112c46c3-0718-4e3f-8a51-d11529b1ba4f`) | better-auth tables, cron sync state, admin sync logs, user preferences, tracked investments, gear presets, character pets, character roster cache, zone metadata, dungeon catalog, API Inspector metadata, item catalog, and market price history | `wrangler.jsonc`, `d1/migrations/` | Created |
 | R2 bucket | `immo-web-suite-sources` | API Inspector raw response snapshots, sync source snapshots, and future backup artifacts | `wrangler.jsonc`, `lib/storage/r2.ts` | Created |
+| R2 lifecycle rule | `expire-sync-snapshots-90-days` | Deletes `sync/` source snapshots after 90 days | Cloudflare R2 bucket lifecycle config | Created |
+| R2 lifecycle rule | `expire-api-inspector-snapshots-180-days` | Deletes `api-inspector/` raw response snapshots after 180 days | Cloudflare R2 bucket lifecycle config | Created |
 
 ## Repo Files
 
@@ -234,8 +236,37 @@ Current R2 object prefixes:
 
 | Prefix | Owner | Contents | Cleanup policy |
 |---|---|---|---|
-| `api-inspector/<endpoint-key>/<YYYY-MM-DD>/` | `lib/services/admin/api-inspector-r2-snapshots.service.ts` | Raw IdleMMO API Inspector responses with metadata, inferred schema, and schema diff | Manual for now; keep while endpoint documentation is still evolving |
-| `sync/<job>/<source>/<YYYY-MM-DD>/` | `lib/services/sync-r2-snapshots.service.ts` | Parsed IdleMMO sync source payloads plus metadata; no bearer tokens | Manual for now; keep while sync logic is still changing |
+| `api-inspector/<endpoint-key>/<YYYY-MM-DD>/` | `lib/services/admin/api-inspector-r2-snapshots.service.ts` | Raw IdleMMO API Inspector responses with metadata, inferred schema, and schema diff | Expires after 180 days via `expire-api-inspector-snapshots-180-days` |
+| `sync/<job>/<source>/<YYYY-MM-DD>/` | `lib/services/sync-r2-snapshots.service.ts` | Parsed IdleMMO sync source payloads plus metadata; no bearer tokens | Expires after 90 days via `expire-sync-snapshots-90-days` |
+
+Current R2 lifecycle rules:
+
+| Rule | Prefix | Action | Reason |
+|---|---|---|---|
+| `Default Multipart Abort Rule` | All prefixes | Abort incomplete multipart uploads after 7 days | Cloudflare default bucket hygiene |
+| `expire-sync-snapshots-90-days` | `sync/` | Expire objects after 90 days | Routine sync payloads can grow quickly and are mainly useful for recent debugging |
+| `expire-api-inspector-snapshots-180-days` | `api-inspector/` | Expire objects after 180 days | Inspector payloads stay useful longer while endpoint docs and schemas evolve |
+
+List lifecycle rules:
+
+```bash
+npx wrangler r2 bucket lifecycle list immo-web-suite-sources
+```
+
+Recreate the current prefix expiration rules:
+
+```bash
+npx wrangler r2 bucket lifecycle add immo-web-suite-sources expire-sync-snapshots-90-days sync/ --expire-days 90 --force
+npx wrangler r2 bucket lifecycle add immo-web-suite-sources expire-api-inspector-snapshots-180-days api-inspector/ --expire-days 180 --force
+```
+
+Remove a lifecycle rule:
+
+```bash
+npx wrangler r2 bucket lifecycle remove immo-web-suite-sources --id <rule-id>
+```
+
+Lifecycle changes require a Cloudflare token with account-level `Workers R2 Storage: Edit`. Cloudflare performs lifecycle expiration asynchronously; expect deleted objects to disappear after the expiration window rather than immediately at midnight.
 
 After deploy, verify:
 

@@ -26,7 +26,7 @@ Dedicated project specs and improvement backlog for planning future work.
 **Use when**: planning feature iterations, onboarding to the product surface, choosing next improvements, or checking which docs need to be expanded.
 
 ### Deployment & Cron
-Runtime deployment uses Cloudflare Workers/OpenNext. Runtime data is Cloudflare D1-backed, and R2 is bound for future source/object storage.
+Runtime deployment uses Cloudflare Workers/OpenNext. Runtime data is Cloudflare D1-backed, and R2 stores source/object snapshots with prefix-scoped lifecycle cleanup.
 
 | Layer | Files |
 |---|---|
@@ -42,7 +42,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Runtime data is Cloudflare 
 
 **D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores better-auth tables through `lib/auth.ts` and `lib/services/auth-users.service.ts`, `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, `items` through `lib/services/items.service.ts`, and `market_price_history` through `lib/services/market-price-history.service.ts`.
 
-**R2 ownership**: `immo-web-suite-sources` is bound as `IMMO_SOURCES_BUCKET` for source/object storage. Access the binding through `lib/storage/r2.ts`. API Inspector writes raw response snapshots under `api-inspector/<endpoint-key>/<YYYY-MM-DD>/` through `lib/services/admin/api-inspector-r2-snapshots.service.ts`. Sync routes write source snapshots under `sync/<job>/<source>/<YYYY-MM-DD>/` through `lib/services/sync-r2-snapshots.service.ts`.
+**R2 ownership**: `immo-web-suite-sources` is bound as `IMMO_SOURCES_BUCKET` for source/object storage. Access the binding through `lib/storage/r2.ts`. API Inspector writes raw response snapshots under `api-inspector/<endpoint-key>/<YYYY-MM-DD>/` through `lib/services/admin/api-inspector-r2-snapshots.service.ts`; those objects expire after 180 days via R2 lifecycle rule `expire-api-inspector-snapshots-180-days`. Sync routes write source snapshots under `sync/<job>/<source>/<YYYY-MM-DD>/` through `lib/services/sync-r2-snapshots.service.ts`; those objects expire after 90 days via R2 lifecycle rule `expire-sync-snapshots-90-days`.
 
 ### Market Browser
 The item browse/search page with detail panel and recipe cost calculator.
