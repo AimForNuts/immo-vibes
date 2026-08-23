@@ -1,5 +1,8 @@
 # Admin Panel Redesign Implementation Plan
 
+> Historical note: this plan was written before the Cloudflare migration and preserves the implementation context from that time.
+> Do not use its Neon/Postgres or Drizzle snippets for current work. Production persistence is Cloudflare D1, and current file/table ownership is tracked in `docs/project-map.md` and `docs/database.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Restructure the admin page into a multi-section panel with Economy (Items), World (Dungeons, Zones + placeholders), and Users sections, each with paginated tables, filters, inline sync controls, and edit capabilities.
