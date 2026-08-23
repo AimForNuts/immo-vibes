@@ -72,7 +72,7 @@ https://immo-web-suite.void-presence.workers.dev
 
 The full Cloudflare resource log and operations runbook lives at `docs/deployment/cloudflare.md`.
 
-Recent migration checkpoint: Neon/Postgres and Drizzle have been removed from the application; all app/auth persistence is Cloudflare D1-backed, and R2 foundation is ready for future source/archive data.
+Recent migration checkpoint: Neon/Postgres and Drizzle have been removed from the application; all app/auth persistence is Cloudflare D1-backed, and R2 archives source/debug snapshots with lifecycle cleanup.
 
 ### Local Cloudflare Preview
 
@@ -154,6 +154,11 @@ Start with these docs when planning or iterating:
 ---
 
 ## Recent Changes
+
+### 2026-08-23 - R2 lifecycle cleanup
+
+- **Storage**: Added R2 lifecycle rules for bucket `immo-web-suite-sources`.
+- **Retention**: Sync snapshots under `sync/` expire after 90 days; API Inspector snapshots under `api-inspector/` expire after 180 days.
 
 ### 2026-08-23 - Sync R2 snapshots
 
