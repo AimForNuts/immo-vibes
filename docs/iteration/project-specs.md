@@ -24,15 +24,18 @@ The app currently focuses on:
 |---|---|
 | Framework | Next.js 16 App Router |
 | Runtime UI | React 19 |
-| Auth | better-auth with Drizzle adapter and username plugin |
+| Runtime | Cloudflare Workers through OpenNext |
+| Auth | better-auth with D1-backed storage and username plugin |
 | Database | Cloudflare D1 |
-| ORM | Drizzle ORM |
+| Object storage | Cloudflare R2 |
+| ORM | None for app persistence; D1 services use SQL directly |
 | Styling | Tailwind CSS, shadcn/ui base-ui variant |
 | Icons | lucide-react |
 | i18n | next-intl with `localePrefix: "never"` |
 | Validation | Zod where boundary validation exists |
 | Tests | Vitest unit/integration tests, Playwright smoke tests |
-| Deploy | Vercel, including scheduled cron routes |
+| Deploy | GitHub Actions to Cloudflare Workers |
+| Cron | Cloudflare Cron Triggers |
 
 Important repo constraint: before modifying Next.js, better-auth, Cloudflare D1 access, or shadcn/ui v4 code, consult the version-specific docs required by `AGENTS.md`.
 
@@ -86,7 +89,7 @@ Data:
 Known scope:
 
 - Email/password auth is active.
-- Password recovery exists as a placeholder page.
+- Password recovery uses better-auth reset tokens and optional Resend email delivery.
 - Locale is cookie-backed and synced to preferences.
 
 ### Dashboard Home
@@ -324,7 +327,7 @@ Data:
 
 Operational constraints:
 
-- Vercel hobby cron allows one execution per day per cron.
+- Cloudflare Cron Triggers call the existing cron routes through the Worker `scheduled` handler.
 - Cron routes are protected by `CRON_SECRET`.
 - IdleMMO rate limits must be respected by server-side retry code and the browser queue.
 
@@ -390,9 +393,11 @@ Auth tables are managed by better-auth:
 - `account`
 - `verification`
 
-Schema source of truth: `lib/db/schema.ts`.
+D1 schema source of truth: append-only SQL files under `d1/migrations/`.
 
-Human-readable reference: `docs/database.md`.
+Shared TypeScript data shapes live in `lib/db/schema.ts`.
+
+Human-readable table reference: `docs/database.md`.
 
 ---
 
