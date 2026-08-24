@@ -103,6 +103,8 @@ export type AdminItemRow = {
   syncedAt: Date | null;
 };
 
+const D1_MAX_BOUND_PARAMS = 100;
+
 const SELECT_ALL = `hashed_id, name, type, quality, image_url, synced_at, first_seen_at,
   vendor_price, store_price, description, is_tradeable, max_tier, requirements,
   base_stats, tier_modifiers, effects, recipe, inspected_at, recipe_result_hashed_id,
@@ -308,16 +310,24 @@ export async function getItemById(id: string): Promise<StoredItem | null> {
 
 export async function getItemsByIds(ids: string[]): Promise<BasicItemRow[]> {
   if (ids.length === 0) return [];
-  const { results } = await getD1()
-    .prepare(`SELECT hashed_id, name, quality, image_url FROM items WHERE hashed_id IN (${ids.map(() => "?").join(", ")})`)
-    .bind(...ids)
-    .all<{ hashed_id: string; name: string; quality: string; image_url: string | null }>();
-  return results.map((row) => ({ hashedId: row.hashed_id, name: row.name, quality: row.quality, imageUrl: row.image_url }));
+  const d1 = getD1();
+  const rows: Array<{ hashed_id: string; name: string; quality: string; image_url: string | null }> = [];
+
+  for (let index = 0; index < ids.length; index += D1_MAX_BOUND_PARAMS) {
+    const batch = ids.slice(index, index + D1_MAX_BOUND_PARAMS);
+    const { results } = await d1
+      .prepare(`SELECT hashed_id, name, quality, image_url FROM items WHERE hashed_id IN (${batch.map(() => "?").join(", ")})`)
+      .bind(...batch)
+      .all<{ hashed_id: string; name: string; quality: string; image_url: string | null }>();
+    rows.push(...results);
+  }
+
+  return rows.map((row) => ({ hashedId: row.hashed_id, name: row.name, quality: row.quality, imageUrl: row.image_url }));
 }
 
 export async function getForgeRecipeItems(): Promise<Array<BasicItemRow & { recipe: ItemRecipe }>> {
   const { results } = await getD1()
-    .prepare(`SELECT hashed_id, name, quality, image_url, recipe FROM items WHERE json_extract(recipe, '$.skill') = 'Forge' ORDER BY name ASC`)
+    .prepare(`SELECT hashed_id, name, quality, image_url, recipe FROM items WHERE recipe IS NOT NULL AND json_valid(recipe) AND json_extract(recipe, '$.skill') = 'Forge' ORDER BY name ASC`)
     .all<{ hashed_id: string; name: string; quality: string; image_url: string | null; recipe: string | null }>();
   return results
     .map((row) => ({ hashedId: row.hashed_id, name: row.name, quality: row.quality, imageUrl: row.image_url, recipe: parseJson<ItemRecipe>(row.recipe) }))
