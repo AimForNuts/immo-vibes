@@ -5,6 +5,8 @@
 
 ---
 
+> Historical note: this spec predates the Cloudflare migration. Its product intent is useful history, but database/migration commands may reference the old Neon/Postgres and Drizzle stack. For current implementation details, use `docs/project-map.md`, `docs/database.md`, and `docs/deployment/cloudflare.md`.
+
 ## Overview
 
 Restructure the existing admin page from a single sync-oriented UI into a multi-section data management panel. Each section provides a paginated, filterable table with edit capabilities and inline sync controls where relevant.

@@ -1,5 +1,9 @@
 # ImmoWeb Suite — Project Plan
 
+> Historical note: this was the original seed plan and does not describe current production architecture.
+> Current production runs on Cloudflare Workers/OpenNext, Cloudflare D1, Cloudflare R2, and better-auth.
+> Use `README.md`, `docs/project-map.md`, `docs/database.md`, and `docs/deployment/cloudflare.md` for active implementation guidance.
+
 ## Overview
 
 A web application that connects to the IdleMMMO API using a user-provided token,
