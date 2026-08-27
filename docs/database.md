@@ -26,7 +26,7 @@ Cloudflare D1 is the database for app data and better-auth tables. D1 migrations
 | User's tracked price alerts | D1 `price_tracker` | `user_id`, `item_hashed_id`, `tier` |
 | Historical price series for a chart | D1 `market_price_history` | `item_hashed_id`, `tier`, `sold_at`, `price` |
 | Cron sync progress | D1 `sync_state` | `job`, `status`, `current_type_index`, `current_page` |
-| Recent sync failures / partial progress | D1 `sync_job_logs` | `job`, `status`, `created_at`, `details` |
+| Recent manual and scheduled sync events | D1 `sync_job_logs` | `job`, `status`, `created_at`, `details` |
 | IdleMMO API typed response docs | D1 `api_endpoint_specs`, D1 `api_response_schemas`, D1 `api_schema_observations` | `key`, `active_schema`, `inferred_schema`, `new_fields` |
 | Saved gear loadouts | D1 `gear_presets` | `user_id`, `slots` (JSON map of slot → `{hashedId, tier}`) |
 | Cached character roster | D1 `characters` | `user_id`, `hashed_id`, `idlemmo_id` (for ordering), `current_status`, `is_member`, `cached_at` |
@@ -156,7 +156,7 @@ Tracks progress of automated cron jobs and gates downstream syncs. This table no
 
 ### D1 `sync_job_logs`
 
-Append-only event log for manual admin sync route observability. This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/admin/sync-logs.service.ts`.
+Append-only event log for manual admin sync route and scheduled cron observability. This table lives in Cloudflare D1 database `immo-web-suite-sync` and is accessed through `lib/services/admin/sync-logs.service.ts`.
 
 | Column | Type | Nullable | Notes |
 |---|---|---|---|
@@ -165,7 +165,7 @@ Append-only event log for manual admin sync route observability. This table live
 | `status` | text | - | `started`, `progress`, `success`, `failed`, or `skipped` |
 | `message` | text | - | Human-readable status summary |
 | `details` | text JSON | yes | Counts, paging info, error messages, or route-specific context |
-| `user_id` | text | yes | Admin user who started the manual sync. No D1 foreign key to preserve append-only logs if a user is deleted |
+| `user_id` | text | yes | Admin user who started the manual sync, or null for cron-generated events. No D1 foreign key to preserve append-only logs if a user is deleted |
 | `created_at` | timestamp | - | Event creation time |
 
 **Indexes**:
