@@ -1,6 +1,6 @@
 # Internal API - Sync Logs
 
-Admin-only endpoint for recent manual sync job events.
+Admin-only endpoint for recent manual and scheduled sync job events.
 
 Source:
 - `app/api/admin/sync-logs/route.ts`
@@ -51,7 +51,7 @@ Returns recent append-only sync job events from D1 `sync_job_logs`, newest first
 
 ## Logged Events
 
-Manual admin sync routes write lifecycle events:
+Manual admin sync routes and scheduled cron sync routes write lifecycle events:
 
 | Job | Route | Statuses |
 |---|---|---|
@@ -60,7 +60,12 @@ Manual admin sync routes write lifecycle events:
 | `prices` | `POST /api/admin/sync-prices` | `started`, `success`, `progress`, `skipped` |
 | `recipes` | `POST /api/admin/sync-recipes` | `started`, `success`, `progress`, `skipped` |
 | `dungeons` | `POST /api/admin/sync-dungeons` | `started`, `success`, `failed` |
+| `items` | `POST /api/cron/sync-items` | `started`, `success`, `progress`, `failed` |
+| `prices` | `POST /api/cron/sync-prices` | `started`, `success`, `progress`, `skipped`, `failed` |
+| `recipes` | `POST /api/cron/sync-recipes` | `started`, `success`, `progress`, `skipped`, `failed` |
 
 `sync_job_logs` is stored in Cloudflare D1 through `lib/services/admin/sync-logs.service.ts`.
+
+Cron-generated events include `details.source = "cron"`. Manual admin events include the admin `userId`.
 
 The logging helper catches insert failures and logs them server-side so a logging outage does not block the sync job itself.

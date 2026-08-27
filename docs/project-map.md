@@ -40,7 +40,7 @@ Runtime deployment uses Cloudflare Workers/OpenNext. Runtime data is Cloudflare 
 
 **Cron ownership**: `wrangler.jsonc` defines Cloudflare Cron Triggers. `worker.ts` maps those scheduled events to the existing `app/api/cron/*` route handlers using `CRON_SECRET`.
 
-**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores better-auth tables through `lib/auth.ts` and `lib/services/auth-users.service.ts`, `sync_state` through `lib/services/sync-state.service.ts`, `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, `items` through `lib/services/items.service.ts`, and `market_price_history` through `lib/services/market-price-history.service.ts`.
+**D1 ownership**: `immo-web-suite-sync` is bound as `IMMO_SYNC_DB` and stores better-auth tables through `lib/auth.ts` and `lib/services/auth-users.service.ts`, `sync_state` through `lib/services/sync-state.service.ts`, scheduled/manual `sync_job_logs` through `lib/services/admin/sync-logs.service.ts`, `user_preferences` through `lib/services/user-preferences.service.ts`, `price_tracker` through `lib/services/price-tracker.service.ts`, `gear_presets` through `lib/services/gear-presets.service.ts`, `character_pets` through `lib/services/character-pets.service.ts`, `characters` through `lib/services/character-cache.ts`, `zones`/`item_zones` through `lib/services/admin/zones.service.ts`, `dungeons` through `lib/services/admin/dungeons.service.ts`, API Inspector tables through `lib/services/admin/api-inspector.service.ts`, `items` through `lib/services/items.service.ts`, and `market_price_history` through `lib/services/market-price-history.service.ts`.
 
 **R2 ownership**: `immo-web-suite-sources` is bound as `IMMO_SOURCES_BUCKET` for source/object storage. Access the binding through `lib/storage/r2.ts`. API Inspector writes raw response snapshots under `api-inspector/<endpoint-key>/<YYYY-MM-DD>/` through `lib/services/admin/api-inspector-r2-snapshots.service.ts`; those objects expire after 180 days via R2 lifecycle rule `expire-api-inspector-snapshots-180-days`. Sync routes write source snapshots under `sync/<job>/<source>/<YYYY-MM-DD>/` through `lib/services/sync-r2-snapshots.service.ts`; those objects expire after 90 days via R2 lifecycle rule `expire-sync-snapshots-90-days`.
 
@@ -103,7 +103,7 @@ Weekly cron that refreshes the item catalog from the IdleMMO API.
 | Admin route | `app/api/admin/sync-items/route.ts` |
 | IdleMMO client | `lib/idlemmo.ts` → `searchItemsByType()` |
 
-**DB tables**: D1 `items` (upsert catalog fields), D1 `sync_state` (marks job done)
+**DB tables**: D1 `items` (upsert catalog fields), D1 `sync_state` (marks job done), D1 `sync_job_logs` (cron lifecycle events)
 **R2 objects**: `sync/items/<source>/<YYYY-MM-DD>/<type>/...` stores parsed item-search payloads.
 **External API**: `GET /v1/item/search?type={type}&page={n}`
 **Schedule**: Monday 00:00 UTC (`0 0 * * 1`)
@@ -120,7 +120,7 @@ Weekly cron that populates `recipeResultHashedId` for RECIPE-type items.
 | Admin route | `app/api/admin/sync-recipes/route.ts` |
 | IdleMMO client | `lib/idlemmo.ts` → `inspectItem()` |
 
-**DB tables**: D1 `items` (write `recipeResultHashedId`), D1 `sync_state` (gates on items done, marks recipes done)
+**DB tables**: D1 `items` (write `recipeResultHashedId`), D1 `sync_state` (gates on items done, marks recipes done), D1 `sync_job_logs` (cron lifecycle events)
 **External API**: `GET /v1/item/{hashedId}/inspect`
 **Schedule**: Monday 02:00 UTC (`0 2 * * 1`)
 **Docs**: `docs/database.md`
@@ -136,7 +136,7 @@ Daily cron that updates market prices, cycling through all items via `priceCheck
 | Admin route | `app/api/admin/sync-prices/route.ts` |
 | IdleMMO client | `lib/idlemmo.ts` |
 
-**DB tables**: D1 `items` (write `lastSoldPrice`, `lastSoldAt`, `priceCheckedAt`), D1 `market_price_history` (insert), D1 `sync_state` (read status)
+**DB tables**: D1 `items` (write `lastSoldPrice`, `lastSoldAt`, `priceCheckedAt`), D1 `market_price_history` (insert), D1 `sync_state` (read status), D1 `sync_job_logs` (cron lifecycle events)
 **R2 objects**: `sync/prices/<source>/<YYYY-MM-DD>/<type?>/<hashed-id>/...` stores parsed market-history payloads.
 **External API**: `GET /v1/item/{hashedId}/market-history?tier=0&type=listings`
 **Schedule**: Daily 04:00 UTC (`0 4 * * *`) — processes 80 items per run ordered by `priceCheckedAt ASC NULLS FIRST`
@@ -326,7 +326,7 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `app/api/admin/sync-recipes/route.ts` |
 | | `app/api/admin/sync-inspect/route.ts` |
 | | `app/api/admin/sync-dungeons/route.ts` |
-| API — sync logs | `app/api/admin/sync-logs/route.ts` (`GET` — recent manual sync job events) |
+| API — sync logs | `app/api/admin/sync-logs/route.ts` (`GET` — recent manual and scheduled sync job events) |
 | | `app/api/admin/market-type-check/route.ts` |
 | API inspector routes | `app/api/admin/api-inspector/route.ts` |
 | | `app/api/admin/api-inspector/run/route.ts` |
@@ -405,7 +405,7 @@ Email/password auth via better-auth.
 | D1 `gear_presets` | gear actions | gear page, dungeons page |
 | D1 `userPreferences` | preferences and locale actions | dashboard, settings |
 | `syncState` | all cron jobs | cron jobs (gating), admin panel |
-| D1 `sync_job_logs` | admin sync routes | admin sync status page |
+| D1 `sync_job_logs` | admin sync routes, cron sync routes | admin sync status page |
 | D1 `api_endpoint_specs` | API inspector defaults/admin edits | API inspector |
 | D1 `api_response_schemas` | API inspector schema saves | API inspector, future API docs work |
 | D1 `api_schema_observations` | API inspector endpoint runs | API inspector |
