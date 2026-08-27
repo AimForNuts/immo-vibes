@@ -4,6 +4,7 @@ import { upsertSyncStateJob } from "@/lib/services/sync-state.service";
 import { getItemsForPriceSync, updateItemPriceFields } from "@/lib/services/items.service";
 import { insertMarketPriceHistory } from "@/lib/services/market-price-history.service";
 import { getFirstAdminIdleMMOToken } from "@/lib/services/auth-users.service";
+import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 import { storeSyncSnapshotBestEffort } from "@/lib/services/sync-r2-snapshots.service";
 
 export const maxDuration = 300;
@@ -32,13 +33,45 @@ export async function POST(request: NextRequest) {
 
   const token = await getFirstAdminIdleMMOToken();
   if (!token) {
+    const failedAt = new Date();
+    await upsertSyncStateJob({
+      job: "prices",
+      status: "failed",
+      startedAt: failedAt,
+      completedAt: failedAt,
+    });
+    await recordSyncLog({
+      job: "prices",
+      status: "failed",
+      message: "Cron price sync failed: no admin IdleMMO token configured",
+      details: { source: "cron", error: "No admin IdleMMO token configured" },
+    });
     return NextResponse.json({ error: "No admin IdleMMO token configured" }, { status: 500 });
   }
 
   // Pick the next PAGE_SIZE items that haven't been checked (or were checked longest ago).
   const rows = await getItemsForPriceSync(PAGE_SIZE);
+  const now = new Date();
+  await recordSyncLog({
+    job: "prices",
+    status: "started",
+    message: "Cron price sync started",
+    details: { source: "cron", pageSize: PAGE_SIZE, total: rows.length },
+  });
 
   if (rows.length === 0) {
+    await upsertSyncStateJob({
+      job: "prices",
+      status: "done",
+      startedAt: now,
+      completedAt: new Date(),
+    });
+    await recordSyncLog({
+      job: "prices",
+      status: "skipped",
+      message: "Cron price sync skipped: no local items found",
+      details: { source: "cron", synced: 0, skipped: 0, total: 0 },
+    });
     return NextResponse.json({ synced: 0, skipped: 0, total: 0 });
   }
 
@@ -68,7 +101,6 @@ export async function POST(request: NextRequest) {
 
   let synced  = 0;
   let skipped = 0;
-  const now   = new Date();
 
   for (const { hashedId } of rows) {
     try {
@@ -136,6 +168,15 @@ export async function POST(request: NextRequest) {
 
   // Record completion in sync_state for observability
   await upsertSyncStateJob({ job: "prices", status: "done", startedAt: now, completedAt: new Date() });
+  await recordSyncLog({
+    job: "prices",
+    status: skipped > 0 ? "progress" : "success",
+    message:
+      skipped > 0
+        ? `Cron price sync completed with ${skipped} skipped`
+        : "Cron price sync completed",
+    details: { source: "cron", synced, skipped, total: rows.length },
+  });
 
   return NextResponse.json({ synced, skipped, total: rows.length });
 }

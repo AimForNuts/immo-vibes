@@ -34,7 +34,7 @@ The active schedule is:
 
 The retired `POST /api/cron/sync-market` route was removed because it duplicated `sync-items`, was not scheduled, did not update `sync_state`, and its name implied price syncing even though it only refreshed catalog data.
 
-`sync_state` is stored in Cloudflare D1 via `lib/services/sync-state.service.ts`. The item catalog is stored in Cloudflare D1 via `lib/services/items.service.ts`. Market price history is stored in Cloudflare D1 via `lib/services/market-price-history.service.ts`.
+`sync_state` is stored in Cloudflare D1 via `lib/services/sync-state.service.ts`. Cron lifecycle events are also appended to `sync_job_logs` via `lib/services/admin/sync-logs.service.ts`, with `details.source = "cron"`, so the admin Sync Status page can show scheduled runs alongside manual admin runs. The item catalog is stored in Cloudflare D1 via `lib/services/items.service.ts`. Market price history is stored in Cloudflare D1 via `lib/services/market-price-history.service.ts`.
 
 Sync source snapshots are archived best-effort to Cloudflare R2 bucket `immo-web-suite-sources` through `lib/services/sync-r2-snapshots.service.ts`. Snapshot writes do not fail the sync route, and bearer tokens are not stored.
 
@@ -74,8 +74,10 @@ Uses the first admin user row with a non-null `idlemmo_token`, then calls `searc
 
 - Upserts D1 `items.hashed_id`, `name`, `type`, `quality`, `image_url`, `vendor_price`, and `synced_at`.
 - Archives each fetched item-type payload to R2 under `sync/items/cron/<YYYY-MM-DD>/<type>/`.
+- Marks `sync_state.job = "items"` as `failed` if no admin IdleMMO token is configured.
 - Marks `sync_state.job = "items"` as `running` before work starts.
 - Marks `sync_state.job = "items"` as `done` after the loop completes.
+- Appends `failed`, or `started` and `success`/`progress`, events to D1 `sync_job_logs` with `source: "cron"`.
 - Logs and continues if one item type fails.
 
 ---
@@ -129,10 +131,12 @@ When work runs:
 ### Side Effects
 
 - Reads recipe candidates from D1 `items` where `type = "RECIPE"` and `recipe_result_hashed_id IS NULL`.
+- Marks `sync_state.job = "recipes"` as `failed` if no admin IdleMMO token is configured.
 - Stores the inspected result item hash when present.
 - Stores `"NONE"` when inspect succeeds but has no recipe result, excluding that row from later missing-result runs.
 - Archives each successful inspect payload to R2 under `sync/recipes/cron/<YYYY-MM-DD>/<page>/<hashed-id>/`.
 - Marks `sync_state.job = "recipes"` as `running`, then `done`.
+- Appends `failed`, `skipped`, or `started` and `success`/`progress`, events to D1 `sync_job_logs` with `source: "cron"`.
 
 ---
 
@@ -180,16 +184,18 @@ When there are no local items:
 ### Side Effects
 
 - Updates tier 1 values on D1 `items.last_sold_price`, `items.last_sold_at`, and `items.price_checked_at`.
+- Marks `sync_state.job = "prices"` as `failed` if no admin IdleMMO token is configured.
 - Marks rows with no tier 1 sale as checked by updating D1 `items.price_checked_at`.
 - Inserts tier 1 and higher-tier sales into D1 `market_price_history` with duplicate-sale protection.
 - Archives each successful market-history payload to R2 under `sync/prices/cron/<YYYY-MM-DD>/<hashed-id>/`.
 - Marks `sync_state.job = "prices"` as `done` for observability.
+- Appends `failed`, or `started` and `success`/`progress`, events to D1 `sync_job_logs` with `source: "cron"`. Empty item queues are recorded as `skipped`.
 
 ---
 
 ## Admin Sync Observability
 
-Manual admin sync routes write append-only lifecycle events to `sync_job_logs`. The admin Sync Status page reads these through `GET /api/admin/sync-logs`.
+Manual admin sync routes and scheduled cron sync routes write append-only lifecycle events to `sync_job_logs`. The admin Sync Status page reads these through `GET /api/admin/sync-logs`.
 Manual admin sync routes also archive successful source payloads to R2 under `sync/<job>/admin/<YYYY-MM-DD>/`.
 
 | Route | Job | Logged statuses |
@@ -199,5 +205,8 @@ Manual admin sync routes also archive successful source payloads to R2 under `sy
 | `POST /api/admin/sync-prices` | `prices` | `started`, `success`, `progress`, `skipped` |
 | `POST /api/admin/sync-recipes` | `recipes` | `started`, `success`, `progress`, `skipped` |
 | `POST /api/admin/sync-dungeons` | `dungeons` | `started`, `success`, `failed` |
+| `POST /api/cron/sync-items` | `items` | `started`, `success`, `progress`, `failed` |
+| `POST /api/cron/sync-prices` | `prices` | `started`, `success`, `progress`, `skipped`, `failed` |
+| `POST /api/cron/sync-recipes` | `recipes` | `started`, `success`, `progress`, `skipped`, `failed` |
 
 `progress` means the route completed but skipped or errored on part of the batch. Logging failures are caught by the logging service and do not fail the sync request.

@@ -4,6 +4,7 @@ import { searchItemsByType, IDLEMMO_ITEM_TYPES } from "@/lib/idlemmo";
 import { upsertSyncStateJob } from "@/lib/services/sync-state.service";
 import { upsertCatalogItems } from "@/lib/services/items.service";
 import { getFirstAdminIdleMMOToken } from "@/lib/services/auth-users.service";
+import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 import { storeSyncSnapshotBestEffort } from "@/lib/services/sync-r2-snapshots.service";
 
 export const maxDuration = 300;
@@ -27,15 +28,35 @@ export async function POST(request: NextRequest) {
 
   const token = await getFirstAdminIdleMMOToken();
   if (!token) {
+    const failedAt = new Date();
+    await upsertSyncStateJob({
+      job: "items",
+      status: "failed",
+      startedAt: failedAt,
+      completedAt: failedAt,
+    });
+    await recordSyncLog({
+      job: "items",
+      status: "failed",
+      message: "Cron item sync failed: no admin IdleMMO token configured",
+      details: { source: "cron", error: "No admin IdleMMO token configured" },
+    });
     return NextResponse.json({ error: "No admin IdleMMO token configured" }, { status: 500 });
   }
 
   // Mark running
   const startedAt = new Date();
   await upsertSyncStateJob({ job: "items", status: "running", startedAt, completedAt: null });
+  await recordSyncLog({
+    job: "items",
+    status: "started",
+    message: "Cron item sync started",
+    details: { source: "cron", types: IDLEMMO_ITEM_TYPES.length },
+  });
 
   const now = new Date();
   let totalSynced = 0;
+  let errors = 0;
 
   for (const type of IDLEMMO_ITEM_TYPES) {
     try {
@@ -62,11 +83,26 @@ export async function POST(request: NextRequest) {
       totalSynced += fetched.length;
     } catch {
       console.error(`[cron/sync-items] Failed to sync type ${type}`);
+      errors++;
     }
   }
 
   // Mark done
   await upsertSyncStateJob({ job: "items", status: "done", startedAt, completedAt: new Date() });
+  await recordSyncLog({
+    job: "items",
+    status: errors > 0 ? "progress" : "success",
+    message:
+      errors > 0
+        ? `Cron item sync completed with ${errors} type errors`
+        : "Cron item sync completed",
+    details: {
+      source: "cron",
+      synced: totalSynced,
+      types: IDLEMMO_ITEM_TYPES.length,
+      errors,
+    },
+  });
 
   return NextResponse.json({ synced: totalSynced, types: IDLEMMO_ITEM_TYPES.length });
 }
