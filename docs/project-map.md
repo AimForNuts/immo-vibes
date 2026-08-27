@@ -245,6 +245,7 @@ Fixed YOU guild selector that displays raw IdleMMO guild activity plus the membe
 | Sidebar nav | `app/(dashboard)/layout.tsx` |
 | Dashboard shortcut | `components/dashboard-grid.tsx` |
 | IdleMMO client | `lib/idlemmo.ts` -> `getGuildActivity()`, `getGuildMembers()` |
+| Activity grouping | `lib/domain/guild-activity.ts` -> `attachActivityToMembers()` |
 
 **DB tables**: none
 **External API**: `GET /v1/guild/{id}/activity`, `GET /v1/guild/{id}/members`
