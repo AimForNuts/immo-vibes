@@ -237,7 +237,7 @@ DPS calculator with enemy list and character selector.
 ---
 
 ### Guild Activity
-Fixed YOU guild selector with clickable member rows and per-player recent activity details.
+Fixed YOU guild selector with member rows and collapsible per-player activity groups.
 
 | Layer | Files |
 |---|---|
