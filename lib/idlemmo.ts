@@ -237,19 +237,37 @@ export async function getCharacterPets(
 
 // Guilds
 
-export type GuildActivityResult =
-  | { ok: true; data: unknown }
+export type GuildApiResult<T> =
+  | { ok: true; data: T }
   | { ok: false; status: number; message: string };
 
-/**
- * Fetch raw guild activity for a guild.
- * Endpoint: GET /v1/guild/{id}/activity
- */
-export async function getGuildActivity(
+export type GuildActivityResult = GuildApiResult<unknown>;
+
+export interface GuildMember {
+  hashed_id?: string;
+  name: string;
+  position: string;
+  avatar_url: string | null;
+  background_url: string | null;
+  total_level: number;
+}
+
+export interface GuildMembersResponse {
+  guild: {
+    id: number;
+    name: string;
+    member_count: number;
+  };
+  members: GuildMember[];
+  endpoint_updates_at: string;
+}
+
+async function guildApiFetch<T>(
   guildId: number,
+  endpoint: "activity" | "members",
   token: string
-): Promise<GuildActivityResult> {
-  const path = `/v1/guild/${guildId}/activity`;
+): Promise<GuildApiResult<T>> {
+  const path = `/v1/guild/${guildId}/${endpoint}`;
   const res = await fetch(`${BASE}${path}`, {
     headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
     next: { revalidate: 60 },
@@ -265,7 +283,31 @@ export async function getGuildActivity(
     return { ok: false, status: res.status, message };
   }
 
-  return { ok: true, data };
+  return { ok: true, data: data as T };
+}
+
+export type GuildMembersResult = GuildApiResult<GuildMembersResponse>;
+
+/**
+ * Fetch raw guild activity for a guild.
+ * Endpoint: GET /v1/guild/{id}/activity
+ */
+export async function getGuildActivity(
+  guildId: number,
+  token: string
+): Promise<GuildActivityResult> {
+  return guildApiFetch<unknown>(guildId, "activity", token);
+}
+
+/**
+ * Fetch guild members.
+ * Endpoint: GET /v1/guild/{id}/members
+ */
+export async function getGuildMembers(
+  guildId: number,
+  token: string
+): Promise<GuildMembersResult> {
+  return guildApiFetch<GuildMembersResponse>(guildId, "members", token);
 }
 
 // ─── Item types ───────────────────────────────────────────────────────────────
