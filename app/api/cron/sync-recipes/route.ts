@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSyncStateJob, upsertSyncStateJob } from "@/lib/services/sync-state.service";
 import { getMissingRecipeResultItemIds, updateRecipeResult } from "@/lib/services/items.service";
 import { getFirstAdminIdleMMOToken } from "@/lib/services/auth-users.service";
+import { recordSyncLog } from "@/lib/services/admin/sync-logs.service";
 import { storeSyncSnapshotBestEffort } from "@/lib/services/sync-r2-snapshots.service";
 
 export const maxDuration = 300;
@@ -43,17 +44,47 @@ export async function POST(request: NextRequest) {
   const itemsState = await getSyncStateJob("items");
 
   if (!itemsState || itemsState.status !== "done" || !isToday(itemsState.completedAt)) {
+    await recordSyncLog({
+      job: "recipes",
+      status: "skipped",
+      message: "Cron recipe sync skipped: items sync not completed today",
+      details: {
+        source: "cron",
+        reason: "items sync not completed today",
+        itemsStatus: itemsState?.status ?? null,
+        itemsCompletedAt: itemsState?.completedAt?.toISOString() ?? null,
+      },
+    });
     return NextResponse.json({ skipped: true, reason: "items sync not completed today" });
   }
 
   const token = await getFirstAdminIdleMMOToken();
   if (!token) {
+    const failedAt = new Date();
+    await upsertSyncStateJob({
+      job: "recipes",
+      status: "failed",
+      startedAt: failedAt,
+      completedAt: failedAt,
+    });
+    await recordSyncLog({
+      job: "recipes",
+      status: "failed",
+      message: "Cron recipe sync failed: no admin IdleMMO token configured",
+      details: { source: "cron", error: "No admin IdleMMO token configured" },
+    });
     return NextResponse.json({ error: "No admin IdleMMO token configured" }, { status: 500 });
   }
 
   // Mark running
   const startedAt = new Date();
   await upsertSyncStateJob({ job: "recipes", status: "running", startedAt, completedAt: null });
+  await recordSyncLog({
+    job: "recipes",
+    status: "started",
+    message: "Cron recipe sync started",
+    details: { source: "cron", pageSize: PAGE_SIZE },
+  });
 
   const reqHeaders = {
     Authorization: `Bearer ${token}`,
@@ -127,6 +158,15 @@ export async function POST(request: NextRequest) {
 
   // Mark done
   await upsertSyncStateJob({ job: "recipes", status: "done", startedAt, completedAt: new Date() });
+  await recordSyncLog({
+    job: "recipes",
+    status: errors > 0 ? "progress" : "success",
+    message:
+      errors > 0
+        ? `Cron recipe sync completed with ${errors} errors`
+        : "Cron recipe sync completed",
+    details: { source: "cron", populated, noData, errors },
+  });
 
   return NextResponse.json({ populated, noData, errors });
 }
