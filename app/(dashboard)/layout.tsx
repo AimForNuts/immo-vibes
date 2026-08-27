@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Swords, Settings, Skull, Sword } from "lucide-react";
+import { LayoutDashboard, Swords, Settings, Skull, Sword, Shield } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { useTranslations } from "next-intl";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -52,6 +52,7 @@ export default function DashboardLayout({
     { href: "/dashboard/gear",     label: t("gear"),      icon: Swords },
     { href: "/dashboard/dungeons", label: t("dungeons"),  icon: Skull },
     { href: "/dashboard/combat",   label: t("combat"),    icon: Sword },
+    { href: "/dashboard/guild",    label: t("guild"),     icon: Shield },
   ];
 
   return (
