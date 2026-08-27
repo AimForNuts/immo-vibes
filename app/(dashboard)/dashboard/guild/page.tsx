@@ -16,12 +16,16 @@ const GUILDS = [
 ] as const;
 
 type GuildPageProps = {
-  searchParams: Promise<{ id?: string }>;
+  searchParams: Promise<{ id?: string; player?: string }>;
 };
 
 function getSelectedGuild(id: string | undefined) {
   const numericId = Number(id);
   return GUILDS.find((guild) => guild.id === numericId) ?? GUILDS[0];
+}
+
+function getMemberKey(member: { hashed_id?: string; name: string }) {
+  return member.hashed_id ?? member.name.toLowerCase();
 }
 
 function formatActivityType(type: string) {
@@ -68,7 +72,7 @@ export default async function GuildPage({ searchParams }: GuildPageProps) {
   if (!session) redirect("/login");
 
   const token = session.user.idlemmoToken;
-  const { id } = await searchParams;
+  const { id, player } = await searchParams;
   const selectedGuild = getSelectedGuild(id);
 
   let result: Awaited<ReturnType<typeof getGuildActivity>> | null = null;
@@ -84,14 +88,13 @@ export default async function GuildPage({ searchParams }: GuildPageProps) {
   const membersWithActivity = result?.ok && membersResult?.ok
     ? attachActivityToMembers(membersResult.data.members, result.data.activity)
     : [];
+  const selectedMember =
+    membersWithActivity.find((member) => getMemberKey(member) === player) ?? membersWithActivity[0];
 
   return (
     <div className="max-w-6xl space-y-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Guild</h1>
-        <p className="text-sm text-muted-foreground">
-          View members and attach recent guild activity to each player.
-        </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -154,9 +157,6 @@ export default async function GuildPage({ searchParams }: GuildPageProps) {
                   <Users className="size-4" />
                   Members
                 </CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  GET /v1/guild/{selectedGuild.id}/members
-                </p>
               </div>
               <Badge variant={membersResult?.ok ? "default" : "outline"}>
                 {membersResult?.ok ? `${membersResult.data.guild.member_count} members` : "Unavailable"}
@@ -174,78 +174,123 @@ export default async function GuildPage({ searchParams }: GuildPageProps) {
                   status={result?.status}
                 />
               ) : (
-                <div className="grid gap-3 lg:grid-cols-2">
-                  {membersWithActivity.map((member) => (
-                    <div key={member.hashed_id ?? member.name} className="rounded-md border bg-card">
-                      <div className="flex items-center gap-3 border-b p-4">
-                        <div className="size-12 shrink-0 overflow-hidden rounded-md bg-muted">
-                          {member.avatar_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={member.avatar_url} alt={member.name} className="size-full object-cover" />
-                          ) : (
-                            <div className="flex size-full items-center justify-center text-muted-foreground">
-                              <Users className="size-5" />
+                <div className="grid gap-4 xl:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)]">
+                  <div className="max-h-[38rem] overflow-auto rounded-md border">
+                    {membersWithActivity.map((member) => {
+                      const memberKey = getMemberKey(member);
+                      const active = selectedMember ? memberKey === getMemberKey(selectedMember) : false;
+
+                      return (
+                        <Link
+                          key={memberKey}
+                          href={`/dashboard/guild?id=${selectedGuild.id}&player=${encodeURIComponent(memberKey)}`}
+                          className={cn(
+                            "flex items-center gap-3 border-b p-3 transition-colors last:border-b-0 hover:bg-accent",
+                            active && "bg-primary/10 text-primary"
+                          )}
+                        >
+                          <div className="size-11 shrink-0 overflow-hidden rounded-md bg-muted">
+                            {member.avatar_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={member.avatar_url} alt={member.name} className="size-full object-cover" />
+                            ) : (
+                              <div className="flex size-full items-center justify-center text-muted-foreground">
+                                <Users className="size-5" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate font-medium">{member.name}</p>
+                              {active ? <Check className="size-3.5 shrink-0" /> : null}
                             </div>
+                            <p className="text-xs text-muted-foreground">{member.position}</p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-semibold">{member.activity.length}</p>
+                            <p className="text-xs text-muted-foreground">actions</p>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+
+                  <div className="rounded-md border">
+                    {selectedMember ? (
+                      <>
+                        <div className="flex items-center gap-3 border-b p-4">
+                          <div className="size-12 shrink-0 overflow-hidden rounded-md bg-muted">
+                            {selectedMember.avatar_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={selectedMember.avatar_url}
+                                alt={selectedMember.name}
+                                className="size-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex size-full items-center justify-center text-muted-foreground">
+                                <Users className="size-5" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate font-semibold">{selectedMember.name}</p>
+                              <Badge variant="outline" className="text-[0.65rem]">
+                                {selectedMember.position}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {selectedMember.total_level.toLocaleString()} total level
+                            </p>
+                          </div>
+                          <Badge variant="secondary">{selectedMember.activity.length} actions</Badge>
+                        </div>
+
+                        <div className="max-h-[32rem] overflow-auto p-3">
+                          {selectedMember.activity.length > 0 ? (
+                            <div className="space-y-2">
+                              {selectedMember.activity.map((activity) => {
+                                const asset = activity.item ?? activity.guild_item;
+
+                                return (
+                                  <div key={activity.id} className="flex gap-3 rounded-md bg-muted/35 p-3">
+                                    <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-background">
+                                      <ActivityIcon activity={activity} />
+                                    </div>
+                                    <div className="min-w-0 flex-1 space-y-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <Badge variant="secondary" className="text-[0.65rem]">
+                                          {formatActivityType(activity.type)}
+                                        </Badge>
+                                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                          <Clock className="size-3" />
+                                          {activity.created_ago}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm">{activity.text}</p>
+                                      {asset ? (
+                                        <p className="truncate text-xs text-muted-foreground">
+                                          {asset.name}
+                                          {activity.value ? ` x ${activity.value.toLocaleString()}` : ""}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="rounded-md bg-muted/35 p-3 text-sm text-muted-foreground">
+                              No recent activity returned for this member.
+                            </p>
                           )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate font-semibold">{member.name}</p>
-                            <Badge variant="outline" className="text-[0.65rem]">
-                              {member.position}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {member.total_level.toLocaleString()} total level
-                          </p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-sm font-semibold">{member.activity.length}</p>
-                          <p className="text-xs text-muted-foreground">actions</p>
-                        </div>
-                      </div>
-
-                      <div className="max-h-80 overflow-auto p-3">
-                        {member.activity.length > 0 ? (
-                          <div className="space-y-2">
-                            {member.activity.map((activity) => {
-                              const asset = activity.item ?? activity.guild_item;
-
-                              return (
-                                <div key={activity.id} className="flex gap-3 rounded-md bg-muted/35 p-3">
-                                  <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-background">
-                                    <ActivityIcon activity={activity} />
-                                  </div>
-                                  <div className="min-w-0 flex-1 space-y-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <Badge variant="secondary" className="text-[0.65rem]">
-                                        {formatActivityType(activity.type)}
-                                      </Badge>
-                                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                                        <Clock className="size-3" />
-                                        {activity.created_ago}
-                                      </span>
-                                    </div>
-                                    <p className="text-sm">{activity.text}</p>
-                                    {asset ? (
-                                      <p className="truncate text-xs text-muted-foreground">
-                                        {asset.name}
-                                        {activity.value ? ` x ${activity.value.toLocaleString()}` : ""}
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <p className="rounded-md bg-muted/35 p-3 text-sm text-muted-foreground">
-                            No recent activity returned for this member.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                      </>
+                    ) : (
+                      <p className="p-4 text-sm text-muted-foreground">No members returned for this guild.</p>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
