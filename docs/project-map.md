@@ -237,17 +237,17 @@ DPS calculator with enemy list and character selector.
 ---
 
 ### Guild Activity
-Fixed YOU guild selector that displays the raw IdleMMO guild activity response for each guild.
+Fixed YOU guild selector that displays raw IdleMMO guild activity plus the member roster for each guild.
 
 | Layer | Files |
 |---|---|
 | Page | `app/(dashboard)/dashboard/guild/page.tsx` |
 | Sidebar nav | `app/(dashboard)/layout.tsx` |
 | Dashboard shortcut | `components/dashboard-grid.tsx` |
-| IdleMMO client | `lib/idlemmo.ts` -> `getGuildActivity()` |
+| IdleMMO client | `lib/idlemmo.ts` -> `getGuildActivity()`, `getGuildMembers()` |
 
 **DB tables**: none
-**External API**: `GET /v1/guild/{id}/activity`
+**External API**: `GET /v1/guild/{id}/activity`, `GET /v1/guild/{id}/members`
 **Docs**: `docs/api/guilds.md`, `docs/api/internal/api-inspector.md`
 
 ---
