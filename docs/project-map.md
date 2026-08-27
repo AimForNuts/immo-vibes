@@ -237,7 +237,7 @@ DPS calculator with enemy list and character selector.
 ---
 
 ### Guild Activity
-Fixed YOU guild selector that displays raw IdleMMO guild activity plus the member roster for each guild.
+Fixed YOU guild selector with clickable member rows and per-player recent activity details.
 
 | Layer | Files |
 |---|---|
