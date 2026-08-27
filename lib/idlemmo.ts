@@ -241,7 +241,48 @@ export type GuildApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; status: number; message: string };
 
-export type GuildActivityResult = GuildApiResult<unknown>;
+export interface GuildActivityCharacter {
+  hashed_id: string;
+  name: string;
+  avatar_url: string | null;
+}
+
+export interface GuildActivityAsset {
+  hashed_id?: string;
+  id?: number;
+  key?: string;
+  name: string;
+  image_url: string | null;
+  quality?: string;
+}
+
+export interface GuildActivityEntry {
+  id: number;
+  type: string;
+  character: GuildActivityCharacter;
+  text: string;
+  value: number | null;
+  item: GuildActivityAsset | null;
+  guild_item: GuildActivityAsset | null;
+  created_at: string;
+  created_ago: string;
+}
+
+export interface GuildActivityResponse {
+  guild: {
+    id: number;
+    name: string;
+  };
+  activity: GuildActivityEntry[];
+  pagination: {
+    current_page: number;
+    has_more: boolean;
+    next_page: number | null;
+  };
+  endpoint_updates_at: string;
+}
+
+export type GuildActivityResult = GuildApiResult<GuildActivityResponse>;
 
 export interface GuildMember {
   hashed_id?: string;
@@ -296,7 +337,7 @@ export async function getGuildActivity(
   guildId: number,
   token: string
 ): Promise<GuildActivityResult> {
-  return guildApiFetch<unknown>(guildId, "activity", token);
+  return guildApiFetch<GuildActivityResponse>(guildId, "activity", token);
 }
 
 /**
