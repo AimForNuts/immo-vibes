@@ -235,6 +235,39 @@ export async function getCharacterPets(
   return data.pets;
 }
 
+// Guilds
+
+export type GuildActivityResult =
+  | { ok: true; data: unknown }
+  | { ok: false; status: number; message: string };
+
+/**
+ * Fetch raw guild activity for a guild.
+ * Endpoint: GET /v1/guild/{id}/activity
+ */
+export async function getGuildActivity(
+  guildId: number,
+  token: string
+): Promise<GuildActivityResult> {
+  const path = `/v1/guild/${guildId}/activity`;
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
+    next: { revalidate: 60 },
+  });
+
+  const data = await res.json().catch(() => null) as unknown;
+
+  if (!res.ok) {
+    const message = typeof data === "object" && data !== null && "message" in data
+      ? String((data as { message: unknown }).message)
+      : `IdleMMO API ${path} returned ${res.status}`;
+
+    return { ok: false, status: res.status, message };
+  }
+
+  return { ok: true, data };
+}
+
 // ─── Item types ───────────────────────────────────────────────────────────────
 
 /** All item types returned by the IdleMMO API. */
