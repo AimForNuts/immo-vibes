@@ -21,7 +21,7 @@ const CARD_META: Record<
   skills:      { icon: TrendingUp, href: "/wip",                  color: "text-green-400"  },
   economy:     { icon: Coins,      href: "/dashboard/investments", color: "text-yellow-400" },
   dungeons:    { icon: Skull,      href: "/dashboard/dungeons",   color: "text-red-400"    },
-  guild:       { icon: Shield,     href: "/wip",                  color: "text-purple-400" },
+  guild:       { icon: Shield,     href: "/dashboard/guild",      color: "text-purple-400" },
   empty:       { icon: Plus,       href: "#",                     color: "text-muted-foreground" },
 };
 
