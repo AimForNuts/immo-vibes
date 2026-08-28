@@ -25,6 +25,14 @@ const TRACKED_ACTIVITY_TYPES = new Set<string>(
   GUILD_ACTIVITY_GROUPS.map((group) => group.type)
 );
 
+const GUILD_POSITION_ORDER: Record<string, number> = {
+  LEADER: 0,
+  DEPUTY: 1,
+  OFFICER: 2,
+  SOLDIER: 3,
+  RECRUIT: 4,
+};
+
 function memberActivityKey(member: GuildMember) {
   return member.hashed_id ?? member.name.toLowerCase();
 }
@@ -48,24 +56,32 @@ export function attachActivityToMembers(
     activityByCharacter.set(key, entries);
   }
 
-  return members.map((member) => {
-    const entries = activityByCharacter.get(memberActivityKey(member)) ?? [];
-    const activityTotal = entries.reduce((total, entry) => total + (entry.value ?? 0), 0);
-    const activityGroups = GUILD_ACTIVITY_GROUPS.map((group) => {
-      const groupEntries = entries.filter((entry) => entry.type === group.type);
+  return members
+    .map((member) => {
+      const entries = activityByCharacter.get(memberActivityKey(member)) ?? [];
+      const activityTotal = entries.reduce((total, entry) => total + (entry.value ?? 0), 0);
+      const activityGroups = GUILD_ACTIVITY_GROUPS.map((group) => {
+        const groupEntries = entries.filter((entry) => entry.type === group.type);
+
+        return {
+          ...group,
+          entries: groupEntries,
+          total: groupEntries.reduce((total, entry) => total + (entry.value ?? 0), 0),
+        };
+      });
 
       return {
-        ...group,
-        entries: groupEntries,
-        total: groupEntries.reduce((total, entry) => total + (entry.value ?? 0), 0),
+        ...member,
+        activity: entries,
+        activityTotal,
+        activityGroups,
       };
-    });
+    })
+    .sort((a, b) => {
+      const rankA = GUILD_POSITION_ORDER[a.position.toUpperCase()] ?? Number.MAX_SAFE_INTEGER;
+      const rankB = GUILD_POSITION_ORDER[b.position.toUpperCase()] ?? Number.MAX_SAFE_INTEGER;
 
-    return {
-      ...member,
-      activity: entries,
-      activityTotal,
-      activityGroups,
-    };
-  });
+      if (rankA !== rankB) return rankA - rankB;
+      return a.name.localeCompare(b.name);
+    });
 }
