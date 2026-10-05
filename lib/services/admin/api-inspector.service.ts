@@ -335,19 +335,27 @@ function parseJson<T>(value: string | null, fallback: T): T {
 }
 
 function mapD1Spec(row: ApiEndpointSpecD1Row): EndpointSpecRow {
+  const config = parseJson<ApiInspectorSpecConfig>(row.config, {
+    key: row.key,
+    label: row.label,
+    method: "GET",
+    pathTemplate: row.path_template,
+    params: [],
+    ...(row.notes ? { notes: row.notes } : {}),
+  });
+  const defaults = DEFAULT_ENDPOINTS.find((spec) => spec.key === row.key);
+  const missingParams = defaults?.params.filter(
+    (param) => !config.params.some(
+      (saved) => saved.name === param.name && saved.source === param.source
+    )
+  ) ?? [];
+
   return {
     key: row.key,
     label: row.label,
     method: row.method,
     pathTemplate: row.path_template,
-    config: parseJson<ApiInspectorSpecConfig>(row.config, {
-      key: row.key,
-      label: row.label,
-      method: "GET",
-      pathTemplate: row.path_template,
-      params: [],
-      ...(row.notes ? { notes: row.notes } : {}),
-    }),
+    config: { ...config, params: [...config.params, ...missingParams] },
     notes: row.notes,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),

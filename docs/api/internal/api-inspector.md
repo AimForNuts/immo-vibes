@@ -19,6 +19,8 @@ Returns endpoint specs, active typed schemas, and recent schema observations.
 
 The route seeds default endpoint specs on first use. Specs include path/query params, editable test values, and default test values.
 
+Saved specs are supplemented with missing built-in parameters on load, preserving saved parameter values and settings. This also applies when running an endpoint, so older `guild.activity` specs expose and send the optional `page` query parameter without requiring a database reset.
+
 If the inspector tables are temporarily unavailable, the route returns the built-in endpoint catalog with `persistenceAvailable: false` so the dropdown still works. Schema saves and observation history require the DB tables.
 
 ### Built-in Endpoint Catalog

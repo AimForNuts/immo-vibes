@@ -364,7 +364,7 @@ Admin panel is organized into section pages under a collapsible sidebar nav (Eco
 | | `lib/services/admin/zones.service.ts` → `getAdminZones()`, `getZoneDetail()`, CRUD, associations |
 | | `lib/services/admin/users.service.ts` → re-exports D1-backed user helpers from `lib/services/auth-users.service.ts` |
 | | `lib/services/admin/sync-logs.service.ts` → `recordSyncLog()`, `getRecentSyncLogs()` |
-| | `lib/services/admin/api-inspector.service.ts` -> endpoint specs, typed schema inference, schema diffs, observations |
+| | `lib/services/admin/api-inspector.service.ts` -> endpoint specs (saved configs supplemented with missing built-in parameters), typed schema inference, schema diffs, observations |
 | | `lib/services/admin/api-inspector-r2-snapshots.service.ts` -> R2 raw response snapshot archival |
 **DB tables**: D1 `items`, D1 `market_price_history`, D1 `sync_state`, D1 `sync_job_logs`, D1 `api_endpoint_specs`, D1 `api_response_schemas`, D1 `api_schema_observations`, D1 `dungeons`, D1 `zones`, `enemies`, `world_bosses`, `zone_resources`, D1 `user`, D1 `characters`
 **R2 objects**: `api-inspector/<endpoint-key>/<YYYY-MM-DD>/<timestamp>-<observation-id>.json` stores raw API Inspector responses plus metadata, inferred schema, and diff. Admin sync routes store successful source payloads under `sync/<job>/admin/<YYYY-MM-DD>/`.
