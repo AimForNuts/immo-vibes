@@ -120,6 +120,8 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 Retrieve recent guild activity entries. Activity is paginated.
 
+The Guild dashboard collects all pages via `getAllGuildActivity()`, following `next_page` until `has_more` is false. Requests share rate-limit headers, wait until reset when exhausted, and retry 429 responses up to ten times. Invalid or non-advancing pagination fails the collection rather than displaying incomplete totals. The API Inspector still runs one selected page.
+
 **Required Scope:** `v1.guild.activity`
 
 **Parameters**

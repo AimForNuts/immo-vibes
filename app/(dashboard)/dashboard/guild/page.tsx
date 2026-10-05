@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Check, ChevronDown, Clock, Package, Shield, ShieldAlert, Users } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { getGuildActivity, getGuildMembers, type GuildActivityEntry } from "@/lib/idlemmo";
+import { getGuildMembers, type GuildActivityEntry } from "@/lib/idlemmo";
+import { getAllGuildActivity } from "@/lib/services/guild-activity.service";
 import { attachActivityToMembers } from "@/lib/domain/guild-activity";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,12 +65,12 @@ export default async function GuildPage({ searchParams }: GuildPageProps) {
   const { id } = await searchParams;
   const selectedGuild = getSelectedGuild(id);
 
-  let result: Awaited<ReturnType<typeof getGuildActivity>> | null = null;
+  let result: Awaited<ReturnType<typeof getAllGuildActivity>> | null = null;
   let membersResult: Awaited<ReturnType<typeof getGuildMembers>> | null = null;
 
   if (token) {
     [result, membersResult] = await Promise.all([
-      getGuildActivity(selectedGuild.id, token),
+      getAllGuildActivity(selectedGuild.id, token),
       getGuildMembers(selectedGuild.id, token),
     ]);
   }

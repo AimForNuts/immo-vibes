@@ -303,18 +303,37 @@ export interface GuildMembersResponse {
   endpoint_updates_at: string;
 }
 
+export type GuildRateLimitState = { remaining: number | null; resetAt: number };
+
 async function guildApiFetch<T>(
   guildId: number,
   endpoint: "activity" | "members",
   token: string,
-  query?: Record<string, string | number>
+  query?: Record<string, string | number>,
+  rateLimit?: GuildRateLimitState
 ): Promise<GuildApiResult<T>> {
   const path = `/v1/guild/${guildId}/${endpoint}`;
   const params = query ? `?${new URLSearchParams(Object.entries(query).map(([key, value]) => [key, String(value)]))}` : "";
-  const res = await fetch(`${BASE}${path}${params}`, {
-    headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
-    next: { revalidate: 60 },
-  });
+  let res: Response;
+  for (let attempt = 0; ; attempt++) {
+    if (rateLimit && rateLimit.remaining !== null && rateLimit.remaining <= 0) {
+      await new Promise((resolve) => setTimeout(resolve,
+        Math.max(1000, rateLimit.resetAt * 1000 - Date.now() + 500)
+      ));
+    }
+    res = await fetch(`${BASE}${path}${params}`, {
+      headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
+      ...(rateLimit ? { cache: "no-store" as const } : { next: { revalidate: 60 } }),
+    });
+    if (!rateLimit) break;
+    const remaining = res.headers.get("x-ratelimit-remaining");
+    const reset = res.headers.get("x-ratelimit-reset");
+    if (remaining !== null && Number.isFinite(Number(remaining))) rateLimit.remaining = Number(remaining);
+    if (reset !== null && Number.isFinite(Number(reset))) rateLimit.resetAt = Number(reset);
+    if (res.status !== 429 || attempt >= 10) break;
+    rateLimit.remaining = 0;
+    await res.body?.cancel();
+  }
 
   const data = await res.json().catch(() => null) as unknown;
 
@@ -338,9 +357,10 @@ export type GuildMembersResult = GuildApiResult<GuildMembersResponse>;
 export async function getGuildActivity(
   guildId: number,
   token: string,
-  page = 1
+  page = 1,
+  rateLimit?: GuildRateLimitState
 ): Promise<GuildActivityResult> {
-  return guildApiFetch<GuildActivityResponse>(guildId, "activity", token, { page: Math.max(1, page) });
+  return guildApiFetch<GuildActivityResponse>(guildId, "activity", token, { page: Math.max(1, page) }, rateLimit);
 }
 
 /**
