@@ -8,6 +8,7 @@ import { attachActivityToMembers } from "@/lib/domain/guild-activity";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { GuildChallengeCostCalculator } from "./components/GuildChallengeCostCalculator";
 
 const GUILDS = [
   { id: 4, name: "YOU" },
@@ -136,6 +137,8 @@ export default async function GuildPage({ searchParams }: GuildPageProps) {
         </Card>
       ) : (
         <div className="space-y-6">
+          <GuildChallengeCostCalculator />
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3">
               <div className="space-y-1">
@@ -162,8 +165,8 @@ export default async function GuildPage({ searchParams }: GuildPageProps) {
               ) : (
                 <div className="rounded-md border">
                   {membersWithActivity.map((member) => (
-                    <div key={member.hashed_id ?? member.name} className="border-b last:border-b-0">
-                      <div className="grid gap-3 p-3 md:grid-cols-[minmax(14rem,1fr)_auto_auto] md:items-center">
+                    <details key={member.hashed_id ?? member.name} className="group border-b last:border-b-0">
+                      <summary className="grid cursor-pointer list-none gap-3 p-3 md:grid-cols-[minmax(13rem,1fr)_minmax(16rem,auto)_auto] md:items-center">
                         <div className="flex min-w-0 items-center gap-3">
                           <div className="size-11 shrink-0 overflow-hidden rounded-md bg-muted">
                             {member.avatar_url ? (
@@ -188,7 +191,7 @@ export default async function GuildPage({ searchParams }: GuildPageProps) {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2 md:min-w-96">
+                        <div className="grid grid-cols-3 gap-2">
                           {member.activityGroups.map((group) => (
                             <div key={group.type} className="rounded-md bg-muted/35 px-3 py-2 text-center">
                               <p className="text-sm font-semibold">{group.entries.length}</p>
@@ -197,12 +200,15 @@ export default async function GuildPage({ searchParams }: GuildPageProps) {
                           ))}
                         </div>
 
-                        <Badge variant={member.activity.length > 0 ? "secondary" : "outline"}>
-                          {member.activity.length} tracked
-                        </Badge>
-                      </div>
+                        <div className="flex items-center justify-end gap-2">
+                          <Badge variant={member.activity.length > 0 ? "secondary" : "outline"}>
+                            {member.activity.length} tracked
+                          </Badge>
+                          <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                        </div>
+                      </summary>
 
-                      <div className="space-y-2 px-3 pb-3">
+                      <div className="space-y-2 border-t bg-muted/10 px-3 py-3">
                         {member.activityGroups.map((group) => (
                           <details key={group.type} className="group rounded-md border bg-muted/20">
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm">
@@ -248,7 +254,7 @@ export default async function GuildPage({ searchParams }: GuildPageProps) {
                           </details>
                         ))}
                       </div>
-                    </div>
+                    </details>
                   ))}
                 </div>
               )}

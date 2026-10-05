@@ -237,19 +237,23 @@ DPS calculator with enemy list and character selector.
 ---
 
 ### Guild Activity
-Fixed YOU guild selector with member rows and collapsible per-player activity groups.
+Fixed YOU guild selector with one-line collapsible member rows, per-player activity groups, and a guild challenge material cost calculator.
 
 | Layer | Files |
 |---|---|
 | Page | `app/(dashboard)/dashboard/guild/page.tsx` |
+| Component - challenge cost calculator | `app/(dashboard)/dashboard/guild/components/GuildChallengeCostCalculator.tsx` |
+| API - challenge cost calculator | `app/api/guild/challenge-cost/route.ts` |
 | Sidebar nav | `app/(dashboard)/layout.tsx` |
 | Dashboard shortcut | `components/dashboard-grid.tsx` |
 | IdleMMO client | `lib/idlemmo.ts` -> `getGuildActivity()`, `getGuildMembers()` |
 | Activity grouping | `lib/domain/guild-activity.ts` -> `attachActivityToMembers()` |
+| Cost parsing | `lib/domain/guild-challenge-cost.ts` |
+| Cost pricing service | `lib/services/guild-challenge-cost.service.ts` |
 
-**DB tables**: none
-**External API**: `GET /v1/guild/{id}/activity`, `GET /v1/guild/{id}/members`
-**Docs**: `docs/api/guilds.md`, `docs/api/internal/api-inspector.md`
+**DB tables**: D1 `items` (read), D1 `market_price_history` (read)
+**External API**: `GET /v1/guild/{id}/activity?page={n}`, `GET /v1/guild/{id}/members`
+**Docs**: `docs/api/guilds.md`, `docs/api/internal/api-inspector.md`, `docs/api/internal/guild-challenge-cost.md`
 
 ---
 
