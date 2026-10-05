@@ -116,6 +116,43 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 ---
 
+#### GET `/v1/guild/{id}/activity` - Guild Activity
+
+Retrieve recent guild activity entries. Activity is paginated.
+
+**Required Scope:** `v1.guild.activity`
+
+**Parameters**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `page` | integer | No | Page number for activity pagination. Defaults to `1`. |
+
+**Response Fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `guild` | object | Guild summary |
+| `guild.id` | integer | Guild ID |
+| `guild.name` | string | Guild name |
+| `activity` | array | Activity entries for the requested page |
+| `activity[].id` | integer | Activity entry ID |
+| `activity[].type` | string | Activity type, e.g. `CHALLENGE_CONTRIBUTION` |
+| `activity[].character` | object | Character that created the activity |
+| `activity[].text` | string | Human-readable activity text |
+| `activity[].value` | integer\|null | Quantity/value associated with the entry |
+| `activity[].item` | object\|null | Item referenced by the activity |
+| `activity[].guild_item` | object\|null | Guild item referenced by the activity |
+| `activity[].created_at` | string | Activity timestamp |
+| `activity[].created_ago` | string | Relative activity timestamp |
+| `pagination` | object | Pagination information for activity results |
+| `pagination.current_page` | integer | Current page number |
+| `pagination.has_more` | boolean | Whether another page of activity exists |
+| `pagination.next_page` | integer\|null | Next page number, or null when there are no more pages |
+| `endpoint_updates_at` | string | When this endpoint data next updates |
+
+---
+
 #### GET `/v1/guild/conquest/view` — Guild Conquest
 
 Retrieve current guild conquest data showing zone control, guild rankings, and active assaults.

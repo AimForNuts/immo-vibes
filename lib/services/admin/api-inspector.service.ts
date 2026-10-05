@@ -265,7 +265,18 @@ const DEFAULT_ENDPOINTS: ApiInspectorSpecConfig[] = [
     label: "Guild Activity",
     method: "GET",
     pathTemplate: "/v1/guild/{id}/activity",
-    params: [guildIdParam()],
+    params: [
+      guildIdParam(),
+      {
+        name: "page",
+        source: "query",
+        type: "number",
+        required: false,
+        testValues: [1],
+        defaultTestValue: 1,
+        notes: "Optional activity page number. Defaults to 1.",
+      },
+    ],
   },
   {
     key: "guild.energizingPool",

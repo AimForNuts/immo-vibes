@@ -102,3 +102,8 @@ Updates endpoint config or response schemas.
 Missing fields are never auto-deprecated. Admins must explicitly choose the deprecate action.
 
 When persistence is unavailable, save actions return `200 OK` with `persistenceAvailable: false` and a warning message. The UI keeps the latest schema draft visible, but no schema/config/observation data is saved until the inspector tables exist.
+
+### Guild Activity Pagination
+
+The built-in `guild.activity` endpoint spec includes optional query param `page` with default test value `1`.
+Inspector runs include the `pagination.current_page`, `pagination.has_more`, and `pagination.next_page` response fields when returned by IdleMMO.

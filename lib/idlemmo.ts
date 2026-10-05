@@ -306,10 +306,12 @@ export interface GuildMembersResponse {
 async function guildApiFetch<T>(
   guildId: number,
   endpoint: "activity" | "members",
-  token: string
+  token: string,
+  query?: Record<string, string | number>
 ): Promise<GuildApiResult<T>> {
   const path = `/v1/guild/${guildId}/${endpoint}`;
-  const res = await fetch(`${BASE}${path}`, {
+  const params = query ? `?${new URLSearchParams(Object.entries(query).map(([key, value]) => [key, String(value)]))}` : "";
+  const res = await fetch(`${BASE}${path}${params}`, {
     headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
     next: { revalidate: 60 },
   });
@@ -335,9 +337,10 @@ export type GuildMembersResult = GuildApiResult<GuildMembersResponse>;
  */
 export async function getGuildActivity(
   guildId: number,
-  token: string
+  token: string,
+  page = 1
 ): Promise<GuildActivityResult> {
-  return guildApiFetch<GuildActivityResponse>(guildId, "activity", token);
+  return guildApiFetch<GuildActivityResponse>(guildId, "activity", token, { page: Math.max(1, page) });
 }
 
 /**
