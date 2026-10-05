@@ -248,6 +248,7 @@ Fixed YOU guild selector with one-line collapsible member rows, per-player activ
 | Dashboard shortcut | `components/dashboard-grid.tsx` |
 | IdleMMO client | `lib/idlemmo.ts` -> `getGuildActivity()`, `getGuildMembers()` |
 | Activity grouping | `lib/domain/guild-activity.ts` -> `attachActivityToMembers()` |
+| Full activity collection | `lib/services/guild-activity.service.ts` -> `getAllGuildActivity()` follows pagination sequentially with shared rate-limit state and deduplicates entry IDs |
 | Cost parsing | `lib/domain/guild-challenge-cost.ts` |
 | Cost pricing service | `lib/services/guild-challenge-cost.service.ts` |
 
