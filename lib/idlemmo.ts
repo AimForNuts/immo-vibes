@@ -10,6 +10,7 @@
  */
 
 import type { DungeonLootItem } from "@/lib/db/schema";
+import { rateLimitedIdleMmoFetch } from "@/lib/idlemmo-rate-limit";
 
 const BASE = "https://api.idle-mmo.com";
 
@@ -37,7 +38,7 @@ async function apiFetch<T>(path: string, token: string): Promise<T> {
   const headers = { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" };
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const res = await fetch(url, { headers, next: { revalidate: 60 } });
+    const res = await rateLimitedIdleMmoFetch(token, url, { headers, next: { revalidate: 60 } });
 
     if (res.status === 429) {
       if (attempt >= MAX_RETRIES) throw new Error(`IdleMMO API ${path} returned 429`);
@@ -517,7 +518,7 @@ export async function searchItemsByType(
       await new Promise((r) => setTimeout(r, waitMs));
     }
 
-    const res = await fetch(url, { headers, cache: "no-store" });
+    const res = await rateLimitedIdleMmoFetch(token, url, { headers, cache: "no-store" });
 
     // Always read what the API reports
     const rem = res.headers.get("x-ratelimit-remaining");
@@ -626,7 +627,7 @@ export interface DungeonInfo {
  * Endpoint: GET /v1/combat/dungeons/list
  */
 export async function getDungeons(token: string): Promise<DungeonInfo[]> {
-  const res = await fetch(`${BASE}/v1/combat/dungeons/list`, {
+  const res = await rateLimitedIdleMmoFetch(token, `${BASE}/v1/combat/dungeons/list`, {
     headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
     next: { revalidate: 60 },
   });

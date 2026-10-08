@@ -19,6 +19,7 @@ import {
 } from "./difficulty";
 import type { SavedPreset } from "../gear/actions";
 import type { CharacterEffect } from "@/lib/idlemmo";
+import { idleMmoQueue } from "@/lib/idlemmo-queue";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -130,7 +131,9 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
 
     setEffectsLoading(true);
     try {
-      const res = await fetch(`/api/idlemmo/character/${charId}/effects`);
+      const res = await idleMmoQueue.fetch(`/api/idlemmo/character/${charId}/effects`, "dungeons", {
+        dedupeKey: `character-effects:${charId}`,
+      });
       if (res.ok) {
         const data = await res.json();
         const effects: CharacterEffect[] = data.effects ?? [];
@@ -176,7 +179,9 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
       const bk: Record<string, StatBreakdown> = {};
 
       try {
-        const res = await fetch(`/api/idlemmo/character/${characterId}`);
+        const res = await idleMmoQueue.fetch(`/api/idlemmo/character/${characterId}`, "dungeons", {
+          dedupeKey: `character:${characterId}`,
+        });
         const data = await res.json();
 
         if (data.stats) {
@@ -236,7 +241,7 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
         await Promise.all(
           uniqueIds.map(async (id) => {
             try {
-              const res = await fetch(`/api/idlemmo/item/${id}`);
+              const res = await idleMmoQueue.fetch(`/api/idlemmo/item/${id}`, "dungeons", { dedupeKey: `item:${id}` });
               const data = await res.json();
               inspects[id] = data.item;
             } catch {
@@ -270,7 +275,10 @@ export function DungeonExplorer({ dungeons, presets, itemsMap, characters, hasDi
     }
 
     compute().catch(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      idleMmoQueue.cancelByTag("dungeons");
+    };
   }, [characterId, presetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const petContribution: Record<string, number> = petDbStats

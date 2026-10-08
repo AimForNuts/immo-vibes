@@ -155,6 +155,12 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-10-08 - IdleMMO API queue coordination
+
+- **Rate limiting**: Added per-API-key browser and server coordinators driven by IdleMMO rate-limit headers instead of optimistic quota resets.
+- **Dashboard**: Added a bottom-bar indicator for the active player's remaining requests, reset countdown, and queue length.
+- **Docs**: Documented browser/session scope, scheduled-job coordination, and why D1 rate-limit persistence was not added.
+
 ### 2026-08-23 - Production cleanup
 
 - **Docs**: Updated current project specs to Cloudflare Workers, D1, R2, and Cloudflare Cron.

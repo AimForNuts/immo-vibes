@@ -1,79 +1,98 @@
-/**
- * Global client-side request queue for all IdleMMO API proxy calls.
- *
- * Strategy:
- *   - Requests are dispatched ONE AT A TIME (sequential). We await each
- *     response before firing the next, so the X-RateLimit-* headers are
- *     always up-to-date before the next slot decision.
- *   - Before each dispatch we check `remaining`. If it is 0 we sleep until
- *     `resetAt * 1000 + 150 ms` so we never fire into an exhausted window.
- *   - Tag-based cancellation: cancelByTag(tag) aborts queued and in-flight
- *     requests matching that tag.
- *
- * Proxy routes must forward the IdleMMO X-RateLimit-Remaining and
- * X-RateLimit-Reset response headers so the queue can read them.
- */
-
 export interface QueueStatus {
-  /** Requests left in the current IdleMMO rate-limit window (from headers). */
-  remaining: number;
-  /** Unix timestamp (seconds) when the window resets. 0 if unknown. */
+  remaining: number | null;
   resetAt: number;
-  /** Number of requests still waiting to be dispatched. */
   queueSize: number;
-  /** True while sleeping until the rate-limit window resets. */
   throttled: boolean;
+  keyId: string | null;
 }
 
 interface QueueEntry {
-  url:        string;
-  tag:        string;
+  url: string;
+  tag: string;
+  keyId: string | null;
+  dedupeKey: string | null;
   controller: AbortController;
-  resolve:    (r: Response) => void;
-  reject:     (e: unknown) => void;
-  cancelled:  boolean;
+  resolve: (r: Response) => void;
+  reject: (e: unknown) => void;
+  cancelled: boolean;
 }
 
 class IdleMmoQueue {
-  /** Optimistic default — overridden by the first response headers. */
-  private remaining  = 20;
-  private resetAt    = 0;  // unix seconds
-  private throttled  = false;
-
-  private queue:    QueueEntry[] = [];
+  private keyId: string | null = null;
+  private remaining: number | null = null;
+  private resetAt = 0;
+  private throttled = false;
+  private queue: QueueEntry[] = [];
   private inFlight: QueueEntry[] = [];
   private processing = false;
+  private subscribers = new Set<(s: QueueStatus) => void>();
+  private deduped = new Map<string, Promise<Response>>();
 
-  /** Subscribe to queue state changes for UI indicators. */
   onStatusChange: ((s: QueueStatus) => void) | null = null;
 
   getStatus(): QueueStatus {
     return {
       remaining: this.remaining,
-      resetAt:   this.resetAt,
+      resetAt: this.resetAt,
       queueSize: this.queue.length,
       throttled: this.throttled,
+      keyId: this.keyId,
     };
   }
 
-  /**
-   * Enqueue a GET request to one of our /api/* proxy routes.
-   * Returns a Response promise dispatched when a rate-limit slot is available.
-   */
-  fetch(url: string, tag: string): Promise<Response> {
-    return new Promise<Response>((resolve, reject) => {
+  subscribe(callback: (s: QueueStatus) => void) {
+    this.subscribers.add(callback);
+    callback(this.getStatus());
+    return () => {
+      this.subscribers.delete(callback);
+    };
+  }
+
+  setApiKey(keyId: string | null) {
+    if (this.keyId === keyId) return;
+    this.keyId = keyId;
+    this.remaining = null;
+    this.resetAt = 0;
+    this.throttled = false;
+    this.deduped.clear();
+    for (const entry of this.queue) {
+      entry.cancelled = true;
+      entry.controller.abort();
+    }
+    for (const entry of this.inFlight) entry.controller.abort();
+    this.notifyStatus();
+  }
+
+  fetch(url: string, tag: string, options: { dedupeKey?: string } = {}): Promise<Response> {
+    const dedupeKey = options.dedupeKey ?? null;
+    if (dedupeKey) {
+      const existing = this.deduped.get(dedupeKey);
+      if (existing) return existing.then((response) => response.clone());
+    }
+
+    const promise = new Promise<Response>((resolve, reject) => {
       const controller = new AbortController();
-      this.queue.push({ url, tag, controller, resolve, reject, cancelled: false });
+      this.queue.push({
+        url,
+        tag,
+        keyId: this.keyId,
+        dedupeKey,
+        controller,
+        resolve,
+        reject,
+        cancelled: false,
+      });
       this.notifyStatus();
       if (!this.processing) this.process();
     });
+
+    if (!dedupeKey) return promise;
+
+    this.deduped.set(dedupeKey, promise);
+    promise.finally(() => this.deduped.delete(dedupeKey)).catch(() => {});
+    return promise.then((response) => response.clone());
   }
 
-  /**
-   * Abort all entries (queued or in-flight) with the given tag.
-   * Queued entries are rejected with AbortError; in-flight ones are aborted
-   * via their AbortController (the fetch rejects and the queue moves on).
-   */
   cancelByTag(tag: string) {
     for (const entry of this.queue) {
       if (entry.tag === tag && !entry.cancelled) {
@@ -87,10 +106,10 @@ class IdleMmoQueue {
     this.notifyStatus();
   }
 
-  // ── Internal ───────────────────────────────────────────────────────────────
-
   private notifyStatus() {
-    this.onStatusChange?.(this.getStatus());
+    const status = this.getStatus();
+    this.onStatusChange?.(status);
+    for (const subscriber of this.subscribers) subscriber(status);
   }
 
   private drainCancelled() {
@@ -106,13 +125,11 @@ class IdleMmoQueue {
       this.drainCancelled();
       if (this.queue.length === 0) break;
 
-      // Wait if the rate-limit window is exhausted
-      if (this.remaining <= 0) {
+      if (this.remaining !== null && this.remaining <= 0) {
         this.throttled = true;
         this.notifyStatus();
-        const waitMs = Math.max(150, this.resetAt * 1000 - Date.now() + 150);
-        await new Promise<void>((r) => setTimeout(r, waitMs));
-        this.remaining = 20; // optimistic reset — overwritten by next response
+        const waitMs = Math.max(1000, this.resetAt * 1000 - Date.now() + 500);
+        await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
         this.throttled = false;
       }
 
@@ -120,28 +137,34 @@ class IdleMmoQueue {
       if (this.queue.length === 0) break;
 
       const entry = this.queue.shift()!;
+      if (entry.keyId !== this.keyId) {
+        entry.reject(new DOMException("API key changed before dispatch", "AbortError"));
+        continue;
+      }
+
       this.inFlight.push(entry);
-      this.remaining = Math.max(0, this.remaining - 1);
       this.notifyStatus();
 
-      // Sequential: await the response before processing the next entry
       try {
         const res = await fetch(entry.url, { signal: entry.controller.signal });
 
-        // Update rate-limit state from headers forwarded by our proxy
-        const rem = res.headers.get("X-RateLimit-Remaining");
-        const rst = res.headers.get("X-RateLimit-Reset");
-        if (rem !== null) this.remaining = parseInt(rem, 10);
-        if (rst !== null) this.resetAt   = parseInt(rst, 10);
+        if (entry.keyId !== this.keyId) {
+          await res.body?.cancel();
+          entry.reject(new DOMException("API key changed before response", "AbortError"));
+          continue;
+        }
 
-        // If we still hit a 429, mark exhausted so next dispatch waits
+        const remaining = res.headers.get("X-RateLimit-Remaining");
+        const reset = res.headers.get("X-RateLimit-Reset");
+        if (remaining !== null) this.remaining = Number.parseInt(remaining, 10);
+        if (reset !== null) this.resetAt = Number.parseInt(reset, 10);
         if (res.status === 429) this.remaining = 0;
 
         entry.resolve(res);
-      } catch (e) {
-        entry.reject(e);
+      } catch (error) {
+        entry.reject(error);
       } finally {
-        this.inFlight = this.inFlight.filter((e) => e !== entry);
+        this.inFlight = this.inFlight.filter((item) => item !== entry);
         this.notifyStatus();
       }
     }
@@ -151,6 +174,5 @@ class IdleMmoQueue {
   }
 }
 
-/** One queue instance per browser session. */
 export const idleMmoQueue = new IdleMmoQueue();
 export type { QueueStatus as IdleMmoQueueStatus };

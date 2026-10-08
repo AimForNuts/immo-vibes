@@ -1,6 +1,7 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { forwardIdleMmoRateLimitHeaders, rateLimitedIdleMmoFetch } from "@/lib/idlemmo-rate-limit";
 
 const BASE = "https://api.idle-mmo.com";
 
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   if (!token) return NextResponse.json({ rate_limit: 20, expires_at: null });
 
   try {
-    const res = await fetch(`${BASE}/v1/auth/check`, {
+    const res = await rateLimitedIdleMmoFetch(token, `${BASE}/v1/auth/check`, {
       headers: {
         Authorization: `Bearer ${token}`,
         "User-Agent": "ImmoWebSuite/1.0",
@@ -28,14 +29,20 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
     });
 
-    if (!res.ok) return NextResponse.json({ rate_limit: 20, expires_at: null });
+    if (!res.ok) {
+      const response = NextResponse.json({ rate_limit: null, expires_at: null });
+      forwardIdleMmoRateLimitHeaders(res, response);
+      return response;
+    }
 
     const data = await res.json();
-    return NextResponse.json({
-      rate_limit:  data.api_key?.rate_limit  ?? 20,
+    const response = NextResponse.json({
+      rate_limit:  data.api_key?.rate_limit  ?? null,
       expires_at:  data.api_key?.expires_at  ?? null,
     });
+    forwardIdleMmoRateLimitHeaders(res, response);
+    return response;
   } catch {
-    return NextResponse.json({ rate_limit: 20, expires_at: null });
+    return NextResponse.json({ rate_limit: null, expires_at: null });
   }
 }

@@ -11,6 +11,16 @@ Every response from `api.idle-mmo.com` includes:
 
 There is no hard-coded quota. These headers are the only source of truth.
 
+## Coordinator model
+
+IdleMMO limits requests per player's API key, so the app coordinates one queue per API-key fingerprint rather than one global queue across every player.
+
+- Browser calls use the session-level singleton in `lib/idlemmo-queue.ts`.
+- Server calls that go through `lib/idlemmo.ts`, live market fallback, API Inspector, and raw/admin probe routes use `lib/idlemmo-rate-limit.ts`.
+- The key identifier is a short SHA-256 fingerprint; raw API keys are not persisted in D1 for rate-limit tracking.
+- D1 reads/writes do not consume IdleMMO API queue slots.
+- Persisting rate-limit snapshots in D1 was not added because it would not enforce quota across browser tabs, workers, or cron executions.
+
 ## Required behaviour for all API callers
 
 ```
@@ -94,11 +104,34 @@ async function rateLimitedFetch(url: string): Promise<Response> {
 
 Types above ~100 items (e.g. `CHEST` 158, `RECIPE` 370) should be split across paginated requests. The limiting factor is the IdleMMO API rate window plus keeping Cloudflare Worker requests short enough to debug and retry cleanly.
 
+## Browser navigation
+
+Browser page views should enqueue IdleMMO proxy requests through the singleton queue with a page tag, for example `"gear"`, `"dungeons"`, or `"combat"`.
+
+- New requests are appended FIFO.
+- Unmounted page effects call `cancelByTag(tag)` so waiting requests are removed and in-flight fetches are aborted where supported.
+- The queue is configured from the dashboard layout and survives client-side navigation.
+- When the active API key fingerprint changes, queued and in-flight requests from the old key are aborted and their results are rejected.
+- Consumers should keep their own stale-response guard before applying results to component state.
+
+## Scheduled and server flows
+
+Server-side callers must respect the same per-key quota:
+
+- Shared server client calls use `rateLimitedIdleMmoFetch(token, url, init)`, which serializes dispatch per API-key fingerprint and updates state from `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `Retry-After`.
+- Existing admin/cron sync routes that maintain route-local rate-limit state coordinate within that sync run and use the active admin/cron API key's headers. They are not mixed with browser queue state.
+- Scheduled jobs can overlap with browser activity for the same API key because the current implementation is intentionally in-process/session scoped. Use Durable Objects or another shared server coordinator only if observed multi-context contention makes it necessary.
+
 ## Applies to
 
 All routes and scripts that call the IdleMMO API in a loop:
 
 | File | Pattern |
 |---|---|
-| `app/api/admin/sync-prices/route.ts` | Inline `rateLimitedFetch` |
-| `lib/idlemmo.ts` — `searchItemsByType` | Inline fetch loop with same headers |
+| `lib/idlemmo-rate-limit.ts` | Central server-side per-key coordinator |
+| `lib/idlemmo-queue.ts` | Session-level browser queue |
+| `app/api/admin/sync-prices/route.ts` | Inline route-local coordinator for the sync run |
+| `app/api/admin/sync-inspect/route.ts` | Inline route-local coordinator for the sync run |
+| `app/api/admin/sync-recipes/route.ts` | Inline route-local coordinator for the sync run |
+| `app/api/cron/sync-prices/route.ts` | Inline route-local coordinator for the scheduled sync run |
+| `app/api/cron/sync-recipes/route.ts` | Inline route-local coordinator for the scheduled sync run |

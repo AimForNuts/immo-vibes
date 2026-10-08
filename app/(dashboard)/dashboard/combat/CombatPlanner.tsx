@@ -12,6 +12,7 @@ import type { EnemyInfo } from "@/lib/idlemmo";
 import type { EnemyCombatStats } from "@/data/enemy-combat-stats";
 import { useEnemyScaling } from "./hooks/useEnemyScaling";
 import { computeMfBonus, applyMfToLoot } from "./lib/combat-scaling";
+import { idleMmoQueue } from "@/lib/idlemmo-queue";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
     let cancelled = false;
     setLoadingChar(true);
 
-    fetch(`/api/idlemmo/character/${characterId}`)
+    idleMmoQueue.fetch(`/api/idlemmo/character/${characterId}`, "combat", { dedupeKey: `character:${characterId}` })
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -128,7 +129,10 @@ export function CombatPlanner({ characters, enemies, combatStats }: CombatPlanne
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoadingChar(false); });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      idleMmoQueue.cancelByTag("combat");
+    };
 
   }, [characterId]);
 

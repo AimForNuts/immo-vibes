@@ -2,6 +2,7 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { MARKET_TABS } from "@/lib/market-config";
+import { rateLimitedIdleMmoFetch } from "@/lib/idlemmo-rate-limit";
 
 const BASE = "https://api.idle-mmo.com";
 
@@ -37,7 +38,8 @@ export async function GET(request: NextRequest) {
 
     for (const type of tab.types) {
       try {
-        const res = await fetch(
+        const res = await rateLimitedIdleMmoFetch(
+          token,
           `${BASE}/v1/item/search?type=${encodeURIComponent(type)}&page=1`,
           {
             headers: {

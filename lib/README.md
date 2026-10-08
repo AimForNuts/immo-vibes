@@ -13,7 +13,7 @@ Cloudflare D1 binding helper used by server-side services.
 - `getD1()` - returns the required `IMMO_SYNC_DB` binding
 
 ### `lib/idlemmo.ts`
-IdleMMO external API client. All server-side calls to `api.idle-mmo.com` go through here.
+IdleMMO external API client. Shared server-side calls to `api.idle-mmo.com` go through here and are coordinated by API-key fingerprint.
 
 Key exports:
 - `getCharacterInfo(hashedId, token)` - full character data including stats, skills, location, guild
@@ -26,7 +26,10 @@ Key exports:
 - `IDLEMMO_ITEM_TYPES` - all 42 item type strings as a const array
 
 ### `lib/idlemmo-queue.ts`
-Client-side rate-limit-aware fetch queue for browser components that call IdleMMO API proxy routes.
+Session-level client-side FIFO queue for browser components that call IdleMMO API proxy routes. It tracks one active API-key fingerprint, deduplicates matching requests, and cancels page-scoped work on navigation.
+
+### `lib/idlemmo-rate-limit.ts`
+Server-side per-API-key coordinator and rate-limit header helpers. It is intentionally in-process and does not persist raw API keys or quota state to D1.
 
 ### `lib/game-constants.ts`
 Shared game-domain UI constants. Single source of truth for quality colors, slot labels, and character stat mappings.

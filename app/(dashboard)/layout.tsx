@@ -12,6 +12,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { CharactersNav } from "@/components/characters-nav";
 import { EconomyNav } from "@/components/economy-nav";
 import { AdminNav } from "@/components/admin-nav";
+import { IdleMmoRateLimitIndicator } from "@/components/idlemmo-rate-limit-indicator";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -114,6 +115,7 @@ export default function DashboardLayout({
         <main className="flex-1 px-8 py-8">
           {children}
         </main>
+        <IdleMmoRateLimitIndicator token={session?.user?.idlemmoToken} />
       </div>
     </div>
   );

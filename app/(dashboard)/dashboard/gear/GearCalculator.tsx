@@ -10,6 +10,7 @@ import { GearSetPanel } from "./components/GearSetPanel";
 import { ItemPickerModal } from "./components/ItemPickerModal";
 import { StatsPanel } from "./components/StatsPanel";
 import { PresetManager } from "./components/PresetManager";
+import { idleMmoQueue } from "@/lib/idlemmo-queue";
 import type {
   WeaponStyle, SlotKey, SlotSelection, GearSet, CatalogItem, InspectEntry, ComputedStats, SlotStatsMap,
 } from "./types";
@@ -98,7 +99,7 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
 
       // Background fetch for maxTier
       const { side, slot } = picker;
-      fetch(`/api/idlemmo/item/${catalogItem.hashedId}`)
+      idleMmoQueue.fetch(`/api/idlemmo/item/${catalogItem.hashedId}`, "gear", { dedupeKey: `item:${catalogItem.hashedId}` })
         .then((r) => r.json())
         .then((data) => {
           const mt: number | undefined = data.item?.max_tier;
@@ -185,7 +186,7 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
     await Promise.all(
       Array.from(allIds).map(async (id) => {
         try {
-          const res = await fetch(`/api/idlemmo/item/${id}`);
+          const res = await idleMmoQueue.fetch(`/api/idlemmo/item/${id}`, "gear", { dedupeKey: `item:${id}` });
           const data = await res.json();
           inspects[id] = data.item;
         } catch {
@@ -269,7 +270,7 @@ export function GearCalculator({ presets: initialPresets, itemsMap, characters }
     // Background-fetch maxTier for each unique item in the preset
     const uniqueIds = [...new Set(Object.values(preset.slots).map((s) => s.hashedId))];
     for (const hashedId of uniqueIds) {
-      fetch(`/api/idlemmo/item/${hashedId}`)
+      idleMmoQueue.fetch(`/api/idlemmo/item/${hashedId}`, "gear", { dedupeKey: `item:${hashedId}` })
         .then((r) => r.json())
         .then((data) => {
           const mt: number | undefined = data.item?.max_tier;

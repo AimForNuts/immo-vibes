@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { getItemById } from "@/lib/services/items.service";
 import { getLatestMarketPrice, insertMarketPriceHistory } from "@/lib/services/market-price-history.service";
+import { forwardIdleMmoRateLimitHeaders, rateLimitedIdleMmoFetch } from "@/lib/idlemmo-rate-limit";
 
 const IDLEMMO_BASE = "https://api.idle-mmo.com";
 
@@ -67,7 +68,8 @@ export async function GET(
   try {
     // The tier parameter is ignored by the API — it always returns all tiers.
     // We pass tier=1 as a stable cache-busting value; filter by response tier field.
-    const res = await fetch(
+    const res = await rateLimitedIdleMmoFetch(
+      token,
       `${IDLEMMO_BASE}/v1/item/${id}/market-history?tier=1&type=listings`,
       {
         headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
@@ -76,7 +78,9 @@ export async function GET(
     );
 
     if (!res.ok) {
-      return NextResponse.json({ price: null, sold_at: null, quantity: null });
+      const response = NextResponse.json({ price: null, sold_at: null, quantity: null });
+      forwardIdleMmoRateLimitHeaders(res, response);
+      return response;
     }
 
     const data   = await res.json();
@@ -87,7 +91,9 @@ export async function GET(
       : null;
 
     if (!latest?.price_per_item) {
-      return NextResponse.json({ price: null, sold_at: null, quantity: null });
+      const response = NextResponse.json({ price: null, sold_at: null, quantity: null });
+      forwardIdleMmoRateLimitHeaders(res, response);
+      return response;
     }
 
     const price    = latest.price_per_item as number;
@@ -106,7 +112,9 @@ export async function GET(
       });
     } catch { /* non-blocking */ }
 
-    return NextResponse.json({ price, sold_at: soldAt.toISOString(), quantity });
+    const response = NextResponse.json({ price, sold_at: soldAt.toISOString(), quantity });
+    forwardIdleMmoRateLimitHeaders(res, response);
+    return response;
   } catch {
     return NextResponse.json({ price: null, sold_at: null, quantity: null });
   }

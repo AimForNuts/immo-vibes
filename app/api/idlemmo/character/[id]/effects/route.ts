@@ -2,6 +2,7 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getCharacterEffects } from "@/lib/idlemmo";
+import { forwardIdleMmoRateLimitSnapshot, getIdleMmoRateLimitSnapshot } from "@/lib/idlemmo-rate-limit";
 
 export async function GET(
   request: NextRequest,
@@ -17,7 +18,9 @@ export async function GET(
 
   try {
     const effects = await getCharacterEffects(id, token);
-    return NextResponse.json({ effects });
+    const response = NextResponse.json({ effects });
+    forwardIdleMmoRateLimitSnapshot(await getIdleMmoRateLimitSnapshot(token), response);
+    return response;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });
