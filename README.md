@@ -155,6 +155,10 @@ Start with these docs when planning or iterating:
 
 ## Recent Changes
 
+### 2026-10-08 - Faster Guild navigation
+
+Guild renders without waiting for its full activity history. Member rows and history load progressively through the shared API queue; session snapshots retain progress across navigation, and incomplete counts are labeled until loading finishes.
+
 ### 2026-10-08 - IdleMMO API queue coordination
 
 - **Rate limiting**: Added per-API-key browser and server coordinators driven by IdleMMO rate-limit headers instead of optimistic quota resets.
