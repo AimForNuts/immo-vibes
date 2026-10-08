@@ -242,6 +242,11 @@ Fixed YOU guild selector with one-line collapsible member rows, per-player activ
 | Layer | Files |
 |---|---|
 | Page | `app/(dashboard)/dashboard/guild/page.tsx` |
+| Progressive view | `app/(dashboard)/dashboard/guild/GuildView.tsx` |
+| Subscription hook | `app/(dashboard)/dashboard/guild/hooks/useGuildActivity.ts` |
+| Session loading/cache | `lib/services/guild-activity-client.ts` |
+| Single-page proxy service | `lib/services/guild-page.service.ts` |
+| API proxy | `app/api/idlemmo/guild/[id]/[resource]/route.ts` |
 | Component - challenge cost calculator | `app/(dashboard)/dashboard/guild/components/GuildChallengeCostCalculator.tsx` |
 | API - challenge cost calculator | `app/api/guild/challenge-cost/route.ts` |
 | Sidebar nav | `app/(dashboard)/layout.tsx` |
@@ -254,7 +259,9 @@ Fixed YOU guild selector with one-line collapsible member rows, per-player activ
 
 **DB tables**: D1 `items` (read), D1 `market_price_history` (read)
 **External API**: `GET /v1/guild/{id}/activity?page={n}`, `GET /v1/guild/{id}/members`
-**Docs**: `docs/api/guilds.md`, `docs/api/internal/api-inspector.md`, `docs/api/internal/guild-challenge-cost.md`
+**Docs**: `docs/api/guilds.md`, `docs/api/internal/guild.md`, `docs/api/internal/api-inspector.md`, `docs/api/internal/guild-challenge-cost.md`
+
+**Navigation**: renders after authentication without waiting for external API calls. Members and full activity history load progressively through the shared browser coordinator. Per-key, per-guild session snapshots retain progress across navigation; completed snapshots are reused for 60 seconds. Each view has a unique cancellation scope and incomplete counts are labeled explicitly.
 
 ---
 
