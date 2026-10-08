@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+// Some deployed transforms preserve function names with __name(...) helper calls.
+const __name = <T,>(value: T) => value;
+void __name;
+
 type ParamConfig = {
   name: string;
   source: "path" | "query";
