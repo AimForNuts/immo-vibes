@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { getD1 } from "@/lib/db/d1";
 import { getUserIdlemmoToken as getAuthUserIdlemmoToken } from "@/lib/services/auth-users.service";
+import { rateLimitedIdleMmoFetch } from "@/lib/idlemmo-rate-limit";
 import type {
   ApiInspectorParam,
   ApiInspectorSchema,
@@ -606,7 +607,7 @@ export async function runEndpointAndObserve(input: {
 
   const path = buildPath(spec, params);
   const started = Date.now();
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await rateLimitedIdleMmoFetch(input.token, `${BASE_URL}${path}`, {
     headers: { Authorization: `Bearer ${input.token}`, "User-Agent": "ImmoWebSuite/1.0" },
     cache: "no-store",
   });

@@ -1,6 +1,7 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { rateLimitedIdleMmoFetch } from "@/lib/idlemmo-rate-limit";
 
 const BASE = "https://api.idle-mmo.com";
 
@@ -10,7 +11,7 @@ const CANDIDATE_PATHS = [
 
 async function probe(path: string, token: string) {
   try {
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await rateLimitedIdleMmoFetch(token, `${BASE}${path}`, {
       headers: { Authorization: `Bearer ${token}`, "User-Agent": "ImmoWebSuite/1.0" },
       cache: "no-store",
     });

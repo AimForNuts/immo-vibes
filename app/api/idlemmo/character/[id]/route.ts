@@ -2,6 +2,7 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getCharacterInfo, getCharacterPets } from "@/lib/idlemmo";
+import { forwardIdleMmoRateLimitSnapshot, getIdleMmoRateLimitSnapshot } from "@/lib/idlemmo-rate-limit";
 
 export async function GET(
   request: NextRequest,
@@ -23,7 +24,7 @@ export async function GET(
 
     const equippedPet = pets.find((p) => p.equipped) ?? null;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       hashed_id: char.hashed_id,
       name: char.name,
       class: char.class,
@@ -41,6 +42,8 @@ export async function GET(
           }
         : null,
     });
+    forwardIdleMmoRateLimitSnapshot(await getIdleMmoRateLimitSnapshot(token), response);
+    return response;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });

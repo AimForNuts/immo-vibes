@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { CHAR_STAT_MAP } from "@/lib/game-constants";
+import { idleMmoQueue } from "@/lib/idlemmo-queue";
 
 interface UseCharacterStatsReturn {
   charStats:   Record<string, number>;
@@ -23,7 +24,7 @@ export function useCharacterStats(characterId: string): UseCharacterStatsReturn 
     if (!characterId) { setCharStats({}); return; }
     let cancelled = false;
     setCharLoading(true);
-    fetch(`/api/idlemmo/character/${characterId}`)
+    idleMmoQueue.fetch(`/api/idlemmo/character/${characterId}`, "gear", { dedupeKey: `character:${characterId}` })
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -38,7 +39,10 @@ export function useCharacterStats(characterId: string): UseCharacterStatsReturn 
       })
       .catch(() => setCharStats({}))
       .finally(() => { if (!cancelled) setCharLoading(false); });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      idleMmoQueue.cancelByTag("gear");
+    };
   }, [characterId]);
 
   return { charStats, charLoading };

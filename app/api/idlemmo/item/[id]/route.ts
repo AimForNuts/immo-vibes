@@ -1,15 +1,9 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { forwardIdleMmoRateLimitHeaders, rateLimitedIdleMmoFetch } from "@/lib/idlemmo-rate-limit";
 
 const BASE = "https://api.idle-mmo.com";
-
-function forwardRateLimitHeaders(from: Response, to: NextResponse) {
-  const remaining = from.headers.get("x-ratelimit-remaining");
-  const reset     = from.headers.get("x-ratelimit-reset");
-  if (remaining !== null) to.headers.set("X-RateLimit-Remaining", remaining);
-  if (reset     !== null) to.headers.set("X-RateLimit-Reset",     reset);
-}
 
 export async function GET(
   request: NextRequest,
@@ -23,7 +17,7 @@ export async function GET(
 
   const { id } = await params;
 
-  const idlemmoRes = await fetch(`${BASE}/v1/item/${id}/inspect`, {
+  const idlemmoRes = await rateLimitedIdleMmoFetch(token, `${BASE}/v1/item/${id}/inspect`, {
     headers: {
       Authorization: `Bearer ${token}`,
       "User-Agent": "ImmoWebSuite/1.0",
@@ -33,7 +27,7 @@ export async function GET(
 
   if (idlemmoRes.status === 429) {
     const response = NextResponse.json({ error: "Rate limited" }, { status: 429 });
-    forwardRateLimitHeaders(idlemmoRes, response);
+    forwardIdleMmoRateLimitHeaders(idlemmoRes, response);
     return response;
   }
 
@@ -43,12 +37,12 @@ export async function GET(
       { error: `IdleMMO API returned ${idlemmoRes.status}` },
       { status }
     );
-    forwardRateLimitHeaders(idlemmoRes, response);
+    forwardIdleMmoRateLimitHeaders(idlemmoRes, response);
     return response;
   }
 
   const data = await idlemmoRes.json();
   const response = NextResponse.json({ item: data.item ?? null });
-  forwardRateLimitHeaders(idlemmoRes, response);
+  forwardIdleMmoRateLimitHeaders(idlemmoRes, response);
   return response;
 }

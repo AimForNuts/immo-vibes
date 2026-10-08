@@ -407,7 +407,8 @@ Email/password auth via better-auth.
 | `lib/services/sync-r2-snapshots.service.ts` | Sync source snapshot archival to R2 |
 | `lib/services/admin/api-inspector-r2-snapshots.service.ts` | API Inspector raw response snapshot archival to R2 |
 | `lib/idlemmo.ts` | IdleMMO API client — all external API functions and interfaces |
-| `lib/idlemmo-queue.ts` | Client-side rate-limit queue for browser API calls |
+| `lib/idlemmo-rate-limit.ts` | Server-side per-API-key IdleMMO rate-limit coordinator and header forwarding helpers |
+| `lib/idlemmo-queue.ts` | Session-level browser FIFO coordinator for client IdleMMO proxy calls, keyed by active API key |
 | `lib/game-constants.ts` | `QUALITY_COLORS`, `SLOT_LABELS`, `CHAR_STAT_MAP`, `STATUS_DOT_COLOR` |
 | `lib/market-config.ts` | Market tab definitions (id, label, item types list) |
 | `lib/auth.ts` | better-auth server instance |
